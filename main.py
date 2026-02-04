@@ -2144,6 +2144,31 @@ def get_products():
     conn.close()
     return res
 
+@app.get("/products/external/{external_id:path}")
+def get_product_by_external_id(external_id: str):
+    conn = get_db_connection()
+    try:
+        row = conn.execute("""
+            SELECT id, name, price, discount, image, images, category, pack_sizes,
+                   old_price, unit, description, usage, delivery_info, return_info,
+                   variants, option_names, external_id
+            FROM products WHERE external_id=?
+        """, (external_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Product not found")
+        d = dict(row)
+        if d.get("variants"):
+            try:
+                d["variants"] = json.loads(d["variants"])
+            except (json.JSONDecodeError, TypeError):
+                d["variants"] = []
+        else:
+            d["variants"] = []
+        d["composition"] = None
+        return d
+    finally:
+        conn.close()
+
 @app.get("/products/{id}")
 def get_product(id: int):
     conn = get_db_connection()
