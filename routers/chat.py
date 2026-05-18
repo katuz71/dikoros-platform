@@ -1,33 +1,31 @@
-        """Chat routes and chat search helpers."""
+"""Chat routes and chat search helpers."""
 
-        from __future__ import annotations
+from __future__ import annotations
 
-        import json
-        import os
-        import re
-        from typing import List
+import json
+import os
+import re
+from typing import List
 
-        from fastapi import APIRouter
-        from models.schemas import ChatRequest, ChatResponse
-        from db import get_db_connection
-        from services.products import get_products_by_ids
-
-
-        router = APIRouter()
+from fastapi import APIRouter
+from models.schemas import ChatRequest, ChatResponse
+from db import get_db_connection
+from services.products import get_products_by_ids
 
 
+router = APIRouter()
+
+
+openai_client = None
+api_key = os.getenv("OPENAI_API_KEY")
+if api_key:
+    try:
+        from openai import AsyncOpenAI
+
+        openai_client = AsyncOpenAI(api_key=api_key)
+    except ImportError:
         openai_client = None
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
-            try:
-                from openai import AsyncOpenAI
-
-                openai_client = AsyncOpenAI(api_key=api_key)
-            except ImportError:
-                openai_client = None
-
-
-        # --- CHAT SEARCH HELPERS ---
+# --- CHAT SEARCH HELPERS ---
 _CHAT_STOPWORDS = {
     # UA
     "і", "й", "та", "або", "але", "не", "ні", "так", "це", "ця", "цей", "ці",
