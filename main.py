@@ -30,6 +30,7 @@ from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
 from routers import health, public_pages, delivery, uploads, analytics, categories, banners, reviews, promo_codes
 from services.images import UPLOADS_DIR, save_uploaded_image
 from db import DATABASE_URL, get_db_connection
+from services.products import get_products_by_ids
 from services.users import (
     calculate_cashback_percent,
     clean_warehouse_value,
@@ -2629,25 +2630,6 @@ def get_product(id: int):
     conn.close()
     return d
 
-
-def get_products_by_ids(ids: List[int]) -> List[dict]:
-    """Повертає повні дані товарів за списком ID (id, name, image, price, old_price, description тощо)."""
-    if not ids:
-        return []
-    ids = list(dict.fromkeys(ids))  # унікальні, збереження порядку
-    conn = get_db_connection()
-    placeholders = ",".join(["?" for _ in ids])
-    rows = conn.execute(
-        f"""
-        SELECT id, name, price, old_price, image, images, description
-        FROM products WHERE id IN ({placeholders})
-        """,
-        tuple(ids),
-    ).fetchall()
-    conn.close()
-    # Зберігаємо порядок як у ids
-    by_id = {int(r["id"]): dict(r) for r in rows}
-    return [by_id[i] for i in ids if i in by_id]
 
 
 def _parse_product_form(form) -> tuple:
