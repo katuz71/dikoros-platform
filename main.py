@@ -30,7 +30,8 @@ load_dotenv()
 
 from services.notifications import send_expo_push
 from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
-from routers import health, public_pages, delivery
+from routers import health, public_pages, delivery, uploads
+from services.images import UPLOADS_DIR
 
 from PIL import Image as PILImage, ImageOps
 
@@ -2573,6 +2574,7 @@ app = FastAPI()
 app.include_router(health.router)
 app.include_router(public_pages.router)
 app.include_router(delivery.router)
+app.include_router(uploads.router)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -2611,8 +2613,6 @@ app.add_middleware(
 
 
 
-UPLOADS_DIR = os.path.abspath(os.getenv("UPLOADS_DIR", "uploads"))
-os.makedirs(UPLOADS_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
@@ -2629,172 +2629,6 @@ async def _save_uploaded_image(file: UploadFile) -> str:
         f.write(content)
     return f"/uploads/{name}"
 
-
-@app.get("/api/image")
-def get_resized_image(
-    request: Request,
-    src: str,
-    w: int = 0,
-    h: int = 0,
-    q: int = 80,
-    format: str = "jpg",
-):
-    """Serve a resized/cached version of an uploaded image.
-
-    Motivation: avoid Android Fresco OOM (Pool hard cap violation) by preventing
-    decoding of multi-megapixel originals for UI-sized images (banners/cards).
-
-    Security: only allows local files under ./uploads.
-    """
-    fmt = (format or "jpg").lower().strip(".")
-    if fmt == "jpeg":
-        fmt = "jpg"
-    if fmt not in {"jpg", "png", "webp"}:
-        raise HTTPException(status_code=400, detail="Unsupported format")
-
-    try:
-        quality = int(q)
-    except Exception:
-        quality = 80
-    quality = max(30, min(95, quality))
-
-    try:
-        max_w = int(w)
-        max_h = int(h)
-    except Exception:
-        max_w, max_h = 0, 0
-
-    # Reasonable defaults if not provided.
-    if max_w <= 0 and max_h <= 0:
-        max_w = 1200
-    if max_w <= 0:
-        max_w = 99999
-    if max_h <= 0:
-        max_h = 99999
-
-    # Normalize src: accept full URL, /uploads/..., uploads/...
-    safe_src = (src or "").strip()
-    if not safe_src:
-        raise HTTPException(status_code=400, detail="src is required")
-
-    if safe_src.startswith("http://") or safe_src.startswith("https://"):
-        # Extract path part only
-        try:
-            from urllib.parse import urlparse
-
-            safe_src = urlparse(safe_src).path
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid src URL")
-
-    if safe_src.startswith("/uploads/"):
-        rel_path = safe_src[len("/uploads/") :]
-    elif safe_src.startswith("uploads/"):
-        rel_path = safe_src[len("uploads/") :]
-    else:
-        # Only support uploads
-        raise HTTPException(status_code=400, detail="src must point to /uploads")
-
-    # Prevent path traversal
-    rel_path = rel_path.lstrip("/\\")
-    norm_rel = os.path.normpath(rel_path)
-    if norm_rel.startswith("..") or os.path.isabs(norm_rel):
-        raise HTTPException(status_code=400, detail="Invalid src path")
-
-    uploads_dir = UPLOADS_DIR
-    src_path = os.path.abspath(os.path.join(uploads_dir, norm_rel))
-    if os.path.commonpath([uploads_dir, src_path]) != uploads_dir:
-        raise HTTPException(status_code=400, detail="Invalid src path")
-
-    src_bytes: Optional[bytes] = None
-    src_mtime = 0
-    if os.path.exists(src_path) and os.path.isfile(src_path):
-        try:
-            src_mtime = int(os.path.getmtime(src_path))
-        except Exception:
-            src_mtime = 0
-    else:
-        # Production can serve /uploads via nginx or a different volume.
-        # If file is not present locally, fetch it over HTTP from the same host.
-        base = os.getenv("PUBLIC_BASE_URL")
-        if base:
-            base = base.rstrip("/")
-        else:
-            # Try to reconstruct external base from request
-            proto = request.headers.get("x-forwarded-proto") or request.url.scheme
-            host = request.headers.get("x-forwarded-host") or request.headers.get("host")
-            if not host:
-                raise HTTPException(status_code=404, detail="Image not found")
-            base = f"{proto}://{host}".rstrip("/")
-
-        remote_url = f"{base}{safe_src if safe_src.startswith('/uploads/') else '/uploads/' + norm_rel}"
-        try:
-            r = httpx.get(remote_url, timeout=15.0, follow_redirects=True)
-            if r.status_code != 200:
-                raise HTTPException(status_code=404, detail="Image not found")
-            ctype = r.headers.get("content-type", "")
-            if not ctype.startswith("image/"):
-                raise HTTPException(status_code=404, detail="Image not found")
-            src_bytes = r.content
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(status_code=404, detail="Image not found")
-
-    cache_dir = os.path.join(uploads_dir, ".cache")
-    os.makedirs(cache_dir, exist_ok=True)
-
-    # If we have local file mtime, include it to invalidate cache on file change.
-    # If this is a remotely fetched image, filenames are typically immutable.
-    key = f"{norm_rel}|{max_w}|{max_h}|{quality}|{fmt}|{src_mtime}"
-    digest = hashlib.md5(key.encode("utf-8")).hexdigest()
-    cached_path = os.path.join(cache_dir, f"img_{digest}.{fmt}")
-
-    if not os.path.exists(cached_path):
-        try:
-            if src_bytes is not None:
-                im_src = BytesIO(src_bytes)
-                im_ctx = PILImage.open(im_src)
-            else:
-                im_ctx = PILImage.open(src_path)
-
-            with im_ctx as im:
-                im = ImageOps.exif_transpose(im)
-
-                # Convert to a compatible mode for JPEG/WebP
-                if fmt in {"jpg", "webp"} and im.mode not in {"RGB", "RGBA"}:
-                    im = im.convert("RGB")
-
-                im.thumbnail((max_w, max_h), resample=PILImage.Resampling.LANCZOS)
-
-                save_kwargs = {}
-                if fmt == "jpg":
-                    save_kwargs = {
-                        "format": "JPEG",
-                        "quality": quality,
-                        "optimize": True,
-                        "progressive": True,
-                    }
-                elif fmt == "png":
-                    save_kwargs = {"format": "PNG", "optimize": True}
-                elif fmt == "webp":
-                    save_kwargs = {"format": "WEBP", "quality": quality, "method": 6}
-
-                im.save(cached_path, **save_kwargs)
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Resize failed: {e}")
-
-    media_type = {
-        "jpg": "image/jpeg",
-        "png": "image/png",
-        "webp": "image/webp",
-    }[fmt]
-
-    headers = {
-        "Cache-Control": "public, max-age=86400",
-    }
-    return FileResponse(cached_path, media_type=media_type, headers=headers)
 
 # --- INITIALIZATION ---
 # --- SYNC CONFIG ---
