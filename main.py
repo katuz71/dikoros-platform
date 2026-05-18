@@ -32,6 +32,7 @@ from services.notifications import send_expo_push
 from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
 from routers import health, public_pages, delivery, uploads, analytics
 from services.images import UPLOADS_DIR
+from db import DATABASE_URL, get_db_connection
 from models.schemas import (
     AdminUserUpdate,
     BannerCreate,
@@ -118,9 +119,6 @@ class User(Base):
 # Initialize OpenAI Client
 openai_client = None
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is required (PostgreSQL only).")
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
@@ -179,55 +177,6 @@ if not NOVA_POSHTA_API_KEY:
     raise RuntimeError("NOVA_POSHTA_API_KEY is not set in environment")
 
 
-
-def _pgify_sql(sql: str) -> str:
-    # Convert sqlite-style placeholders to psycopg2 placeholders.
-    return sql.replace("?", "%s")
-
-
-class _PGCursorAdapter:
-    def __init__(self, cursor):
-        self._cursor = cursor
-
-    def execute(self, sql: str, params=None):
-        self._cursor.execute(_pgify_sql(sql), params or ())
-        return self
-
-    def executemany(self, sql: str, seq_of_params):
-        self._cursor.executemany(_pgify_sql(sql), seq_of_params)
-        return self
-
-    def fetchone(self):
-        return self._cursor.fetchone()
-
-    def fetchall(self):
-        return self._cursor.fetchall()
-
-    def close(self):
-        return self._cursor.close()
-
-    def __getattr__(self, item):
-        return getattr(self._cursor, item)
-
-
-class _PGConnAdapter:
-    """Small adapter to mimic sqlite3.Connection.execute(...) API using psycopg2."""
-
-    def __init__(self, conn):
-        self._conn = conn
-
-    def execute(self, sql: str, params=None):
-        cur = _PGCursorAdapter(self._conn.cursor(cursor_factory=RealDictCursor))
-        return cur.execute(sql, params)
-
-    def cursor(self):
-        return _PGCursorAdapter(self._conn.cursor(cursor_factory=RealDictCursor))
-
-    def commit(self):
-        self._conn.commit()
-
-    def close(self):
-        self._conn.close()
 api_key = os.getenv("OPENAI_API_KEY")
 
 if api_key:
