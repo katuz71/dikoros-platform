@@ -2578,8 +2578,9 @@ def health_check():
 
 @app.get("/api/clear_products")
 async def clear_products_db():
-        if os.getenv("ENABLE_DANGEROUS_ADMIN_ENDPOINTS") != "1":
+    if os.getenv("ENABLE_DANGEROUS_ADMIN_ENDPOINTS") != "1":
         raise HTTPException(status_code=404, detail="Not found")
+
     from fastapi import HTTPException
     import traceback
     try:
