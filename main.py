@@ -28,7 +28,7 @@ load_dotenv()
 from services.notifications import send_expo_push
 from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
 from routers import health, public_pages, delivery, uploads, analytics
-from services.images import UPLOADS_DIR
+from services.images import UPLOADS_DIR, save_uploaded_image
 from db import DATABASE_URL, get_db_connection
 from services.users import (
     calculate_cashback_percent,
@@ -2236,7 +2236,7 @@ app.add_middleware(
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
-async def _save_uploaded_image(file: UploadFile) -> str:
+async def save_uploaded_image(file: UploadFile) -> str:
     """Save uploaded image to uploads/ with unique name. Returns relative path e.g. /uploads/uuid.jpg"""
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     ext = os.path.splitext(file.filename or "")[1] or ".jpg"
@@ -2728,7 +2728,7 @@ async def create_product(request: Request):
         form = await request.form()
         image_file = form.get("image_file") or form.get("image")
         if image_file and hasattr(image_file, "read"):
-            image_path = await _save_uploaded_image(image_file)
+            image_path = await save_uploaded_image(image_file)
         else:
             image_path = (image_file or "").strip() or None
             if isinstance(image_path, str) and not image_path:
@@ -2797,7 +2797,7 @@ async def update_product(id: int, request: Request):
         form = await request.form()
         image_file = form.get("image_file") or form.get("image")
         if image_file and hasattr(image_file, "read"):
-            image_path = await _save_uploaded_image(image_file)
+            image_path = await save_uploaded_image(image_file)
         else:
             image_path = (image_file or "").strip() or None
             if isinstance(image_path, str) and not image_path:
@@ -3466,7 +3466,7 @@ async def upload_category_banner(category_id: int, file: UploadFile = File(...))
         )
     try:
         print(f"DEBUG: Начинаем загрузку баннера для категории {category_id} (internal_id={internal_id})")
-        file_path = await _save_uploaded_image(file)
+        file_path = await save_uploaded_image(file)
         conn.execute("INSERT INTO category_banners (category_id, image_url) VALUES (?, ?)", (internal_id, file_path))
         conn.commit()
         conn.close()
@@ -3503,7 +3503,7 @@ def delete_category_banner(category_id: int, image_url: str):
 async def add_category(name: str = Form(...), banner: UploadFile = File(None)):
     banner_url = None
     if banner and banner.filename:
-        banner_url = await _save_uploaded_image(banner)
+        banner_url = await save_uploaded_image(banner)
     conn = get_db_connection()
     conn.execute("INSERT INTO categories (name, banner_url) VALUES (?, ?) ON CONFLICT (name) DO NOTHING", (name, banner_url))
     conn.commit()
@@ -3520,7 +3520,7 @@ async def update_category(id: int, name: str = Form(...), banner: UploadFile = F
         raise HTTPException(status_code=404, detail="Category not found")
     banner_url = row.get("banner_url") if row else None
     if banner and banner.filename:
-        banner_url = await _save_uploaded_image(banner)
+        banner_url = await save_uploaded_image(banner)
     conn.execute("UPDATE categories SET name=?, banner_url=? WHERE id=?", (name, banner_url, id))
     conn.commit()
     conn.close()
