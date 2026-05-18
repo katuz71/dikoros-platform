@@ -30,7 +30,7 @@ load_dotenv()
 
 from services.notifications import send_expo_push
 from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
-from routers import health, public_pages, delivery, uploads
+from routers import health, public_pages, delivery, uploads, analytics
 from services.images import UPLOADS_DIR
 
 from PIL import Image as PILImage, ImageOps
@@ -236,69 +236,6 @@ def calculate_cashback_percent(total_spent: float) -> int:
     else:
         return 20
 
-async def send_to_facebook_capi(event_name: str, data: dict, user_data: dict):
-    pixel_id = os.getenv("FB_PIXEL_ID")
-    access_token = os.getenv("FB_ACCESS_TOKEN")
-    if not pixel_id or not access_token: return
-
-    url = f"https://graph.facebook.com/v19.0/{pixel_id}/events?access_token={access_token}"
-    
-    def hash_data(val): 
-        return hashlib.sha256(str(val).strip().lower().encode('utf-8')).hexdigest() if val else None
-
-    # Map standard events
-    fb_event_name = event_name
-    if event_name == "purchase": fb_event_name = "Purchase"
-    
-    payload = {
-        "data": [{
-            "event_name": fb_event_name,
-            "event_time": int(time.time()),
-            "action_source": "website",
-            "user_data": {
-                "ph": [hash_data(user_data.get('phone'))] if user_data.get('phone') else [],
-                "em": [hash_data(user_data.get('email'))] if user_data.get('email') else [],
-                "client_user_agent": user_data.get('user_agent'),
-                "client_ip_address": user_data.get('ip')
-            },
-            "custom_data": data
-        }]
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(url, json=payload)
-        except Exception as e:
-            print(f"⚠️ FB CAPI Error: {e}")
-
-async def send_to_google_analytics(event_name: str, data: dict, user_data: dict):
-    measurement_id = os.getenv("GA_MEASUREMENT_ID")
-    api_secret = os.getenv("GA_API_SECRET")
-    if not measurement_id or not api_secret: return
-
-    url = f"https://www.google-analytics.com/mp/collect?measurement_id={measurement_id}&api_secret={api_secret}"
-    
-    # GA4 params
-    ga_params = data.copy()
-    if "value" in ga_params: ga_params["value"] = float(ga_params["value"])
-    
-    payload = {
-        "client_id": user_data.get('client_id') or user_data.get('phone') or str(uuid.uuid4()),
-        "events": [{
-            "name": event_name,
-            "params": ga_params
-        }]
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(url, json=payload)
-        except Exception as e:
-            print(f"⚠️ GA4 Error: {e}")
-
-async def track_analytics_event(event_name: str, data: dict, user_data: dict):
-    await send_to_facebook_capi(event_name, data, user_data)
-    await send_to_google_analytics(event_name, data, user_data)
 
 
 # --- ВАШ HTML КОД АДМИНКИ (ВСТАВЛЯЕТСЯ АВТОМАТИЧЕСКИ) ---
@@ -2575,6 +2512,7 @@ app.include_router(health.router)
 app.include_router(public_pages.router)
 app.include_router(delivery.router)
 app.include_router(uploads.router)
+app.include_router(analytics.router)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -4378,16 +4316,6 @@ def get_user_reviews(phone: str):
     
     return [dict(r) for r in rows]
 
-class AnalyticsEventReq(BaseModel):
-    event_name: str
-    properties: dict = {}
-    user_data: dict = {}
-
-@app.post("/api/track")
-async def track_event_endpoint(evt: AnalyticsEventReq, background_tasks: BackgroundTasks):
-    """Прокси для отправки событий аналитики с фронта"""
-    background_tasks.add_task(track_analytics_event, evt.event_name, evt.properties, evt.user_data)
-    return {"status": "ok"}
 
 @app.post("/api/auth")
 def auth_user(ua: UserAuth):
