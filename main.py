@@ -27,7 +27,7 @@ load_dotenv()
 
 from services.notifications import send_expo_push
 from services.onebox_api import create_onebox_order, OneBoxDbSession, Product
-from routers import health, public_pages, delivery, uploads, analytics, categories, banners
+from routers import health, public_pages, delivery, uploads, analytics, categories, banners, reviews
 from services.images import UPLOADS_DIR, save_uploaded_image
 from db import DATABASE_URL, get_db_connection
 from services.users import (
@@ -2197,6 +2197,7 @@ app.include_router(uploads.router)
 app.include_router(analytics.router)
 app.include_router(categories.router)
 app.include_router(banners.router)
+app.include_router(reviews.router)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -3725,128 +3726,6 @@ def save_push_token(body: PushTokenRequest, background_tasks: BackgroundTasks):
     conn.commit()
     conn.close()
     return {"status": "success"}
-
-
-# 6. 
-@app.get("/api/reviews/{product_id}")
-def get_product_reviews(product_id: int):
-    """ """
-    """Получить все отзывы для товара"""
-    conn = get_db_connection()
-    rows = conn.execute("""
-        SELECT * FROM reviews 
-        WHERE product_id=? 
-        ORDER BY created_at DESC
-    """, (product_id,)).fetchall()
-    conn.close()
-    
-    reviews = [dict(r) for r in rows]
-    
-    # Вычисляем средний рейтинг
-    if reviews:
-        avg_rating = sum(r['rating'] for r in reviews) / len(reviews)
-        return {
-            "reviews": reviews,
-            "average_rating": round(avg_rating, 1),
-            "total_count": len(reviews)
-        }
-    
-    return {
-        "reviews": [],
-        "average_rating": 0,
-        "total_count": 0
-    }
-
-@app.post("/api/reviews")
-async def create_review(review: ReviewCreate):
-    """Создать новый отзыв"""
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    # Проверяем, покупал ли пользователь этот товар (ВРЕМЕННО ОТКЛЮЧЕНО)
-    if review.user_phone:
-        clean_phone = normalize_phone(review.user_phone)
-        
-        # # Ищем заказы пользователя с этим товаром
-        # orders = cur.execute("""
-        #     SELECT items FROM orders 
-        #     WHERE (user_phone=? OR phone=?) 
-        #     AND status IN ('Completed', 'Delivered', 'New', 'Pending')
-        # """, (clean_phone, clean_phone)).fetchall()
-        
-        # has_purchased = False
-        # for order in orders:
-        #     try:
-        #         items = json.loads(order[0])
-        #         if any(item.get('id') == review.product_id for item in items):
-        #             has_purchased = True
-        #             break
-        #     except:
-        #         pass
-        
-        # if not has_purchased:
-        #     conn.close()
-        #     raise HTTPException(status_code=403, detail="Ви можете залишити відгук тільки після покупки товару")
-        
-        # Проверяем, не оставлял ли уже отзыв
-        existing = cur.execute("""
-            SELECT id FROM reviews 
-            WHERE product_id=? AND user_phone=?
-        """, (review.product_id, clean_phone)).fetchone()
-        
-        if existing:
-            conn.close()
-            raise HTTPException(status_code=400, detail="Ви вже залишили відгук на цей товар")
-    
-    # Создаем отзыв
-    row = cur.execute("""
-        INSERT INTO reviews (product_id, user_name, user_phone, rating, comment, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        RETURNING id
-    """, (
-        review.product_id,
-        review.user_name,
-        normalize_phone(review.user_phone) if review.user_phone else None,
-        review.rating,
-        review.comment,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )).fetchone()
-    review_id = (row or {}).get("id")
-    conn.commit()
-    conn.close()
-    
-    print(f"✅ Отзыв #{review_id} создан для товара #{review.product_id}")
-    
-    return {
-        "status": "ok",
-        "review_id": review_id,
-        "message": "Дякуємо за ваш відгук!"
-    }
-
-@app.delete("/api/reviews/{id}")
-async def delete_review(id: int):
-    """Удалить отзыв"""
-    conn = get_db_connection()
-    conn.execute("DELETE FROM reviews WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-    return {"status": "ok"}
-
-@app.get("/api/user/reviews/{phone}")
-def get_user_reviews(phone: str):
-    """Получить все отзывы пользователя"""
-    clean_phone = normalize_phone(phone)
-    conn = get_db_connection()
-    rows = conn.execute("""
-        SELECT r.*, p.name as product_name, p.image as product_image
-        FROM reviews r
-        LEFT JOIN products p ON r.product_id = p.id
-        WHERE r.user_phone=? 
-        ORDER BY r.created_at DESC
-    """, (clean_phone,)).fetchall()
-    conn.close()
-    
-    return [dict(r) for r in rows]
 
 
 @app.post("/api/auth")
