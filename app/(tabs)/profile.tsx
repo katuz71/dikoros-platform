@@ -329,19 +329,20 @@ export default function ProfileScreen() {
         <MenuItem label="Керування пристроями" isLast onPress={() => {}} />
       </MenuSection>
 
-      <MenuSection title="Інформація">
-        <MenuItem label="Доставка" onPress={() => {}} />
+            <MenuSection title="Інформація">
+        <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
         <MenuItem label="Блогери" onPress={() => {}} />
         <MenuItem label="Партнерська програма" onPress={() => {}} />
         <MenuItem label="Рейтинг та відгуки" isLast onPress={() => {}} />
       </MenuSection>
 
       <MenuSection title="Детальніше">
-        <MenuItem label="Про Dikoros" onPress={() => {}} />
-        <MenuItem label="Прес-релізи" onPress={() => {}} />
-        <MenuItem label="Політика конфіденційності" onPress={() => {}} />
-        <MenuItem label="Відмова від відповідальності" onPress={() => {}} />
-        <MenuItem label="Положення та умови" isLast onPress={() => {}} />
+        <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
+        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
+        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
+        <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
+        <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
 
       {/* 🔥 ВЕРСИЯ УДАЛЕНА ПО ЗАПРОСУ */}
