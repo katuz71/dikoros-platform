@@ -33,6 +33,7 @@ def _method_set(methods: Optional[Iterable[str]]) -> set[str]:
 
 
 ADMIN_EXACT_ROUTES: set[tuple[str, str]] = {
+    ("GET", "/api/clear_products"),
     ("GET", "/api/orders"),
     ("GET", "/orders/export"),
     ("GET", "/api/users"),
