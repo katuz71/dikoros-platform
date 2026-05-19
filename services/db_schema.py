@@ -187,6 +187,7 @@ def fix_db_schema():
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_method TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS push_token TEXT")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_applied BOOLEAN DEFAULT FALSE")
     # User: social ids and bonus protection
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_id TEXT")
