@@ -1,8 +1,4 @@
-"""Security helpers for backend routes.
-
-This module contains the admin API guard and the temporary route patch used
-while the legacy monolithic main.py is being split into routers.
-"""
+﻿"""Security helpers for backend routes."""
 
 from __future__ import annotations
 
@@ -12,10 +8,7 @@ from typing import Iterable, Optional
 
 from fastapi import Depends, Header, HTTPException
 from fastapi.applications import FastAPI
-
-
-_ORIGINAL_ADD_API_ROUTE = FastAPI.add_api_route
-_ROUTE_GUARD_INSTALLED = False
+from fastapi.responses import JSONResponse
 
 
 def require_admin(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")) -> bool:
@@ -89,27 +82,6 @@ def is_admin_route(path: str, methods: Optional[Iterable[str]]) -> bool:
     return False
 
 
-def _patched_add_api_route(self, path, endpoint, *, dependencies=None, methods=None, **kwargs):
-    route_dependencies = list(dependencies or [])
-    if is_admin_route(path, methods):
-        route_dependencies.append(Depends(require_admin))
-    return _ORIGINAL_ADD_API_ROUTE(
-        self,
-        path,
-        endpoint,
-        dependencies=route_dependencies,
-        methods=methods,
-        **kwargs,
-    )
-
-
-def install_admin_route_guard() -> None:
-    """Install temporary admin guard patch for the legacy monolithic app."""
-    global _ROUTE_GUARD_INSTALLED
-    if _ROUTE_GUARD_INSTALLED:
-        return
-    FastAPI.add_api_route = _patched_add_api_route
-    _ROUTE_GUARD_INSTALLED = True
 def add_admin_guard_middleware(app: FastAPI) -> None:
     """Protect administrative routes at request time."""
     @app.middleware("http")
@@ -119,9 +91,20 @@ def add_admin_guard_middleware(app: FastAPI) -> None:
             provided_key = request.headers.get("X-Admin-Key")
 
             if not expected_key:
-                raise HTTPException(status_code=403, detail="Admin API is disabled")
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Admin API is disabled"},
+                )
 
             if not provided_key or not hmac.compare_digest(str(provided_key), str(expected_key)):
-                raise HTTPException(status_code=403, detail="Forbidden")
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Forbidden"},
+                )
 
         return await call_next(request)
+
+
+def install_admin_route_guard() -> None:
+    """Deprecated compatibility hook. Admin protection is enforced by middleware."""
+    return None
