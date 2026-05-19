@@ -1,7 +1,5 @@
 """Analytics integrations for server-side event tracking."""
 
-logger = logging.getLogger(__name__)
-
 from __future__ import annotations
 
 import hashlib
@@ -12,6 +10,8 @@ import uuid
 from typing import Any, Dict
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 def _hash_data(value: Any) -> str | None:
