@@ -1231,7 +1231,11 @@ export default function Index() {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={{ fontSize: 28, fontWeight: '900', color: 'black', letterSpacing: -1 }}>Dikoros UA 🍄</Text>
+          <Image
+            source={require('../../assets/images/dikoros-logo.webp')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <Text style={{ fontSize: 13, color: '#888', fontWeight: '500' }}>Твій природний вибір</Text>
         </View>
         <View style={styles.headerIcons}>
@@ -1752,6 +1756,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  headerLogo: {
+    width: 160,
+    height: 45,
   },
   headerRow: {
     flexDirection: 'row',
