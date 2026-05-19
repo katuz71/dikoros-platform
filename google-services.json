@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "579083559503",
+    "project_id": "dikorosua-f7803",
+    "storage_bucket": "dikorosua-f7803.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:579083559503:android:b11357cf71566ec18bc03a",
+        "android_client_info": {
+          "package_name": "com.dikorosua.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxp4-AQ5AK57DFk1wlhbfI6MvrELRU4zk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
