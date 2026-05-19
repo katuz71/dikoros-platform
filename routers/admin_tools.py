@@ -34,5 +34,7 @@ async def clear_products_db():
 
 @router.post("/upload_csv")
 async def upload_csv(file: UploadFile = File(...)):
-    # Заглушка для импорта CSV
-    return {"count": 0, "message": "CSV Import not implemented yet"}
+    raise HTTPException(
+        status_code=501,
+        detail="CSV import is not implemented in this deployment.",
+    )
