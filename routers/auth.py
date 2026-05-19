@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import requests
 from datetime import datetime
@@ -16,6 +17,7 @@ from services.auth import create_access_token
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/api/auth")
@@ -33,7 +35,7 @@ def auth_user(ua: UserAuth):
     
     if not user:
         # Pегистрация с бонусом 150 грн
-        print(f"🆕 New user registration: {clean_phone}. Granting 150 bonus.")
+        logger.info("New user registration: phone=%s bonus=%s", clean_phone, 150)
         conn.execute("INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at) VALUES (?, 150, 0, 0, ?)", (clean_phone, datetime.now().isoformat()))
         conn.commit()
         user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
