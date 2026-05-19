@@ -3695,35 +3695,6 @@ def get_product_reviews(product_id: int):
     conn.close()
     return [dict(r) for r in rows]
 
-@app.post("/api/reviews")
-def create_review(review: ReviewCreate):
-    """Создать новый отзыв"""
-    if review.rating < 1 or review.rating > 5:
-        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
-    
-    conn = get_db_connection()
-    try:
-        cur = conn.execute("""
-            INSERT INTO reviews (product_id, user_name, user_phone, rating, comment, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            RETURNING id
-        """, (
-            review.product_id,
-            review.user_name,
-            review.user_phone,
-            review.rating,
-            review.comment,
-            datetime.now().isoformat()
-        ))
-        row = cur.fetchone()
-        conn.commit()
-        conn.close()
-        return {"status": "ok", "review_id": (row or {}).get("id")}
-    except Exception as e:
-        conn.close()
-        raise HTTPException(status_code=400, detail=f"Error creating review: {str(e)}")
-
-
 # --- CHAT BOT: фіксована база товарів для посилань (назва → ID) ---
 CHAT_PRODUCTS_BASE = """
 Іванчай (Chamaenerion angustifolium) сушений — 39168
