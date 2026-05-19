@@ -409,6 +409,11 @@ async def update_order_status(id: int, status: OrderStatusUpdate, background_tas
     }
 
     if new_status in final_statuses and old_status not in final_statuses:
+        if order_dict.get("cashback_applied"):
+            conn.commit()
+            conn.close()
+            return {"status": "ok", "message": "Order status updated"}
+
         user_phone = order_dict.get('user_phone') or order_dict.get('phone')
         try:
             order_total = float(order_dict.get('totalPrice') or order_dict.get('total') or 0)
@@ -449,6 +454,8 @@ async def update_order_status(id: int, status: OrderStatusUpdate, background_tas
                     WHERE phone=?
                 """, (new_bonus_balance, new_total_spent, new_cashback_percent, user_phone))
                 
+                cur.execute("UPDATE orders SET cashback_applied = TRUE WHERE id = ?", (id,))
+
                 logger.info("Cashback applied: order_id=%s user_phone=%s order_total=%s cashback_amount=%s new_bonus_balance=%s", id, user_phone, order_total, cashback_amount, new_bonus_balance)
 
 
