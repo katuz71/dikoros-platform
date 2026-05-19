@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from services.db_schema import fix_db_schema, init_db
+from services.db_schema import fix_db_schema
 from routers import (
     admin_page,
     admin_tools,
@@ -35,8 +35,6 @@ load_dotenv()
 # --- НАСТРОЙКИ ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 # --- ПАПКИ ---
 os.makedirs("uploads", exist_ok=True)
@@ -69,15 +67,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-
-
-
-
-
-
-
-
-
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
