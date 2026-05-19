@@ -474,7 +474,12 @@ async def update_product(id: int, request: Request):
 @router.delete("/products/{id}")
 async def delete_product(id: int):
     conn = get_db_connection()
-    conn.execute("DELETE FROM products WHERE id=?", (id,))
+    cur = conn.execute("DELETE FROM products WHERE id=?", (id,))
     conn.commit()
+    deleted_count = getattr(cur, "rowcount", 0)
     conn.close()
+
+    if deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+
     return {"status": "ok"}
