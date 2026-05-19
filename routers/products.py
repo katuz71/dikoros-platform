@@ -286,18 +286,20 @@ def get_product_by_external_query(external_id: str):
 @router.get("/product/{id}")
 def get_product(id: int):
     conn = get_db_connection()
-    row = conn.execute("""
-        SELECT id, name, price, discount, image, images, category, pack_sizes,
-               old_price, unit, description, usage, composition, delivery_info, return_info,
-               variants, option_names, external_id, is_bestseller, is_promotion, is_new
-        FROM products WHERE id=?
-    """, (id,)).fetchone()
-    if not row:
+    try:
+        row = conn.execute("""
+            SELECT id, name, price, discount, image, images, category, pack_sizes,
+                   old_price, unit, description, usage, composition, delivery_info, return_info,
+                   variants, option_names, external_id, is_bestseller, is_promotion, is_new
+            FROM products WHERE id=?
+        """, (id,)).fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        return normalize_product_row(dict(row))
+    finally:
         conn.close()
-        raise HTTPException(status_code=404, detail="Product not found")
-    d = normalize_product_row(dict(row))
-    conn.close()
-    return d
 
 
 
@@ -495,12 +497,14 @@ async def update_product(id: int, request: Request):
 @router.delete("/products/{id}")
 async def delete_product(id: int):
     conn = get_db_connection()
-    cur = conn.execute("DELETE FROM products WHERE id=?", (id,))
-    conn.commit()
-    deleted_count = getattr(cur, "rowcount", 0)
-    conn.close()
+    try:
+        cur = conn.execute("DELETE FROM products WHERE id=?", (id,))
+        conn.commit()
+        deleted_count = getattr(cur, "rowcount", 0)
 
-    if deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Product not found")
+        if deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Product not found")
 
-    return {"status": "ok"}
+        return {"status": "ok"}
+    finally:
+        conn.close()
