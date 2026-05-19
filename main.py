@@ -69,30 +69,6 @@ class User(Base):
     name = Column(String(255), nullable=False, default="")
     bonus_balance = Column(Float, default=150.0)
 
-
-# Initialize OpenAI Client
-openai_client = None
-
-
-
-# Ключ Нової Пошти (з середовища або дефолтний)
-NOVA_POSHTA_API_KEY = os.getenv("NOVA_POSHTA_API_KEY")
-if not NOVA_POSHTA_API_KEY:
-    raise RuntimeError("NOVA_POSHTA_API_KEY is not set in environment")
-
-
-api_key = os.getenv("OPENAI_API_KEY")
-
-if api_key:
-    try:
-        from openai import AsyncOpenAI
-        openai_client = AsyncOpenAI(api_key=api_key)
-        print("✅ OpenAI client initialized")
-    except ImportError:
-        print("⚠️ OpenAI library not installed. Install via: pip install openai")
-else:
-    print("⚠️ No OPENAI_API_KEY found. Chat will use basic search.")
-
 # --- НАСТРОЙКИ ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
