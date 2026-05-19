@@ -1820,9 +1820,6 @@ load_dotenv()
 os.makedirs("uploads", exist_ok=True)
 
 # --- БАЗА ДАННЫХ ---
-def get_db_connection():
-    raw = psycopg2.connect(DATABASE_URL)
-    return _PGConnAdapter(raw)
 
 def fix_db_schema():
     conn = get_db_connection()
