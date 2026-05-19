@@ -78,34 +78,30 @@ def get_api_user_me(phone: str = Depends(get_current_user_phone)):
     return get_user_profile(phone)
 
 @router.post("/api/recalculate-cashback")
-def recalculate_all_cashback():
-    """
-    Пересчитывает процент кешбэка для всех пользователей на основе их total_spent
-    """
+def recalculate_cashback():
+    """Recalculate cashback_percent for all users based on total_spent."""
     conn = get_db_connection()
-    cur = conn.cursor()
-    
-    users = cur.execute("SELECT phone, total_spent FROM users").fetchall()
-    updated_count = 0
-    
-    for user in users:
-        phone = user.get("phone")
-        total_spent = user.get("total_spent") or 0
-        cashback_percent = calculate_cashback_percent(total_spent)
-        cur.execute("UPDATE users SET cashback_percent=? WHERE phone=?", (cashback_percent, phone))
-        updated_count += 1
-        logger.info("Updated cashback percent: phone=%s total_spent=%s cashback_percent=%s", phone, total_spent, cashback_percent)
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        "status": "ok", 
-        "message": f"Updated cashback_percent for {updated_count} users"
-    }
+    try:
+        cur = conn.cursor()
+        users = cur.execute("SELECT phone, total_spent FROM users").fetchall()
+        updated_count = 0
 
-# 5. ПОЛЬЗОВАТЕЛИ
-ALLOWED_USER_SORT_FIELDS = {"phone", "name", "city", "warehouse", "email", "contact_preference", "bonus_balance", "total_spent", "created_at"}
+        for user in users:
+            phone = user["phone"]
+            total_spent = float(user["total_spent"] or 0)
+            cashback_percent = calculate_cashback_percent(total_spent)
+            cur.execute("UPDATE users SET cashback_percent=? WHERE phone=?", (cashback_percent, phone))
+            updated_count += 1
+            logger.info("Updated cashback percent: phone=%s total_spent=%s cashback_percent=%s", phone, total_spent, cashback_percent)
+
+        conn.commit()
+        return {
+            "status": "ok",
+            "message": f"Updated cashback_percent for {updated_count} users"
+        }
+    finally:
+        conn.close()
+
 
 @router.get("/api/users")
 def get_users(
