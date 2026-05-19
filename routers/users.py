@@ -322,17 +322,22 @@ def delete_users_batch(batch: BatchDeleteUsers):
     """Массовое удаление клиентов по списку телефонов."""
     if not batch.phones:
         return {"status": "ok", "deleted": 0}
+
     conn = get_db_connection()
-    cur = conn.cursor()
-    cleaned = [normalize_phone(p) for p in batch.phones if normalize_phone(p)]
-    if not cleaned:
+    try:
+        cur = conn.cursor()
+        cleaned = [normalize_phone(p) for p in batch.phones if normalize_phone(p)]
+        if not cleaned:
+            return {"status": "ok", "deleted": 0}
+
+        placeholders = ",".join("?" for _ in cleaned)
+        cur.execute(f"DELETE FROM users WHERE phone IN ({placeholders})", cleaned)
+        conn.commit()
+
+        deleted_count = getattr(cur, "rowcount", len(cleaned))
+        return {"status": "ok", "deleted": deleted_count}
+    finally:
         conn.close()
-        return {"status": "ok", "deleted": 0}
-    placeholders = ",".join("?" for _ in cleaned)
-    cur.execute(f"DELETE FROM users WHERE phone IN ({placeholders})", cleaned)
-    conn.commit()
-    conn.close()
-    return {"status": "ok", "deleted": len(cleaned)}
 
 
 @router.put("/api/user/info/{phone}")
