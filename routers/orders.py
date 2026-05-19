@@ -327,7 +327,7 @@ async def payment_callback_monobank(request: Request):
         user_phone = order_dict.get("user_phone")
         bonus_used = order_dict.get("bonus_used") or 0
 
-        if old_status == "????????":
+        if old_status == "Оплачено":
             return {"status": "ok", "reason": "already processed"}
 
         if user_phone and bonus_used > 0:
@@ -338,7 +338,7 @@ async def payment_callback_monobank(request: Request):
             """, (bonus_used, user_phone))
             logger.info("Bonuses deducted after card payment: phone=%s amount=%s", user_phone, bonus_used)
 
-        cur.execute("UPDATE orders SET status=? WHERE id=?", ("????????", order_id))
+        cur.execute("UPDATE orders SET status=? WHERE id=?", ("Оплачено", order_id))
         conn.commit()
     finally:
         conn.close()
