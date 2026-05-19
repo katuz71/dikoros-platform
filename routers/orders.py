@@ -482,12 +482,18 @@ async def delete_order_api(id: int):
 
 @router.post("/orders/delete-batch")
 async def delete_orders_batch(batch: BatchDelete):
+    if not batch.ids:
+        return {"status": "ok", "deleted": 0}
+
     conn = get_db_connection()
-    placeholders = ','.join('?' for _ in batch.ids)
-    conn.execute(f"DELETE FROM orders WHERE id IN ({placeholders})", batch.ids)
-    conn.commit()
-    conn.close()
-    return {"status": "ok"}
+    try:
+        placeholders = ",".join("?" for _ in batch.ids)
+        cur = conn.execute(f"DELETE FROM orders WHERE id IN ({placeholders})", batch.ids)
+        conn.commit()
+        deleted_count = getattr(cur, "rowcount", 0)
+        return {"status": "ok", "deleted": deleted_count}
+    finally:
+        conn.close()
 
 
 @router.post("/api/orders/delete-batch")
