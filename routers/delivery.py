@@ -6,6 +6,7 @@ This router is prepared for the gradual split of the legacy main.py monolith.
 
 from __future__ import annotations
 
+import logging
 import os
 
 import httpx
@@ -63,12 +64,12 @@ async def get_np_cities(q: str = ""):
             )
             response_json = response.json()
             if not response_json.get("success"):
-                print(f"⚠️ Nova Poshta API Error (Cities): {response_json.get('errors')}")
+                logger.warning("Nova Poshta API Error (Cities): %s", response_json.get("errors"))
                 return []
             items = response_json.get("data", [])
             return [{"ref": item.get("Ref"), "name": item.get("Description")} for item in items]
     except Exception as exc:
-        print(f"❌ Nova Poshta Proxy Error (Cities): {str(exc)}")
+        logger.exception("Nova Poshta Proxy Error (Cities)")
         return []
 
 
@@ -91,10 +92,10 @@ async def get_np_warehouses(city_ref: str):
             )
             response_json = response.json()
             if not response_json.get("success"):
-                print(f"⚠️ Nova Poshta API Error (Warehouses): {response_json.get('errors')}")
+                logger.warning("Nova Poshta API Error (Warehouses): %s", response_json.get("errors"))
                 return []
             items = response_json.get("data", [])
             return [{"ref": item.get("Ref"), "name": item.get("Description")} for item in items]
     except Exception as exc:
-        print(f"❌ Nova Poshta Proxy Error (Warehouses): {str(exc)}")
+        logger.exception("Nova Poshta Proxy Error (Warehouses)")
         return []
