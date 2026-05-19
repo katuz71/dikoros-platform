@@ -115,29 +115,31 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       const data = await response.json();
       console.log("Products response:", data);
-      // Ensure data is always an array
-      if (Array.isArray(data)) {
-        console.log("Products loaded:", data.length);
-        // Debug: Check if variants field exists in first product
-        if (data.length > 0 && data[0]) {
-          console.log("🔍 First product sample:", {
-            id: data[0].id,
-            name: data[0].name,
-            hasVariants: 'variants' in data[0],
-            variants: data[0].variants,
-            variantsType: typeof data[0].variants,
-            hasImages: 'images' in data[0],
-            images: data[0].images,
-            imagesType: typeof data[0].images,
-            image: data[0].image,
-            picture: data[0].picture
-          });
-        }
-        setProducts(data);
-      } else {
-        console.warn("API returned non-array data, using empty array");
-        setProducts([]);
+
+      const productsArray = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.products)
+          ? data.products
+          : [];
+
+      console.log("Products loaded:", productsArray.length);
+
+      if (productsArray.length > 0 && productsArray[0]) {
+        console.log("First product sample:", {
+          id: productsArray[0].id,
+          name: productsArray[0].name,
+          hasVariants: 'variants' in productsArray[0],
+          variants: productsArray[0].variants,
+          variantsType: typeof productsArray[0].variants,
+          hasImages: 'images' in productsArray[0],
+          images: productsArray[0].images,
+          imagesType: typeof productsArray[0].images,
+          image: productsArray[0].image,
+          picture: productsArray[0].picture
+        });
       }
+
+      setProducts(productsArray);
     } catch (error: any) {
       console.error("🔥 FETCH ERROR:", error);
       console.error("Error fetching products:", error);
