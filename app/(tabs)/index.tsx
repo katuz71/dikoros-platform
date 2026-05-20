@@ -1236,7 +1236,7 @@ export default function Index() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
-          <Text style={{ fontSize: 13, color: '#888', fontWeight: '500' }}>Твій природний вибір</Text>
+          
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity 
@@ -1758,8 +1758,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   headerLogo: {
-    width: 150,
-    height: 42,
+    width: 160,
+    height: 45,
   },
   headerRow: {
     flexDirection: 'row',
