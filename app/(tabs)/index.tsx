@@ -126,7 +126,7 @@ const AnimatedFavoriteButton = ({ item, onPress }: {
     return (
       <View style={styles.homeSection}>
         <View style={styles.sectionTitleRow}>
-            <Text style={styles.homeSectionTitle}>Усі товари</Text>
+          <Text style={styles.homeSectionTitle}>{title}</Text>
           <Ionicons name="chevron-forward" size={18} color="#999" />
         </View>
 
@@ -953,7 +953,7 @@ export default function Index() {
           <ProductCarousel title="Новинки" data={newProducts} />
 
           <View style={styles.homeSection}>
-            <Text style={styles.homeSectionTitle}>Усі товари</Text>
+            <Text style={styles.homeSectionTitle}>??? ??????</Text>
             <View style={styles.allProductsGrid}>
               {filteredProducts.map((item) => (
                 <View key={item?.id?.toString() || Math.random().toString()} style={styles.gridCardWrap}>
@@ -964,8 +964,8 @@ export default function Index() {
 
             {filteredProducts.length === 0 && (
               <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyStateText}>\U0001f614</Text>
-                <Text style={styles.emptyStateMessage}>Нічого не знайдено</Text>
+                <Text style={styles.emptyStateText}>??</Text>
+                <Text style={styles.emptyStateMessage}>?????? ?? ????????</Text>
               </View>
             )}
           </View>
@@ -982,7 +982,7 @@ export default function Index() {
 
             <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>Замовлення прийнято! 🎉</Text>
             <Text style={{ color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 }}>
-              {"Дякуємо за довіру.\nМенеджер зв’яжеться з вами найближчим часом для підтвердження."}
+              {"??????? ?? ??????.\n???????? ?????????? ? ???? ?????????? ????? ??? ?????????????."}
             </Text>
 
             <TouchableOpacity 
