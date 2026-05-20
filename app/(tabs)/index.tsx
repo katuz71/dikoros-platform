@@ -1117,6 +1117,7 @@ export default function Index() {
   const filteredProducts = getSortedProducts();
   const hitProducts = products.filter((p: any) => p?.is_hit || p?.is_bestseller).slice(0, 16);
   const promoProducts = products.filter((p: any) => p?.is_promotion || (p?.old_price && Number(p.old_price) > Number(p.price))).slice(0, 16);
+  const newProducts = products.filter((p: any) => p?.is_new).slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
 
@@ -1355,6 +1356,34 @@ export default function Index() {
       <HomeProductCarousel
         title={'\u0410\u043a\u0446\u0456\u0457'}
         products={promoProducts}
+        favorites={favorites}
+        onOpenProduct={(item) => router.push(`/product/${item.id}`)}
+        onAddToCart={(item) => {
+          Vibration.vibrate(10);
+          const picked = _pickDefaultVariant(item);
+          addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
+          showToast('Товар додано в кошик');
+        }}
+        onToggleFavorite={(item) => {
+          Vibration.vibrate(10);
+          const isFav = favorites.some(fav => fav.id === item.id);
+          toggleFavorite({
+            id: item.id,
+            name: item.name || '',
+            price: item.price || 0,
+            image: item.image || item.picture || item.image_url || '',
+            category: item.category,
+            old_price: item.old_price,
+            badge: item.badge,
+            unit: item.unit
+          });
+          showToast(isFav ? 'Видалено з обраного' : 'Додано в обране');
+        }}
+      />
+
+      <HomeProductCarousel
+        title={'Новинки'}
+        products={newProducts}
         favorites={favorites}
         onOpenProduct={(item) => router.push(`/product/${item.id}`)}
         onAddToCart={(item) => {
