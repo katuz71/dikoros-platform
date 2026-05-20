@@ -1315,6 +1315,57 @@ export default function Index() {
           </TouchableOpacity>
         </View>
       </View>
+      {categoryViewOpen && (
+        <View style={{ flex: 1 }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 18,
+            paddingHorizontal: 4
+          }}>
+            <TouchableOpacity
+              onPress={() => {
+                setCategoryViewOpen(false);
+                setSelectedCategory('???');
+              }}
+              style={{ padding: 8 }}
+            >
+              <Ionicons name="arrow-back" size={26} color="#111" />
+            </TouchableOpacity>
+
+            <Text style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: '900', color: '#111' }} numberOfLines={1}>
+              {selectedCategory}
+            </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)} style={{ padding: 8 }}>
+                <Ionicons name="search" size={24} color="#111" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={{ padding: 8 }}>
+                <Ionicons name="heart" size={24} color="red" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} style={{ padding: 8 }}>
+                <Ionicons name="cart" size={26} color="#111" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <FlatList
+            data={filteredProducts}
+            renderItem={renderProductItem}
+            keyExtractor={item => item?.id?.toString() || Math.random().toString()}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: 'space-between' }}
+            contentContainerStyle={{ paddingBottom: 110 }}
+            ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      )}
+
+      {!categoryViewOpen && (
+        <>
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
@@ -1505,7 +1556,10 @@ export default function Index() {
           {derivedCategories.map((cat, index) => (
             <TouchableOpacity
               key={index}
-              onPress={() => setSelectedCategory(cat)}
+              onPress={() => {
+                setSelectedCategory(cat);
+                setCategoryViewOpen(cat !== '???');
+              }}
               style={[
                 styles.categoryItem,
                 selectedCategory === cat && styles.categoryItemActive
@@ -1598,6 +1652,8 @@ export default function Index() {
             </View>
           }
         />
+      )}
+      </>
       )}
       {/* SUCCESS ORDER MODAL */}
       <Modal animationType="fade" transparent={true} visible={successVisible}>
