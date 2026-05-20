@@ -27,6 +27,13 @@ export interface Product {
   option_names?: string;  // Variation dimension titles (e.g., "weight|form|sort")
   variationGroups?: any[];  // Advanced variation groups (multi-dimensional)
   variants?: any;  // Variants with different prices (can be array or JSON string)
+  available?: boolean | string | number;
+  in_stock?: boolean | string | number;
+  stock?: boolean | string | number;
+  quantity?: boolean | string | number;
+  balance?: boolean | string | number;
+  presence?: string;
+  status?: string;
 }
 
 export type OrderItem = {
@@ -73,6 +80,73 @@ const OrdersContext = createContext<OrdersContextType>({
   removeOrder: () => {},
   clearOrders: () => {},
 });
+
+
+const isProductAvailable = (product: Product): boolean => {
+  const negativeStrings = [
+    '0',
+    'false',
+    'no',
+    'none',
+    'out_of_stock',
+    'not_available',
+    'unavailable',
+    '?????',
+    '???',
+    '?????????',
+    '????????',
+    '?? ? ?????????',
+    '??? ? ???????',
+  ];
+
+  const positiveStrings = [
+    '1',
+    'true',
+    'yes',
+    'available',
+    'in_stock',
+    'in stock',
+    '? ?????????',
+    '????',
+    '?',
+  ];
+
+  const checkValue = (value: unknown): boolean | null => {
+    if (value === undefined || value === null || value === '') return null;
+
+    if (typeof value === 'boolean') return value;
+
+    if (typeof value === 'number') return value > 0;
+
+    const normalized = String(value).trim().toLowerCase();
+
+    if (positiveStrings.includes(normalized)) return true;
+    if (negativeStrings.includes(normalized)) return false;
+
+    const numeric = Number(normalized);
+    if (!Number.isNaN(numeric)) return numeric > 0;
+
+    return null;
+  };
+
+  const fields = [
+    product.available,
+    product.in_stock,
+    product.stock,
+    product.quantity,
+    product.balance,
+    product.presence,
+    product.status,
+  ];
+
+  for (const field of fields) {
+    const result = checkValue(field);
+    if (result !== null) return result;
+  }
+
+  return true;
+};
+
 
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   // --- PRODUCTS STATE ---
@@ -122,7 +196,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           ? data.products
           : [];
 
+      const availableProducts = productsArray.filter(isProductAvailable);
       console.log("Products loaded:", productsArray.length);
+      console.log("Available products:", availableProducts.length);
 
       if (productsArray.length > 0 && productsArray[0]) {
         console.log("First product sample:", {
@@ -139,7 +215,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      setProducts(productsArray);
+      setProducts(availableProducts);
     } catch (error: any) {
       console.error("🔥 FETCH ERROR:", error);
       console.error("Error fetching products:", error);
