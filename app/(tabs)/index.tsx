@@ -40,9 +40,9 @@ const AnimatedFavoriteButton = ({ item, onPress }: {
   };
   
   const getProductBadge = (item: any) => {
-    if (item?.is_promotion || (item?.old_price && Number(item.old_price) > Number(item.price))) return 'Акції';
+    if (item?.is_promotion || (item?.old_price && Number(item.old_price) > Number(item.price))) return '?????';
     if (item?.is_hit || item?.is_bestseller) return '???';
-    if (item?.is_new) return 'Акції??';
+    if (item?.is_new) return '???????';
     return item?.badge || '';
   };
 
@@ -110,7 +110,7 @@ const AnimatedFavoriteButton = ({ item, onPress }: {
             onPress={() => {
               Vibration.vibrate(10);
               addItem(item, 1, '', item.unit || '??');
-              showToast('Акції Акції? ? Акції');
+              showToast('????? ?????? ? ?????');
             }}
           >
             <Ionicons name="cart-outline" size={16} color="#fff" />
@@ -919,7 +919,7 @@ export default function Index() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 100, paddingHorizontal: 20 }}>
           <Ionicons name="cloud-offline-outline" size={64} color="#ff6b6b" />
           <Text style={{ marginTop: 20, fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center' }}>
-            Не вдалося підключитися до сервера
+            ?? ??????? ???????????? ?? ???????
           </Text>
           <Text style={{ marginTop: 10, fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 }}>
             {getConnectionErrorMessage()}
@@ -931,13 +931,13 @@ export default function Index() {
             }}
             style={{ marginTop: 20, backgroundColor: '#000', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
           >
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Спробувати ще раз</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>?????????? ?? ???</Text>
           </TouchableOpacity>
         </View>
       ) : productsLoading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 100 }}>
           <ActivityIndicator size="large" color="#2E7D32" />
-          <Text style={{ marginTop: 10, color: '#666' }}>Завантаження товарів...</Text>
+          <Text style={{ marginTop: 10, color: '#666' }}>???????????? ???????...</Text>
         </View>
       ) : (
         <ScrollView
@@ -947,13 +947,13 @@ export default function Index() {
           }
           contentContainerStyle={{ paddingBottom: 110 }}
         >
-          <ProductCarousel title="Останні переглянуті" data={recentProducts} />
-          <ProductCarousel title="Хіти продажів" data={hitProducts.length ? hitProducts : products.slice(0, 12)} />
-          <ProductCarousel title="Акції" data={promoProducts} />
-          <ProductCarousel title="Акції??" data={newProducts} />
+          <ProductCarousel title="??????? ???????????" data={recentProducts} />
+          <ProductCarousel title="???? ????????" data={hitProducts.length ? hitProducts : products.slice(0, 12)} />
+          <ProductCarousel title="?????" data={promoProducts} />
+          <ProductCarousel title="???????" data={newProducts} />
 
           <View style={styles.homeSection}>
-            <Text style={styles.homeSectionTitle}>??? Акції?</Text>
+            <Text style={styles.homeSectionTitle}>??? ??????</Text>
             <View style={styles.allProductsGrid}>
               {filteredProducts.map((item) => (
                 <View key={item?.id?.toString() || Math.random().toString()} style={styles.gridCardWrap}>
@@ -965,7 +965,7 @@ export default function Index() {
             {filteredProducts.length === 0 && (
               <View style={styles.emptyStateContainer}>
                 <Text style={styles.emptyStateText}>??</Text>
-                <Text style={styles.emptyStateMessage}>Акції? ?? Акції???</Text>
+                <Text style={styles.emptyStateMessage}>?????? ?? ????????</Text>
               </View>
             )}
           </View>
@@ -982,7 +982,7 @@ export default function Index() {
 
             <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>Замовлення прийнято! 🎉</Text>
             <Text style={{ color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 }}>
-              {"Акції?? ?? Акції?.\n????Хіти продажів?? ? Хіти продажів?? Акції ??? АкціїАкції???."}
+              {"??????? ?? ??????.\n???????? ?????????? ? ???? ?????????? ????? ??? ?????????????."}
             </Text>
 
             <TouchableOpacity 
