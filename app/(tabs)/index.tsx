@@ -1393,24 +1393,13 @@ export default function Index() {
             columnWrapperStyle={{ justifyContent: 'space-between', gap: 12 }}
             contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 4 }}
             ItemSeparatorComponent={() => <View style={{ height: 18 }} />}
-            scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
           />
         </View>
       )}
 
       {!categoryViewOpen && (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#2E7D32']}
-            />
-          }
-        >
+        <>
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
@@ -1728,7 +1717,7 @@ export default function Index() {
           }
         />
       )}
-        </ScrollView>
+      </>
       )}
       {/* SUCCESS ORDER MODAL */}
       <Modal animationType="fade" transparent={true} visible={successVisible}>
