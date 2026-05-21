@@ -1159,7 +1159,7 @@ export default function Index() {
     if (banners.length === 0) return;
     
     const { width } = Dimensions.get('window');
-    const CARD_WIDTH = width - 40;
+    const CARD_WIDTH = width;
     const CARD_MARGIN = 10;
     const TOTAL_WIDTH = CARD_WIDTH + CARD_MARGIN;
     
@@ -1406,16 +1406,16 @@ export default function Index() {
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
-        const CARD_WIDTH = width - 40;
+        const CARD_WIDTH = width;
         return (
           <ScrollView 
             ref={bannerRef}
             horizontal 
             showsHorizontalScrollIndicator={false}
             pagingEnabled={true}
-            style={{ marginBottom: 20 }}
-            contentContainerStyle={{ paddingLeft: 20, paddingRight: 20 }}
-            snapToInterval={CARD_WIDTH + 10}
+            style={{ marginBottom: 20, marginHorizontal: -20 }}
+            contentContainerStyle={{ paddingLeft: 0, paddingRight: 0 }}
+            snapToInterval={CARD_WIDTH}
             decelerationRate="fast"
           >
             {banners.map((b) => {
