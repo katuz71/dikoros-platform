@@ -97,9 +97,7 @@ export default function CartScreen() {
   }, 0);
 
   // Расчет итоговой суммы с учетом процентной или фиксированной скидки
-  const totalAmount = discount > 0 
-    ? subtotal * (1 - discount) 
-    : Math.max(0, subtotal - discountAmount);
+  const totalAmount = finalPrice;
 
   return (
     <KeyboardAvoidingView 
