@@ -124,11 +124,12 @@ async def create_onebox_order(order_data: dict) -> dict:
 
         product_array = []
         total_sum = 0.0
+        item_lines = []
 
         async with httpx.AsyncClient() as client:
             for item in raw_items:
                 item_dict = item if isinstance(item, dict) else vars(item)
-                
+
                 lookup_articul = str(item_dict.get("sku") or item_dict.get("articul") or item_dict.get("code") or "").strip()
                 if not lookup_articul:
                     item_id = item_dict.get("id") or item_dict.get("product_id")
@@ -143,34 +144,51 @@ async def create_onebox_order(order_data: dict) -> dict:
                 price_val = float(item_dict.get("price") or 0.0)
                 total_sum += price_val * amount_int
 
-                # ТА САМАЯ ИДЕАЛЬНАЯ СТРУКТУРА ТОВАРА
+                base_name = str(item_dict.get("name") or "").strip()
+                variant_label = str(
+                    item_dict.get("variant_info")
+                    or item_dict.get("packSize")
+                    or item_dict.get("unit")
+                    or ""
+                ).strip()
+
+                product_name = (
+                    f"{base_name} ? {variant_label}"
+                    if variant_label and variant_label not in base_name
+                    else base_name
+                )
+
+                item_lines.append(f"- {product_name}: {amount_int} x {price_val} ???")
+
                 p_obj = {
-                    "name": str(item_dict.get("name") or ""),
+                    "name": product_name,
                     "articul": lookup_articul,
                     "amount": amount_int,
-                    "count": amount_int,          # Ванбокс любит count
+                    "count": amount_int,
                     "price": price_val,
                     "pricepurchase": price_val,
                     "pricesale": price_val,
                 }
-                
-                # Если нашли ID, отдаем его строго в том виде, в котором просил Ванбокс (ошибка 400)
+
                 if product_id:
                     p_obj["productid"] = product_id
                     p_obj["productinfo"] = {"id": product_id}
-                
+
                 product_array.append(p_obj)
 
         sum_str = "{:.4f}".format(total_sum)
 
         desc_lines = [
-            f"🛒 ЗАКАЗ ИЗ ПРИЛОЖЕНИЯ",
-            f"Имя: {name}",
-            f"Телефон: {phone}",
-            f"Сумма: {sum_str} грн",
-            f"Оплата: {payment_method}",
-            f"Доставка: {delivery_method}",
-            f"Адрес: {full_address}"
+            "?? ????? ?? ??????????",
+            f"???: {name}",
+            f"???????: {phone}",
+            f"?????: {sum_str} ???",
+            f"??????: {payment_method}",
+            f"????????: {delivery_method}",
+            f"?????: {full_address}",
+            "",
+            "??????:",
+            *item_lines,
         ]
         full_description = "\n".join(desc_lines)
 
@@ -179,34 +197,33 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientname": name,
             "clientphone": phone,
             "phone": phone,
-            
-            "name": f"Заказ из приложения от {name}",
+
+            "name": f"????? ?? ?????????? ?? {name}",
             "description": full_description,
             "comments": full_description,
             "order_content": full_description,
-            
+
             "delivery_address": full_address,
             "clientaddress": full_address,
             "address": full_address,
             "order_clientaddress": full_address,
-            
+
             "sum": sum_str,
             "order_sum": sum_str,
-            
+
             "customorder_istochnikDP": "Mobile App",
             "customorder_Sposoboplatidp": payment_method,
             "customorder_sposobdostavkidp": delivery_method,
-            
-            # Отправляем товары по ключу products, так как у нас теперь есть productinfo
+
             "products": product_array,
-            
+
             "workflowid": ONEBOX_WORKFLOW_ID,
             "statusid": ONEBOX_STATUS_ID,
             "externalid": externalid,
         }
 
         payload = [order_obj]
-        
+
         logger.info("[OneBox] Final Payload (JSON):")
         logger.info(json.dumps(payload, ensure_ascii=False, indent=2))
 
@@ -217,10 +234,10 @@ async def create_onebox_order(order_data: dict) -> dict:
                 headers=headers,
                 timeout=30.0,
             )
-        
+
         logger.info(f"[OneBox] Response: {resp.text}")
         return resp.json()
 
     except Exception as exc:
-        logger.error(f"[OneBox] ❌ Error: {exc}", exc_info=True)
+        logger.error(f"[OneBox] ? Error: {exc}", exc_info=True)
         raise
