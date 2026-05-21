@@ -335,7 +335,7 @@ export default function CheckoutScreen() {
           item_name: i.name,
           price: Number(i.price || 0),
           quantity: Number(i.quantity || 1),
-          item_variant: i?.variantSize || i?.packSize || i?.unit || '??'
+          item_variant: i?.variantSize || i?.packSize || i?.unit || 'шт'
         }));
 
         const purchaseEventId = `purchase_${result.order_id}`;
