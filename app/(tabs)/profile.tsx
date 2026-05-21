@@ -239,7 +239,8 @@ export default function ProfileScreen() {
           name: infoName, 
           email: infoEmail,
           city: infoCity ? { ref: '', name: infoCity } : { ref: '', name: '' },
-          warehouse: infoWarehouse ? { ref: '', name: infoWarehouse } : { ref: '', name: '' }
+          warehouse: infoWarehouse ? { ref: '', name: infoWarehouse } : { ref: '', name: '' },
+          contact_preference: infoContactPreference
         }));
         
         setInfoModalVisible(false);
@@ -309,7 +310,7 @@ export default function ProfileScreen() {
         <GridBtn icon="heart-outline" label="Мої списки" onPress={() => {}} />
         <GridBtn icon="mail-outline" label="Повідомлення" onPress={() => {}} />
         <GridBtn icon="person-outline" label="Інформація" onPress={openInfoModal} />
-        <GridBtn icon="globe-outline" label="UA | UAH" onPress={() => {}} />
+        <GridBtn icon="globe-outline" label="UA | UAH" onPress={() => Alert.alert('???? ?? ??????', '????? ????????: UA / UAH')} />
       </View>
 
       {/* СПИСКИ МЕНЮ */}
