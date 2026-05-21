@@ -253,15 +253,32 @@ export default function ProductScreen() {
 
         if (res.ok) {
           const data = await res.json();
-          setProduct(data);
+
+          const fromList = allProducts.find((p: any) => Number(p?.id) === Number(productId));
+          const dataVariants = Array.isArray(data?.variants) ? data.variants : [];
+          const listVariants = Array.isArray(fromList?.variants) ? fromList.variants : [];
+
+          const enrichedProduct = fromList && listVariants.length > dataVariants.length
+            ? {
+                ...data,
+                ...fromList,
+                description: data.description || fromList.description,
+                composition: data.composition || fromList.composition,
+                usage: data.usage || fromList.usage,
+                variants: listVariants,
+                option_names: data.option_names || fromList.option_names,
+              }
+            : data;
+
+          setProduct(enrichedProduct);
 
           try {
             const rawRecent = await AsyncStorage.getItem('recentProducts');
             const parsedRecent = rawRecent ? JSON.parse(rawRecent) : [];
             const recentArray = Array.isArray(parsedRecent) ? parsedRecent : [];
             const nextRecent = [
-              data,
-              ...recentArray.filter((item: any) => item?.id !== data?.id)
+              enrichedProduct,
+              ...recentArray.filter((item: any) => item?.id !== enrichedProduct?.id)
             ].slice(0, 12);
             await AsyncStorage.setItem('recentProducts', JSON.stringify(nextRecent));
           } catch (e) {
@@ -290,7 +307,7 @@ export default function ProductScreen() {
     };
 
     fetchData();
-  }, [productId]);
+  }, [productId, allProducts]);
 
   const openReviewModal = useCallback(async () => {
     try {
