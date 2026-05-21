@@ -253,14 +253,41 @@ export default function ProductScreen() {
     setSelectedOptions(prev => {
       const next = { ...prev, [key]: value };
 
-      let found =
-        variantRows.find(r =>
-          internalKeys.every(ik => clean(r.options[ik]) === clean(next[ik]))
-        ) ||
-        variantRows.find(r => clean(r.options[key]) === clean(value)) ||
-        variantRows[0];
+      // 1. ???? ??????? ?????????? ?????????? ? ?????? ?????? ?? ???????.
+      const exactMatch = variantRows.find(row =>
+        internalKeys.every(ik => clean(row.options[ik]) === clean(next[ik]))
+      );
 
-      return found ? { ...found.options } : next;
+      if (exactMatch) {
+        return next;
+      }
+
+      // 2. ???? ?????????? ?????????? ? ???? ????????? ???????,
+      // ?? ????????? ????????????? ?????? ????????? ???????????.
+      const fallback = variantRows.find(row => clean(row.options[key]) === clean(value));
+
+      if (!fallback) {
+        return next;
+      }
+
+      const repaired = { ...next };
+
+      internalKeys.forEach(ik => {
+        if (ik === key) return;
+
+        const currentValue = repaired[ik];
+
+        const currentStillPossible = variantRows.some(row => {
+          if (clean(row.options[key]) !== clean(value)) return false;
+          return clean(row.options[ik]) === clean(currentValue);
+        });
+
+        if (!currentValue || !currentStillPossible) {
+          repaired[ik] = fallback.options[ik] || '';
+        }
+      });
+
+      return repaired;
     });
   }, [variantRows, internalKeys]);
 
