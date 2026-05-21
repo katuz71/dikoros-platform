@@ -109,28 +109,34 @@ export default function ProductScreen() {
     };
 
     const extractSize = (label: string) => {
-      const text = clean(label).toLowerCase();
+      const normalized = clean(label).toLowerCase();
+      const matches = Array.from(normalized.matchAll(/\d+(?:[,.]\d+)?/g));
 
-      const patterns = [
-        /(\d+(?:[,.]\d+)?)\s*(????(?:?|??|?)?)/i,
-        /(\d+(?:[,.]\d+)?)\s*(??\.?)/i,
-        /(\d+(?:[,.]\d+)?)\s*(?\b)/i,
-        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
-        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
-        /(\d+(?:[,.]\d+)?)\s*(?\b)/i,
-        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
-        /(\d+(?:[,.]\d+)?)\s*(??????\w*)/i,
+      const units = [
+        { words: ['\u043a\u0430\u043f\u0441\u0443\u043b'], label: '\u043a\u0430\u043f\u0441\u0443\u043b' },
+        { words: ['\u0433\u0440\u0430\u043c', '\u0433\u0440', '\u0433'], label: '\u0433\u0440\u0430\u043c' },
+        { words: ['\u043c\u0433'], label: '\u043c\u0433' },
+        { words: ['\u043c\u043b'], label: '\u043c\u043b' },
+        { words: ['\u043b'], label: '\u043b' },
+        { words: ['\u0448\u0442'], label: '\u0448\u0442' },
       ];
 
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          const value = String(match[1] || '').trim();
-          let unit = String(match[2] || '').replace('.', '').trim();
+      for (const match of matches) {
+        const value = String(match[0] || '').trim();
+        const index = typeof match.index === 'number' ? match.index : -1;
+        if (index < 0 || !value) continue;
 
-          if (unit === '??' || unit === '?') unit = '????';
+        const tail = normalized
+          .slice(index + value.length, index + value.length + 18)
+          .replace(/[.\s-]+/g, '')
+          .trim();
 
-          return `${value} ${unit}`;
+        const foundUnit = units.find(unit =>
+          unit.words.some(word => tail.includes(word))
+        );
+
+        if (foundUnit) {
+          return `${value} ${foundUnit.label}`;
         }
       }
 
@@ -145,12 +151,13 @@ export default function ProductScreen() {
 
     const extractSort = (label: string) => {
       const lower = clean(label).toLowerCase();
+      const sortWord = '\u0441\u043e\u0440\u0442';
 
       if (labelHas(lower, ['\u043b\u043e\u043c'])) return '\u041b\u043e\u043c';
       if (labelHas(lower, ['\u0435\u043b\u0456\u0442', '\u044d\u043b\u0438\u0442', 'elit', 'elite'])) return '\u0415\u043b\u0456\u0442';
 
-      if (/(^|[\s,;-])2\s*????/i.test(lower)) return '2 \u0441\u043e\u0440\u0442';
-      if (/(^|[\s,;-])1\s*????/i.test(lower)) return '1 \u0441\u043e\u0440\u0442';
+      if (lower.includes(`2 ${sortWord}`) || lower.includes(`2${sortWord}`)) return `2 ${sortWord}`;
+      if (lower.includes(`1 ${sortWord}`) || lower.includes(`1${sortWord}`)) return `1 ${sortWord}`;
 
       return '\u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442';
     };
