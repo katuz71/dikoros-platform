@@ -1159,9 +1159,7 @@ export default function Index() {
     if (banners.length === 0) return;
     
     const { width } = Dimensions.get('window');
-    const CARD_WIDTH = width - 40;
-    const CARD_MARGIN = 10;
-    const TOTAL_WIDTH = CARD_WIDTH + CARD_MARGIN;
+    const TOTAL_WIDTH = width;
     
     const interval = setInterval(() => {
       setBannerIndex(prev => {
