@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
   totalLabel: { fontSize: 20, fontWeight: 'bold' },
   totalValue: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50' },
-  submitBtn: { backgroundColor: '#000', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: 40 },
+  submitBtn: { backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: 40 },
   submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
   modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },

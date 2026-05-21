@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   promoButton: {
-    backgroundColor: '#000',
+    backgroundColor: '#2E7D32',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   checkoutButton: {
-    backgroundColor: '#000',
+    backgroundColor: '#2E7D32',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',

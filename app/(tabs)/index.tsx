@@ -1615,7 +1615,7 @@ export default function Index() {
                   router.push('/(tabs)/profile');
                 }, 300);
               }}
-              style={{ backgroundColor: 'black', paddingVertical: 15, paddingHorizontal: 40, borderRadius: 15, width: '100%' }}
+              style={{ backgroundColor: '#2E7D32', paddingVertical: 15, paddingHorizontal: 40, borderRadius: 15, width: '100%' }}
             >
               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>Чудово</Text>
             </TouchableOpacity>
@@ -1682,7 +1682,7 @@ export default function Index() {
                         maxWidth: '80%',
                       },
                       isUser ? {
-                        backgroundColor: '#000',
+                        backgroundColor: '#2E7D32',
                         borderBottomRightRadius: 4,
                       } : {
                         backgroundColor: '#fff',
@@ -1926,7 +1926,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   categoryItemActive: {
-    backgroundColor: '#000',
+    backgroundColor: '#2E7D32',
   },
   categoryText: {
     fontSize: 14,

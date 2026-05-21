@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, backgroundColor: '#fff', borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#DC2626', borderRadius: 9, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-  mainBtn: { backgroundColor: '#000', padding: 15, borderRadius: 12, marginTop: 20 },
+  mainBtn: { backgroundColor: '#2E7D32', padding: 15, borderRadius: 12, marginTop: 20 },
   whiteText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   errorText: { fontSize: 16, color: '#666', textAlign: 'center', paddingHorizontal: 20 },
   toast: { position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: 'rgba(30,30,30,0.9)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, zIndex: 1000 },
@@ -448,5 +448,5 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   input: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, marginBottom: 15, fontSize: 15 },
-  submitBtn: { backgroundColor: '#000', height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }
+  submitBtn: { backgroundColor: '#2E7D32', height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }
 });
