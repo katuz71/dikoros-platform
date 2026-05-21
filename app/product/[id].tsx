@@ -103,17 +103,25 @@ export default function ProductScreen() {
       .map(v => clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize))
       .filter(Boolean);
 
-    const hasPowder = variantLabels.some(label => /?????/i.test(label));
-    const hasDry = variantLabels.some(label => /?????/i.test(label));
-    const hasSize = variantLabels.some(label => /\d+\s*(????|??|?\b|??|?\b|??????|??)/i.test(label));
+    const labelHas = (label: string, words: string[]) => {
+      const lower = clean(label).toLowerCase();
+      return words.some(word => lower.includes(word.toLowerCase()));
+    };
+
+    const hasPowder = variantLabels.some(label => labelHas(label, ['Порошок', '?????']));
+    const hasDry = variantLabels.some(label => labelHas(label, ['Сушений', '?????']));
+    const hasSize = variantLabels.some(label =>
+      /(\d+(?:[,.]\d+)?)\s*(?|??|??|??|?|??)/i.test(label) ||
+      labelHas(label, ['грам', 'грами', 'капсул'])
+    );
 
     if (!oKeys.length && rawVariants.length > 1) {
       if (hasSize && (hasPowder || hasDry)) {
-        oKeys = ['?????', '?????????'];
+        oKeys = ['Форма', 'Фасування'];
       } else if (hasSize) {
-        oKeys = ['?????????'];
+        oKeys = ['Фасування'];
       } else {
-        oKeys = ['???????'];
+        oKeys = ['Варіант'];
       }
     }
 
@@ -123,14 +131,14 @@ export default function ProductScreen() {
       if (hasExplicitOptions) return label.split('|').map(clean);
 
       const form =
-        /?????/i.test(label) ? '???????' :
-        /?????/i.test(label) ? '???????' :
+        labelHas(label, ['Порошок', '?????']) ? 'Порошок' :
+        labelHas(label, ['Сушений', '?????']) ? 'Сушений' :
         '';
 
-      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*(??????\w*|????\w*|??\.?|?\b|??|?\b|??)/i);
-      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', '????') : '';
+      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*([A-Za-z?-??-?????????.]+)/);
+      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', 'грам') : '';
 
-      if (oKeys.length === 2) return [form || '?????', size || label];
+      if (oKeys.length === 2) return [form || 'Цілий', size || label];
       if (oKeys.length === 1) return [size || form || label];
 
       return [];
