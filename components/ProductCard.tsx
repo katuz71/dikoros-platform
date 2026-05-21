@@ -93,7 +93,7 @@ export default function ProductCard({
         <View style={styles.bottomRow}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              {safePrice} ₴
+              {displayPrice || `${safePrice} ?`}
             </Text>
             {hasDiscount && (
               <Text style={styles.oldPrice}>
