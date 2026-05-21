@@ -51,38 +51,46 @@ export default function FavoritesScreen() {
 
   // Добавить товар в корзину
   const addToCart = (item: any) => {
-    console.log('🛒 Добавляю в корзину:', item);
-    
     if (!item || !item.id) {
-      console.error('❌ Некорректный товар для добавления в корзину:', item);
       showToast('Помилка: товар не знайдено');
       return;
     }
-    
+
     try {
+      let variants: any[] = [];
+
+      if (typeof item?.variants === 'string') {
+        const parsed = JSON.parse(item.variants);
+        variants = Array.isArray(parsed) ? parsed : [];
+      } else if (Array.isArray(item?.variants)) {
+        variants = item.variants;
+      }
+
+      if (variants.length > 1) {
+        showToast('Оберіть варіант у картці товару');
+        router.push(`/product/${item.id}`);
+        return;
+      }
+
       const picked = _pickDefaultVariant(item);
-      addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
-      console.log('✅ Товар успешно добавлен в корзину:', item.name);
-      
-      // Analytics
+      addItem(item, 1, picked.packSize, item.unit || '??', picked.price);
+
       trackEvent('AddToCart', {
          content_ids: [item.id],
          content_type: 'product',
-         value: item.price,
+         value: picked.price,
          currency: 'UAH',
          content_name: item.name,
-         items: [{ item_id: item.id, item_name: item.name, price: item.price }]
+         items: [{ item_id: item.id, item_name: item.name, price: picked.price }]
       });
 
-      // Визуальное подтверждение
       showToast('Товар додано в кошик');
     } catch (error) {
-      console.error('❌ Ошибка при добавлении в корзину:', error);
+      console.error('Error adding favorite to cart:', error);
       showToast('Не вдалося додати товар в кошик');
     }
   };
 
-  // Переход к товару
   const goToProduct = (item: any) => {
     if (item?.id) {
       router.push(`/product/${item.id}`);
