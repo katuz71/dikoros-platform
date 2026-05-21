@@ -589,7 +589,26 @@ export default function ProductScreen() {
                  value={newReview.user_name}
                  onChangeText={t => setNewReview({ ...newReview, user_name: t })}
                 />
-                <TextInput
+                                <View style={styles.ratingPicker}>
+                  <Text style={styles.ratingPickerTitle}>Оцінка</Text>
+                  <View style={styles.ratingStarsRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setNewReview({ ...newReview, rating: star })}
+                        style={styles.ratingStarBtn}
+                      >
+                        <Ionicons
+                          name={star <= newReview.rating ? "star" : "star-outline"}
+                          size={34}
+                          color="#FACC15"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+<TextInput
                  placeholder="Ваш відгук"
                  multiline
                  numberOfLines={4}
@@ -634,6 +653,10 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  ratingPicker: { marginBottom: 15 },
+  ratingPickerTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  ratingStarsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ratingStarBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   input: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, marginBottom: 15, fontSize: 15 },
   submitBtn: { backgroundColor: '#2E7D32', height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }
 });
