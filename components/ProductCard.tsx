@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   cartButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#2E7D32',
     width: 34,
     height: 34,
     borderRadius: 17,
