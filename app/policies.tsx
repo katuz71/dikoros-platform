@@ -287,7 +287,6 @@ const PAGES: Record<string, PolicyPage> = {
       }
     ]
   }
-  }
 };
 
 export default function PoliciesScreen() {
