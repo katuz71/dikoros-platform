@@ -181,9 +181,9 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   if (__DEV__) console.warn("PDP images data:", images);
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
       {/* 1. Фото товара (Carousel start) */}
-      <View style={{ height: 350, width: Dimensions.get('window').width }}>
+      <View style={{ height: 320, width: Dimensions.get('window').width }}>
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
             {slideImagesFull.map((img: string, i: number) => {
               const placeholder = getImageUrl('');
@@ -358,7 +358,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 };
 
 const styles = StyleSheet.create({
-  mainImage: { width: Dimensions.get('window').width, height: 350 },
+  mainImage: { width: Dimensions.get('window').width, height: 320 },
   content: { padding: 20 },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   statusBadge: { flexDirection: 'row', alignItems: 'center' },
