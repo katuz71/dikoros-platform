@@ -238,56 +238,57 @@ export default function ProductScreen() {
 
   // Current match
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
-    const found = variantRows.find(r => 
-      internalKeys.every(ik => clean(r.options[ik]) === clean(selectedOptions[ik]))
+    const exact = variantRows.find(row =>
+      internalKeys.every(ik => clean(row.options[ik]) === clean(selectedOptions[ik]))
     );
+
+    const best = exact || [...variantRows]
+      .map(row => {
+        const score = internalKeys.reduce((sum, ik) => {
+          return sum + (clean(row.options[ik]) === clean(selectedOptions[ik]) ? 1 : 0);
+        }, 0);
+
+        return { row, score };
+      })
+      .sort((a, b) => b.score - a.score)[0]?.row;
+
+    const found = best || variantRows[0];
+
     return {
       activeRow: found,
-      currentPrice: found ? found.price : (variantRows[0]?.price || product?.price || 0),
-      oldPrice: found ? found.old_price : (variantRows[0]?.old_price || product?.old_price || 0)
+      currentPrice: found ? found.price : (product?.price || 0),
+      oldPrice: found ? found.old_price : (product?.old_price || 0)
     };
   }, [variantRows, selectedOptions, product, internalKeys]);
 
+  // Normalize option selection to always match existing variant
   // Normalize option selection to always match existing variant
   const applyOptionChange = useCallback((key: string, value: string) => {
     setSelectedOptions(prev => {
       const next = { ...prev, [key]: value };
 
-      // 1. ???? ??????? ?????????? ?????????? ? ?????? ?????? ?? ???????.
-      const exactMatch = variantRows.find(row =>
+      const exact = variantRows.find(row =>
         internalKeys.every(ik => clean(row.options[ik]) === clean(next[ik]))
       );
 
-      if (exactMatch) {
-        return next;
+      if (exact) {
+        return { ...exact.options };
       }
 
-      // 2. ???? ?????????? ?????????? ? ???? ????????? ???????,
-      // ?? ????????? ????????????? ?????? ????????? ???????????.
-      const fallback = variantRows.find(row => clean(row.options[key]) === clean(value));
+      const candidates = variantRows.filter(row => clean(row.options[key]) === clean(value));
 
-      if (!fallback) {
-        return next;
-      }
+      const best = candidates
+        .map(row => {
+          const score = internalKeys.reduce((sum, ik) => {
+            if (ik === key) return sum + 10;
+            return sum + (clean(row.options[ik]) === clean(prev[ik]) ? 1 : 0);
+          }, 0);
 
-      const repaired = { ...next };
+          return { row, score };
+        })
+        .sort((a, b) => b.score - a.score)[0]?.row || variantRows[0];
 
-      internalKeys.forEach(ik => {
-        if (ik === key) return;
-
-        const currentValue = repaired[ik];
-
-        const currentStillPossible = variantRows.some(row => {
-          if (clean(row.options[key]) !== clean(value)) return false;
-          return clean(row.options[ik]) === clean(currentValue);
-        });
-
-        if (!currentValue || !currentStillPossible) {
-          repaired[ik] = fallback.options[ik] || '';
-        }
-      });
-
-      return repaired;
+      return best ? { ...best.options } : next;
     });
   }, [variantRows, internalKeys]);
 
@@ -511,11 +512,25 @@ export default function ProductScreen() {
           clean={clean}
           onAddToCart={() => {
             Vibration.vibrate(10);
+
+            const selectedVariantProduct = activeRow?.raw
+              ? {
+                  ...product,
+                  id: activeRow.raw.id || product.id,
+                  sku: activeRow.raw.sku || product.sku,
+                  name: activeRow.raw.name || product.name,
+                  price: currentPrice,
+                  old_price: activeRow.raw.old_price || product.old_price,
+                  status: activeRow.raw.status || product.status,
+                  stock: activeRow.raw.stock ?? product.stock,
+                }
+              : product;
+
             const selections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-            addItem(product, 1, selections || (product.unit || 'шт'), product.unit || 'шт', currentPrice);
-            showToast('Додано в кошик');
-            trackEvent('AddToCart', { content_ids: [product.id], value: currentPrice, currency: 'UAH' });
-            logFirebaseEvent('add_to_cart', { item_id: product.id, item_name: product.name, value: currentPrice });
+            addItem(selectedVariantProduct, 1, selections || (product.unit || '??'), product.unit || '??', currentPrice);
+            showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');
+            trackEvent('AddToCart', { content_ids: [selectedVariantProduct.id], value: currentPrice, currency: 'UAH' });
+            logFirebaseEvent('add_to_cart', { item_id: selectedVariantProduct.id, item_name: selectedVariantProduct.name, value: currentPrice });
           }}
           onToggleFavorite={() => toggleFavorite(product)}
           isFavorite={isFavorite}
