@@ -603,7 +603,7 @@ export default function ProductScreen() {
                 item_name: selectedVariantProduct.name,
                 price: currentPrice,
                 quantity: 1,
-                item_variant: selections || (product.unit || '??')
+                item_variant: selections || (product.unit || 'шт')
               }]
             });
 
@@ -615,7 +615,7 @@ export default function ProductScreen() {
                 item_name: selectedVariantProduct.name,
                 price: currentPrice,
                 quantity: 1,
-                item_variant: selections || (product.unit || '??')
+                item_variant: selections || (product.unit || 'шт')
               }]
             });
           }}
