@@ -40,6 +40,11 @@ export default function CheckoutScreen() {
     return digits;
   };
 
+  const formatPrice = (value: number) => {
+    const safeValue = Math.round(Number(value) || 0);
+    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ?`;
+  };
+
   // Поля формы
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -244,7 +249,7 @@ export default function CheckoutScreen() {
         quantity: item.quantity,
         packSize: item.packSize || null,
         unit: item.unit || 'шт',
-        variant_info: item?.variantSize || item?.packSize || null
+        variant_info: item?.variantSize || item?.packSize || item?.unit || null
       }));
 
       // Використовуємо finalPrice з контексту (вже з урахуванням промокоду)
