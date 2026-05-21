@@ -84,11 +84,7 @@ export default function ProductScreen() {
   const { optionKeys, internalKeys, variantRows, matrix } = useMemo(() => {
     if (!product) return { optionKeys: [], internalKeys: [], variantRows: [], matrix: {} };
     
-    // 1. Get option headers (e.g., Weight|Form|Sort)
-    const oKeys = clean(product.option_names).split('|').map(clean).filter(Boolean);
-    const iKeys = oKeys.map((_, i) => `opt_${i}`);
-
-    // 2. Parse variants
+    // 1. Parse variants
     let rawVariants: any[] = [];
     try {
       if (typeof product.variants === 'string') {
@@ -99,18 +95,59 @@ export default function ProductScreen() {
       }
     } catch (e) { console.warn("Parse variants error", e); }
 
+    // 2. Get option headers or infer them from variant names
+    let oKeys = clean(product.option_names).split('|').map(clean).filter(Boolean);
+    const hasExplicitOptions = oKeys.length > 0;
+
+    const variantLabels = rawVariants
+      .map(v => clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize))
+      .filter(Boolean);
+
+    const hasPowder = variantLabels.some(label => /?????/i.test(label));
+    const hasDry = variantLabels.some(label => /?????/i.test(label));
+    const hasSize = variantLabels.some(label => /\d+\s*(????|??|?\b|??|?\b|??????|??)/i.test(label));
+
+    if (!oKeys.length && rawVariants.length > 1) {
+      if (hasSize && (hasPowder || hasDry)) {
+        oKeys = ['?????', '?????????'];
+      } else if (hasSize) {
+        oKeys = ['?????????'];
+      } else {
+        oKeys = ['???????'];
+      }
+    }
+
+    const iKeys = oKeys.map((_, i) => `opt_${i}`);
+
+    const inferVariantParts = (label: string) => {
+      if (hasExplicitOptions) return label.split('|').map(clean);
+
+      const form =
+        /?????/i.test(label) ? '???????' :
+        /?????/i.test(label) ? '???????' :
+        '';
+
+      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*(??????\w*|????\w*|??\.?|?\b|??|?\b|??)/i);
+      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', '????') : '';
+
+      if (oKeys.length === 2) return [form || '?????', size || label];
+      if (oKeys.length === 1) return [size || form || label];
+
+      return [];
+    };
+
     // 3. Build rows
     const rows: any[] = [];
     rawVariants.forEach((v) => {
       const label = clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize);
       if (!label) return;
-      
-      const parts = label.split('|').map(clean);
+
+      const parts = inferVariantParts(label);
       while (parts.length < oKeys.length) parts.push("");
-      
+
       const options: Record<string, string> = {};
       iKeys.forEach((ik, idx) => { options[ik] = parts[idx] || ""; });
-      
+
       rows.push({
         raw: v,
         options,
