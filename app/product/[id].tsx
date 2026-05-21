@@ -109,27 +109,28 @@ export default function ProductScreen() {
     };
 
     const extractSize = (label: string) => {
-      const unitWords = [
-        '\u0433\u0440\u0430\u043c',
-        '\u0433\u0440\u0430\u043c\u0438',
-        '\u0433\u0440',
-        '\u0433',
-        '\u043c\u0433',
-        '\u043c\u043b',
-        '\u043b',
-        '\u0448\u0442',
-        '\u043a\u0430\u043f\u0441\u0443\u043b',
+      const text = clean(label).toLowerCase();
+
+      const patterns = [
+        /(\d+(?:[,.]\d+)?)\s*(????(?:?|??|?)?)/i,
+        /(\d+(?:[,.]\d+)?)\s*(??\.?)/i,
+        /(\d+(?:[,.]\d+)?)\s*(?\b)/i,
+        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
+        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
+        /(\d+(?:[,.]\d+)?)\s*(?\b)/i,
+        /(\d+(?:[,.]\d+)?)\s*(??\b)/i,
+        /(\d+(?:[,.]\d+)?)\s*(??????\w*)/i,
       ];
 
-      const matches = Array.from(label.matchAll(/(\d+(?:[,.]\d+)?)\s*([^\s,.;:)]+)/g));
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const value = String(match[1] || '').trim();
+          let unit = String(match[2] || '').replace('.', '').trim();
 
-      for (const match of matches) {
-        const value = String(match[1] || '').trim();
-        const rawUnit = String(match[2] || '').toLowerCase().replace('.', '').trim();
+          if (unit === '??' || unit === '?') unit = '????';
 
-        const isUnit = unitWords.some(unit => rawUnit.includes(unit.toLowerCase()));
-        if (isUnit) {
-          return `${value} ${rawUnit}`.replace('\u0433\u0440', '\u0433\u0440\u0430\u043c');
+          return `${value} ${unit}`;
         }
       }
 
