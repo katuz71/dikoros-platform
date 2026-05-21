@@ -72,6 +72,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   favorites = []
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
+  const [openOptionKey, setOpenOptionKey] = React.useState<string | null>(null);
 
   const cleanProductHtml = (html: any) => {
     const decode = (value: string) => {
@@ -330,44 +331,87 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
         {/* Variations */}
         {internalKeys.length > 0 ? (
-          <View style={styles.variationsSection}>
-            {internalKeys.map((ik, idx) => (
-              <View key={ik} style={styles.optionGroup}>
-                <Text style={styles.optionTitle}>{optionKeys[idx]}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionValues}>
-                  {matrix[ik].map(val => {
-                    const isSel = clean(selectedOptions[ik]) === clean(val);
+          <View style={styles.variationDropdownSection}>
+            <View style={styles.variantSelectorRow}>
+              {internalKeys.map((ik, idx) => {
+                const isOpen = openOptionKey === ik;
+                const selectedLabel = selectedOptions[ik] || '???????';
 
-                    const isAvailable = variantRows.some((row: any) => {
-                      return internalKeys.every((key) => {
-                        const expected = key === ik ? val : selectedOptions[key];
-                        if (!expected) return true;
-                        return clean(row.options[key]) === clean(expected);
-                      });
+                return (
+                  <TouchableOpacity
+                    key={ik}
+                    onPress={() => setOpenOptionKey(isOpen ? null : ik)}
+                    style={[styles.variantSelectorBtn, isOpen && styles.variantSelectorBtnActive]}
+                  >
+                    <Text style={styles.variantSelectorTitle} numberOfLines={1}>
+                      {optionKeys[idx]}
+                    </Text>
+
+                    <View style={styles.variantSelectorValueRow}>
+                      <Text style={styles.variantSelectorValue} numberOfLines={1}>
+                        {selectedLabel}
+                      </Text>
+                      <Ionicons
+                        name={isOpen ? "chevron-up" : "chevron-down"}
+                        size={14}
+                        color={isOpen ? "#2E7D32" : "#6B7280"}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {openOptionKey ? (
+              <View style={styles.variantDropdown}>
+                <Text style={styles.variantDropdownTitle}>
+                  {optionKeys[internalKeys.indexOf(openOptionKey)]}
+                </Text>
+
+                {(matrix[openOptionKey] || []).map((val) => {
+                  const isSel = clean(selectedOptions[openOptionKey]) === clean(val);
+
+                  const isAvailable = variantRows.some((row: any) => {
+                    return internalKeys.every((key) => {
+                      const expected = key === openOptionKey ? val : selectedOptions[key];
+                      if (!expected) return true;
+                      return clean(row.options[key]) === clean(expected);
                     });
+                  });
 
-                    return (
-                      <TouchableOpacity 
-                        key={val} 
-                        disabled={!isAvailable}
-                        onPress={() => isAvailable && applyOptionChange(ik, val)}
+                  return (
+                    <TouchableOpacity
+                      key={val}
+                      disabled={!isAvailable}
+                      onPress={() => {
+                        if (!isAvailable) return;
+                        applyOptionChange(openOptionKey, val);
+                        setOpenOptionKey(null);
+                      }}
+                      style={[
+                        styles.variantDropdownOption,
+                        isSel && styles.variantDropdownOptionActive,
+                        !isAvailable && styles.variantDropdownOptionDisabled
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.optionBtn,
-                          isSel && styles.optionBtnActive,
-                          !isAvailable && styles.optionBtnDisabled
+                          styles.variantDropdownOptionText,
+                          isSel && styles.variantDropdownOptionTextActive,
+                          !isAvailable && styles.variantDropdownOptionTextDisabled
                         ]}
                       >
-                        <Text style={[
-                          styles.optionBtnText,
-                          isSel && styles.optionBtnTextActive,
-                          !isAvailable && styles.optionBtnTextDisabled
-                        ]}>{val}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                        {val}
+                      </Text>
+
+                      {isSel ? (
+                        <Ionicons name="checkmark" size={18} color="#2E7D32" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            ))}
+            ) : null}
           </View>
         ) : null}
 
@@ -482,6 +526,21 @@ const styles = StyleSheet.create({
   optionBtnActive: { borderColor: '#2E7D32', backgroundColor: '#2E7D32' },
   optionBtnText: { color: '#1f2937', fontWeight: '600', fontSize: 14 },
   optionBtnTextActive: { color: 'white' },
+  variationDropdownSection: { marginBottom: 24 },
+  variantSelectorRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  variantSelectorBtn: { flex: 1, minHeight: 58, borderRadius: 14, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center' },
+  variantSelectorBtnActive: { borderColor: '#2E7D32', backgroundColor: '#F0FDF4' },
+  variantSelectorTitle: { fontSize: 11, lineHeight: 14, color: '#6B7280', fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  variantSelectorValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  variantSelectorValue: { flexShrink: 1, fontSize: 13, lineHeight: 16, color: '#111827', fontWeight: '800', textAlign: 'center' },
+  variantDropdown: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 8, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  variantDropdownTitle: { fontSize: 14, fontWeight: '800', color: '#111827', paddingHorizontal: 8, paddingVertical: 8 },
+  variantDropdownOption: { minHeight: 46, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  variantDropdownOptionActive: { backgroundColor: '#ECFDF5' },
+  variantDropdownOptionDisabled: { opacity: 0.35 },
+  variantDropdownOptionText: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
+  variantDropdownOptionTextActive: { color: '#2E7D32', fontWeight: '800' },
+  variantDropdownOptionTextDisabled: { color: '#9CA3AF' },
   tabsContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 4 },
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   tabBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, elevation: 2 },
