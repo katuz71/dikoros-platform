@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/config/api';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 
-const OrderItem = ({ order, onPress, onDelete }: any) => (
+const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={styles.cardHeader}>
       <Text style={styles.orderId}>Замовлення #{order.id}</Text>
@@ -52,6 +52,11 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const formatPrice = (value: number) => {
+    const safeValue = Math.round(Number(value) || 0);
+    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ?`;
+  };
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -77,22 +82,43 @@ export default function OrdersScreen() {
   };
 
   const deleteOrder = async (id: number) => {
-    try {
-        await fetch(`${API_URL}/api/client/orders/${id}`, { method: 'DELETE' });
-        setOrders(prev => prev.filter((o: any) => o.id !== id));
-    } catch (e) { console.log(e); }
+    Alert.alert('???????? ???????????', '?? ??? ????????? ?????????', [
+      { text: '?????????', style: 'cancel' },
+      {
+        text: '????????',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await fetch(`${API_URL}/api/client/orders/${id}`, { method: 'DELETE' });
+            setOrders(prev => prev.filter((o: any) => o.id !== id));
+          } catch (e) {
+            console.log(e);
+          }
+        }
+      }
+    ]);
   };
 
   const clearAllOrders = async () => {
     const phone = await AsyncStorage.getItem('userPhone');
     if (!phone) return;
-    
-    // Alert logic here if needed (e.g. "Are you sure?")
-    try {
-        const cleanPhone = phone.replace(/\D/g, '');
-        await fetch(`${API_URL}/api/client/orders/clear/${cleanPhone}`, { method: 'DELETE' });
-        setOrders([]);
-    } catch (e) { console.log(e); }
+
+    Alert.alert('???????? ????????', '??? ?????????? ?????? ???????? ? ???????.', [
+      { text: '?????????', style: 'cancel' },
+      {
+        text: '????????',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const cleanPhone = phone.replace(/\D/g, '');
+            await fetch(`${API_URL}/api/client/orders/clear/${cleanPhone}`, { method: 'DELETE' });
+            setOrders([]);
+          } catch (e) {
+            console.log(e);
+          }
+        }
+      }
+    ]);
   };
 
   const confirmDelete = (id: number) => {
@@ -136,6 +162,7 @@ export default function OrdersScreen() {
                 order={item} 
                 onPress={() => {}} 
                 onDelete={() => deleteOrder(item.id)}
+                formatPrice={formatPrice}
             />
         )}
         contentContainerStyle={styles.list}
