@@ -103,7 +103,7 @@ export default function OrdersScreen() {
     const phone = await AsyncStorage.getItem('userPhone');
     if (!phone) return;
 
-    Alert.alert('Очистити історію?', 'Всі замовлення будуть видалені з історії.', [
+    Alert.alert('Очиститити історію?', 'Всі замовлення будуть видалені з історії.', [
       { text: 'Скасувати', style: 'cancel' },
       {
         text: 'Очисти',
