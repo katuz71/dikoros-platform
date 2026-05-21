@@ -381,7 +381,7 @@ export default function CheckoutScreen() {
                   </Text>
                 </View>
                 <Text style={styles.itemPrice}>
-                  {item.price * item.quantity} ₴
+                  {formatPrice(item.price * item.quantity)}
                 </Text>
               </View>
             ))}
