@@ -460,7 +460,7 @@ export default function ProductScreen() {
       const returnedReview = submitData?.review || submitData;
 
       const reviewToShow = {
-        id: returnedReview?.id || Date.now(),
+        id: returnedReview?.id || `local-${Date.now()}`,
         product_id: Number(returnedReview?.product_id || productId),
         rating: Number(returnedReview?.rating || payload.rating || 5),
         user_name: returnedReview?.user_name || payload.user_name,
@@ -468,20 +468,27 @@ export default function ProductScreen() {
         comment: returnedReview?.comment || payload.comment,
       };
 
-      setReviews(prev => [reviewToShow, ...(Array.isArray(prev) ? prev : [])]);
+      const mergeReviews = (serverReviews: any[] = []) => {
+        const map = new Map<string, any>();
+
+        [reviewToShow, ...serverReviews].forEach((review: any) => {
+          const key = String(review?.id || `${review?.user_name}-${review?.comment}`);
+          if (!map.has(key)) map.set(key, review);
+        });
+
+        return Array.from(map.values());
+      };
+
+      setReviews(prev => mergeReviews(Array.isArray(prev) ? prev : []));
       setReviewModalVisible(false);
       setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
       showToast('??????? ?? ??????!');
 
-      // ?? ????????? ???????? ??????? ?????? ?????? ??????????.
       const refreshRes = await fetch(`${API_URL}/api/reviews/${productId}`);
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
-        const nextReviews = Array.isArray(refreshData) ? refreshData : (refreshData.reviews || []);
-
-        if (Array.isArray(nextReviews) && nextReviews.length > 0) {
-          setReviews(nextReviews);
-        }
+        const serverReviews = Array.isArray(refreshData) ? refreshData : (refreshData.reviews || []);
+        setReviews(mergeReviews(serverReviews));
       }
     } catch (e) {
       console.warn('Submit review exception:', e);
