@@ -315,9 +315,9 @@ export default function ProfileScreen() {
 
       {/* СПИСКИ МЕНЮ */}
       <MenuSection title="Бонуси та знижки">
-        <MenuItem label="Мої винагороди" onPress={() => Alert.alert('Мої винагороди', `???????? ??????: ${profile?.bonus_balance || 0} ?`)} />
+        <MenuItem label="Мої винагороди" onPress={() => Alert.alert('Мої винагороди', `Доступні бонуси: ${profile?.bonus_balance || 0} ?`)} />
         <MenuItem label="Бонуси на покупки" onPress={() => setModalVisible(true)} />
-        <MenuItem label="Знижки та акції" isLast onPress={() => Alert.alert('Знижки та акції', '??????? ?????? ???????? ?? ???????? ????????')} />
+        <MenuItem label="Знижки та акції" isLast onPress={() => Alert.alert('Знижки та акції', 'Акційні товари доступні на головній сторінці')} />
       </MenuSection>
 
       <MenuSection title="Моя активність">
@@ -326,15 +326,15 @@ export default function ProfileScreen() {
       </MenuSection>
 
       <MenuSection title="Налаштування">
-        <MenuItem label="Налаштування сповіщень" onPress={() => Alert.alert('Налаштування сповіщень', '???? ????? ?????????? ???????????')} />
-        <MenuItem label="Керування пристроями" isLast onPress={() => Alert.alert('Керування пристроями', '???????? ???????? ????????')} />
+        <MenuItem label="Налаштування сповіщень" onPress={() => Alert.alert('Налаштування сповіщень', 'Поки немає додаткових налаштувань')} />
+        <MenuItem label="Керування пристроями" isLast onPress={() => Alert.alert('Керування пристроями', 'Поточний пристрій активний')} />
       </MenuSection>
 
             <MenuSection title="Інформація">
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
-        <MenuItem label="Блогери" onPress={() => Alert.alert('Блогери', '??? ????????? ???????? ? ?????????')} />
-        <MenuItem label="Партнерська програма" onPress={() => Alert.alert('Партнерська програма', '??????????? ???????? ????? ???? ????????')} />
+        <MenuItem label="Блогери" onPress={() => Alert.alert('Блогери', 'Для співпраці напишіть у підтримку')} />
+        <MenuItem label="Партнерська програма" onPress={() => Alert.alert('Партнерська програма', 'Партнерська програма скоро буде доступна')} />
         <MenuItem label="Рейтинг та відгуки" isLast onPress={() => setReviewsModalVisible(true)} />
       </MenuSection>
 
