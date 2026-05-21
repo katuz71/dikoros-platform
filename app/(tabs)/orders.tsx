@@ -54,7 +54,7 @@ export default function OrdersScreen() {
 
   const formatPrice = (value: number) => {
     const safeValue = Math.round(Number(value) || 0);
-    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ?`;
+    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
   };
 
   const fetchOrders = async () => {
@@ -82,10 +82,10 @@ export default function OrdersScreen() {
   };
 
   const deleteOrder = async (id: number) => {
-    Alert.alert('???????? ???????????', '?? ??? ????????? ?????????', [
-      { text: '?????????', style: 'cancel' },
+    Alert.alert('Видалити замовлення?', 'Цю дію неможливо скасувати', [
+      { text: 'Скасувати', style: 'cancel' },
       {
-        text: '????????',
+        text: 'Видалити',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -103,10 +103,10 @@ export default function OrdersScreen() {
     const phone = await AsyncStorage.getItem('userPhone');
     if (!phone) return;
 
-    Alert.alert('???????? ????????', '??? ?????????? ?????? ???????? ? ???????.', [
-      { text: '?????????', style: 'cancel' },
+    Alert.alert('Очистити історію?', 'Всі замовлення будуть видалені з історії.', [
+      { text: 'Скасувати', style: 'cancel' },
       {
-        text: '????????',
+        text: 'Очисти',
         style: 'destructive',
         onPress: async () => {
           try {
