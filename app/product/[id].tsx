@@ -430,7 +430,7 @@ export default function ProductScreen() {
   const submitReview = async () => {
     if (!newReview.user_name || !newReview.comment) {
       Vibration.vibrate(50);
-      showToast('????????? ???? ?? ??????');
+      showToast('Заповніть імʼя та відгук');
       return;
     }
 
@@ -453,7 +453,7 @@ export default function ProductScreen() {
 
       if (!res.ok) {
         console.warn('Submit review error:', res.status, submitData);
-        showToast(submitData?.detail || submitData?.message || '?? ??????? ?????? ??????');
+        showToast(submitData?.detail || submitData?.message || 'Не вдалося додати відгук');
         return;
       }
 
@@ -482,7 +482,7 @@ export default function ProductScreen() {
       setReviews(prev => mergeReviews(Array.isArray(prev) ? prev : []));
       setReviewModalVisible(false);
       setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
-      showToast('??????? ?? ??????!');
+      showToast('Дякуємо за відгук!');
 
       const refreshRes = await fetch(`${API_URL}/api/reviews/${productId}`);
       if (refreshRes.ok) {
@@ -492,7 +492,7 @@ export default function ProductScreen() {
       }
     } catch (e) {
       console.warn('Submit review exception:', e);
-      showToast('??????? ????????? ???????');
+      showToast('Помилка відправки відгуку');
     }
   };
 
