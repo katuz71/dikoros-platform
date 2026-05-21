@@ -55,8 +55,10 @@ export default function CartScreen() {
   }, [discount, discountAmount, appliedPromoCode, totalPrice, finalPrice]);
 
   const applyPromo = async () => {
-    if (!promoCode.trim()) {
-      Alert.alert('Помилка', 'Введіть промокод');
+    const normalizedPromoCode = promoCode.trim().toUpperCase();
+
+    if (!normalizedPromoCode) {
+      Alert.alert('???????', '??????? ????????');
       return;
     }
 
@@ -64,31 +66,29 @@ export default function CartScreen() {
       const response = await fetch(`${API_URL}/api/promo-codes/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: promoCode.trim() })
+        body: JSON.stringify({ code: normalizedPromoCode })
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🎟️ Promo code validated:', data);
-        
-        // Устанавливаем скидку в контексте корзины
+        console.log('??? Promo code validated:', data);
+
         if (data.discount_percent > 0) {
-          console.log('📊 Applying percent discount:', data.discount_percent / 100);
           setPromoDiscount(data.discount_percent / 100, 0, data.code);
         } else if (data.discount_amount > 0) {
-          console.log('💵 Applying amount discount:', data.discount_amount);
           setPromoDiscount(0, data.discount_amount, data.code);
         }
-        
-        Alert.alert('Успіх!', `Промокод ${data.code} застосовано! 🎉`);
+
+        setPromoCode('');
+        Alert.alert('?????!', `???????? ${data.code} ???????????! ??`);
       } else {
         const error = await response.json();
         setPromoDiscount(0, 0, '');
-        Alert.alert('Помилка', error.detail || 'Невірний промокод');
+        Alert.alert('???????', error.detail || '???????? ????????');
       }
     } catch (error) {
       console.error('Error validating promo code:', error);
-      Alert.alert('Помилка', 'Не вдалося перевірити промокод');
+      Alert.alert('???????', '?? ??????? ?????????? ????????');
     }
   };
 
