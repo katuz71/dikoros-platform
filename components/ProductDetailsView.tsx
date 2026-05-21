@@ -73,6 +73,71 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
 
+  const cleanProductHtml = (html: any) => {
+    return String(html || '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&mdash;/g, '?')
+      .replace(/&ndash;/g, '?')
+      .replace(/&deg;/g, '?')
+      .replace(/&rsquo;/g, '?')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s+/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
+  const splitProductText = () => {
+    const source = cleanProductHtml(product?.description);
+    const compositionField = cleanProductHtml(product?.composition);
+    const usageField = cleanProductHtml(product?.usage);
+
+    const usageMarkers = [
+      '???????????? ???? ???????:',
+      '?????? ????????????:',
+      '????????????:',
+      '?? ???????????????:',
+      '????????????:',
+    ];
+
+    let desc = source;
+    let usage = usageField;
+    let composition = compositionField;
+
+    if (!usage) {
+      for (const marker of usageMarkers) {
+        const idx = desc.indexOf(marker);
+        if (idx !== -1) {
+          usage = desc.slice(idx).trim();
+          desc = desc.slice(0, idx).trim();
+          break;
+        }
+      }
+    }
+
+    if (!composition) {
+      const usageLines = String(usage || '').split(/\r?\n/);
+      const compositionLines = usageLines.filter(line => line.toLowerCase().includes('?????'));
+      if (compositionLines.length > 0) {
+        composition = compositionLines.join('\n').trim();
+        usage = usageLines.filter(line => !line.toLowerCase().includes('?????')).join('\n').trim();
+      }
+    }
+
+    return {
+      desc: desc || source || '?',
+      composition: composition || '?',
+      usage: usage || '?',
+    };
+  };
+
   const toDisplayText = (value: any) => {
     const s = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
     return s.length > 0 ? s : '—';
@@ -179,6 +244,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     return (slideImages || []).map((u: any) => getImageUrl(String(u ?? '').trim()));
   }, [slideImages]);
   if (__DEV__) console.warn("PDP images data:", images);
+
+  const productTextTabs = splitProductText();
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
@@ -288,10 +355,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         </View>
 
         {tab === 'desc'
-          ? renderStructuredText(product.description)
+          ? renderStructuredText(productTextTabs.desc)
           : (
             <Text style={styles.descriptionText}>
-              {tab === 'ingr' ? toDisplayText(product.composition) : toDisplayText(product.usage)}
+              {tab === 'ingr' ? productTextTabs.composition : productTextTabs.usage}
             </Text>
           )}
 
