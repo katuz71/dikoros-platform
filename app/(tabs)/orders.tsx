@@ -121,11 +121,6 @@ export default function OrdersScreen() {
     ]);
   };
 
-  const confirmDelete = (id: number) => {
-      // Small trick to show alert on mobile
-      // In real app use Alert.alert from react-native
-  };
-
   useFocusEffect(
     useCallback(() => {
         fetchOrders();
