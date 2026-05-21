@@ -430,26 +430,58 @@ export default function ProductScreen() {
   const submitReview = async () => {
     if (!newReview.user_name || !newReview.comment) {
       Vibration.vibrate(50);
+      showToast('????????? ???? ?? ??????');
       return;
     }
+
     try {
+      const payload = {
+        product_id: productId,
+        rating: newReview.rating || 5,
+        user_name: newReview.user_name,
+        user_phone: (newReview.user_phone || '').replace(/\D/g, ''),
+        comment: newReview.comment,
+      };
+
       const res = await fetch(`${API_URL}/api/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, ...newReview, user_phone: (newReview.user_phone || '').replace(/\D/g, '') })
+        body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        showToast('Дякуємо за відгук!');
-        setReviewModalVisible(false);
-        setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
 
-        // refresh reviews -> stars under image + list at the bottom are consistent immediately
-        fetch(`${API_URL}/api/reviews/${productId}`)
-          .then(r => r.ok ? r.json() : [])
-          .then(setReviews)
-          .catch(() => {});
+      const submitData = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        console.warn('Submit review error:', res.status, submitData);
+        showToast(submitData?.detail || submitData?.message || '?? ??????? ?????? ??????');
+        return;
       }
-    } catch (e) {}
+
+      showToast('??????? ?? ??????!');
+      setReviewModalVisible(false);
+
+      const reviewToShow = {
+        id: submitData?.id || Date.now(),
+        product_id: productId,
+        rating: payload.rating,
+        user_name: payload.user_name,
+        user_phone: payload.user_phone,
+        comment: payload.comment,
+      };
+
+      setReviews(prev => [reviewToShow, ...(Array.isArray(prev) ? prev : [])]);
+      setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
+
+      const refreshRes = await fetch(`${API_URL}/api/reviews/${productId}`);
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        const nextReviews = Array.isArray(refreshData) ? refreshData : (refreshData.reviews || []);
+        setReviews(nextReviews);
+      }
+    } catch (e) {
+      console.warn('Submit review exception:', e);
+      showToast('??????? ????????? ???????');
+    }
   };
 
   if (loading) return (
