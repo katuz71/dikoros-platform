@@ -457,26 +457,31 @@ export default function ProductScreen() {
         return;
       }
 
-      showToast('??????? ?? ??????!');
-      setReviewModalVisible(false);
+      const returnedReview = submitData?.review || submitData;
 
       const reviewToShow = {
-        id: submitData?.id || Date.now(),
-        product_id: productId,
-        rating: payload.rating,
-        user_name: payload.user_name,
-        user_phone: payload.user_phone,
-        comment: payload.comment,
+        id: returnedReview?.id || Date.now(),
+        product_id: Number(returnedReview?.product_id || productId),
+        rating: Number(returnedReview?.rating || payload.rating || 5),
+        user_name: returnedReview?.user_name || payload.user_name,
+        user_phone: returnedReview?.user_phone || payload.user_phone,
+        comment: returnedReview?.comment || payload.comment,
       };
 
       setReviews(prev => [reviewToShow, ...(Array.isArray(prev) ? prev : [])]);
+      setReviewModalVisible(false);
       setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
+      showToast('??????? ?? ??????!');
 
+      // ?? ????????? ???????? ??????? ?????? ?????? ??????????.
       const refreshRes = await fetch(`${API_URL}/api/reviews/${productId}`);
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
         const nextReviews = Array.isArray(refreshData) ? refreshData : (refreshData.reviews || []);
-        setReviews(nextReviews);
+
+        if (Array.isArray(nextReviews) && nextReviews.length > 0) {
+          setReviews(nextReviews);
+        }
       }
     } catch (e) {
       console.warn('Submit review exception:', e);
