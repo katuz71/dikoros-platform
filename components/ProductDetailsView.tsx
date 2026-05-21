@@ -125,8 +125,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
     return {
       desc: source || '?',
-      composition: compositionField || '?',
-      usage: usageField || '?',
+      composition: compositionField || 'Інформація про склад не вказана.',
+      usage: usageField || 'Спосіб використання не вказаний.',
     };
   };
 
