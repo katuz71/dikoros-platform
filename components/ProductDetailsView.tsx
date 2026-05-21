@@ -84,15 +84,23 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         .replace(/&deg;/g, '\u00b0')
         .replace(/&rsquo;/g, '\u2019')
         .replace(/&lsquo;/g, '\u2018')
+        .replace(/&ldquo;/g, '\u201c')
+        .replace(/&rdquo;/g, '\u201d')
+        .replace(/&laquo;/g, '\u00ab')
+        .replace(/&raquo;/g, '\u00bb')
+        .replace(/&hellip;/g, '\u2026')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
         .replace(/&amp;/g, '&')
+        .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
         .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
     };
 
-    let text = decode(String(html || ''));
+    let text = String(html || '');
 
-    // second pass for double-encoded HTML/entities
+    // several passes for double/triple encoded content
+    text = decode(text);
+    text = decode(text);
     text = decode(text);
 
     return text
