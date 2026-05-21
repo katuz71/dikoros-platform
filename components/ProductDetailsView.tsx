@@ -79,7 +79,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   };
 
   const renderStructuredText = (raw: any) => {
-    const text = toDisplayText(stripHtml(raw));
+    const text = toDisplayText(raw);
     const lines = String(text || '').split(/\r?\n/);
     const headings = new Set([
       'Опис',
@@ -291,7 +291,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           ? renderStructuredText(product.description)
           : (
             <Text style={styles.descriptionText}>
-              {tab === 'ingr' ? toDisplayText(stripHtml(product.composition)) : toDisplayText(stripHtml(product.usage))}
+              {tab === 'ingr' ? toDisplayText(product.composition) : toDisplayText(product.usage)}
             </Text>
           )}
 
