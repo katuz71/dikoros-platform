@@ -34,7 +34,7 @@ export default function ProductCard({
   isFavorite 
 }: ProductCardProps) {
   const safeName = item.name || '';
-  {displayPrice || `${safePrice} ?`}
+  {displayPrice || `${safePrice} ₴`}
   const safeOldPrice = typeof item.old_price === 'number' ? item.old_price : null;
   const hasDiscount = safeOldPrice !== null && safeOldPrice > safePrice;
   const safeBadge = item.badge || null;
@@ -93,7 +93,7 @@ export default function ProductCard({
         <View style={styles.bottomRow}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              {displayPrice || `${safePrice} ?`}
+              {displayPrice || `${safePrice} ₴`}
             </Text>
             {hasDiscount && (
               <Text style={styles.oldPrice}>
