@@ -355,6 +355,31 @@ export default function ProductScreen() {
 
           setProduct(enrichedProduct);
 
+          trackEvent('ViewContent', {
+            content_ids: [enrichedProduct.id],
+            content_type: 'product',
+            content_name: enrichedProduct.name,
+            value: Number(enrichedProduct.price || 0),
+            currency: 'UAH',
+            items: [{
+              item_id: enrichedProduct.id,
+              item_name: enrichedProduct.name,
+              price: Number(enrichedProduct.price || 0),
+              quantity: 1
+            }]
+          });
+
+          logFirebaseEvent('view_item', {
+            currency: 'UAH',
+            value: Number(enrichedProduct.price || 0),
+            items: [{
+              item_id: String(enrichedProduct.id),
+              item_name: enrichedProduct.name,
+              price: Number(enrichedProduct.price || 0),
+              quantity: 1
+            }]
+          });
+
           try {
             const rawRecent = await AsyncStorage.getItem('recentProducts');
             const parsedRecent = rawRecent ? JSON.parse(rawRecent) : [];
@@ -565,10 +590,34 @@ export default function ProductScreen() {
               : product;
 
             const selections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-            addItem(selectedVariantProduct, 1, selections || (product.unit || '??'), product.unit || '??', currentPrice);
+            addItem(selectedVariantProduct, 1, selections || (product.unit || 'шт'), product.unit || 'шт', currentPrice);
             showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');
-            trackEvent('AddToCart', { content_ids: [selectedVariantProduct.id], value: currentPrice, currency: 'UAH' });
-            logFirebaseEvent('add_to_cart', { item_id: selectedVariantProduct.id, item_name: selectedVariantProduct.name, value: currentPrice });
+            trackEvent('AddToCart', {
+              content_ids: [selectedVariantProduct.id],
+              content_type: 'product',
+              content_name: selectedVariantProduct.name,
+              value: currentPrice,
+              currency: 'UAH',
+              items: [{
+                item_id: selectedVariantProduct.id,
+                item_name: selectedVariantProduct.name,
+                price: currentPrice,
+                quantity: 1,
+                item_variant: selections || (product.unit || '??')
+              }]
+            });
+
+            logFirebaseEvent('add_to_cart', {
+              currency: 'UAH',
+              value: currentPrice,
+              items: [{
+                item_id: String(selectedVariantProduct.id),
+                item_name: selectedVariantProduct.name,
+                price: currentPrice,
+                quantity: 1,
+                item_variant: selections || (product.unit || '??')
+              }]
+            });
           }}
           onToggleFavorite={() => toggleFavorite(product)}
           isFavorite={isFavorite}
