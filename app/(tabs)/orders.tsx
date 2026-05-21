@@ -22,7 +22,7 @@ const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
     <View style={styles.cardContent}>
       <View>
         <Text style={styles.priceLabel}>Сума замовлення</Text>
-        <Text style={styles.priceValue}>{order.totalPrice} ₴</Text>
+        <Text style={styles.priceValue}>{formatPrice(order.totalPrice)}</Text>
       </View>
       <View style={[
         styles.statusBadge, 
@@ -40,7 +40,7 @@ const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
     </View>
     {order.items && order.items.length > 0 && (
        <Text style={styles.itemsSummary} numberOfLines={1}>
-          {order.items.map((i: any) => `${i.name}${i.variant_info || i.packSize || i.unit ? ` ? ${i.variant_info || i.packSize || i.unit}` : ''} (${i.quantity} ??)`).join(', ')}
+          {order.items.map((i: any) => `${i.name}${i.variant_info || i.packSize || i.unit ? ` — ${i.variant_info || i.packSize || i.unit}` : ''} (${i.quantity} шт)`).join(', ')}
        </Text>
     )}
   </TouchableOpacity>
