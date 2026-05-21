@@ -170,7 +170,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       console.log("🔥 TRYING TO FETCH:", productsUrl);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 10 секунд timeout
       
       const response = await fetch(productsUrl, {
         method: 'GET',
