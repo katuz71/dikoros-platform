@@ -73,7 +73,7 @@ export default function FavoritesScreen() {
       }
 
       const picked = _pickDefaultVariant(item);
-      addItem(item, 1, picked.packSize, item.unit || '??', picked.price);
+      addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
 
       trackEvent('AddToCart', {
          content_ids: [item.id],
