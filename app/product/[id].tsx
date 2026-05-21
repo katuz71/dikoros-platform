@@ -110,33 +110,51 @@ export default function ProductScreen() {
 
     const extractSize = (label: string) => {
       const normalized = clean(label).toLowerCase();
+
       const matches = Array.from(normalized.matchAll(/\d+(?:[,.]\d+)?/g));
 
-      const units = [
-        { words: ['\u043a\u0430\u043f\u0441\u0443\u043b'], label: '\u043a\u0430\u043f\u0441\u0443\u043b' },
-        { words: ['\u0433\u0440\u0430\u043c', '\u0433\u0440', '\u0433'], label: '\u0433\u0440\u0430\u043c' },
-        { words: ['\u043c\u0433'], label: '\u043c\u0433' },
-        { words: ['\u043c\u043b'], label: '\u043c\u043b' },
-        { words: ['\u043b'], label: '\u043b' },
-        { words: ['\u0448\u0442'], label: '\u0448\u0442' },
-      ];
+      const gramWords = ['\u0433\u0440\u0430\u043c', '\u0433\u0440', '\u0433'];
+      const capsuleWords = ['\u043a\u0430\u043f\u0441\u0443\u043b'];
+      const mlWords = ['\u043c\u043b'];
+      const literWords = ['\u043b'];
+      const mgWords = ['\u043c\u0433'];
+      const pcsWords = ['\u0448\u0442'];
+
+      const pickUnit = (tail: string) => {
+        const cleanTail = tail.trim().replace(/^\s+/, '');
+
+        // ????? ?????? ????????? ????? ????? ?????, ????? "2 ???? - 1 ????"
+        // ?? ???????????? ? "2 ????".
+        const firstWord = cleanTail
+          .replace(/^[\s.,;:()\-]+/, '')
+          .split(/[\s.,;:()\-]+/)[0]
+          ?.replace('.', '')
+          ?.trim();
+
+        if (!firstWord) return '';
+
+        if (firstWord.includes('\u0441\u043e\u0440\u0442')) return '';
+
+        if (capsuleWords.some(w => firstWord.includes(w))) return '\u043a\u0430\u043f\u0441\u0443\u043b';
+        if (gramWords.some(w => firstWord === w || firstWord.startsWith(w))) return '\u0433\u0440\u0430\u043c';
+        if (mgWords.some(w => firstWord === w || firstWord.startsWith(w))) return '\u043c\u0433';
+        if (mlWords.some(w => firstWord === w || firstWord.startsWith(w))) return '\u043c\u043b';
+        if (literWords.some(w => firstWord === w)) return '\u043b';
+        if (pcsWords.some(w => firstWord === w || firstWord.startsWith(w))) return '\u0448\u0442';
+
+        return '';
+      };
 
       for (const match of matches) {
         const value = String(match[0] || '').trim();
         const index = typeof match.index === 'number' ? match.index : -1;
         if (index < 0 || !value) continue;
 
-        const tail = normalized
-          .slice(index + value.length, index + value.length + 18)
-          .replace(/[.\s-]+/g, '')
-          .trim();
+        const tail = normalized.slice(index + value.length, index + value.length + 24);
+        const unit = pickUnit(tail);
 
-        const foundUnit = units.find(unit =>
-          unit.words.some(word => tail.includes(word))
-        );
-
-        if (foundUnit) {
-          return `${value} ${foundUnit.label}`;
+        if (unit) {
+          return `${value} ${unit}`;
         }
       }
 
