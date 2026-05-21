@@ -80,7 +80,7 @@ export default function CartScreen() {
         }
 
         setPromoCode('');
-        Alert.alert('Успіх!', `Промокод ${data.code} застосовано! ??`);
+        Alert.alert('?????!', `???????? ${data.code} ???????????!`);
       } else {
         const error = await response.json();
         setPromoDiscount(0, 0, '');
