@@ -108,20 +108,20 @@ export default function ProductScreen() {
       return words.some(word => lower.includes(word.toLowerCase()));
     };
 
-    const hasPowder = variantLabels.some(label => labelHas(label, ['Порошок', '?????']));
-    const hasDry = variantLabels.some(label => labelHas(label, ['Сушений', '?????']));
+    const hasPowder = variantLabels.some(label => labelHas(label, ['\u041f\u043e\u0440\u043e\u0448\u043e\u043a', 'porosh', 'powder']));
+    const hasDry = variantLabels.some(label => labelHas(label, ['\u0421\u0443\u0448\u0435\u043d\u0438\u0439', 'sushen', 'dry']));
     const hasSize = variantLabels.some(label =>
-      /(\d+(?:[,.]\d+)?)\s*(?|??|??|??|?|??)/i.test(label) ||
-      labelHas(label, ['грам', 'грами', 'капсул'])
+      /\d+/.test(label) &&
+      labelHas(label, ['\u0433\u0440\u0430\u043c', '\u0433\u0440', '\u0433', '\u043c\u0433', '\u043c\u043b', '\u043b', '\u0448\u0442', '\u043a\u0430\u043f\u0441\u0443\u043b'])
     );
 
     if (!oKeys.length && rawVariants.length > 1) {
       if (hasSize && (hasPowder || hasDry)) {
-        oKeys = ['Форма', 'Фасування'];
+        oKeys = ['\u0424\u043e\u0440\u043c\u0430', '\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f'];
       } else if (hasSize) {
-        oKeys = ['Фасування'];
+        oKeys = ['\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f'];
       } else {
-        oKeys = ['Варіант'];
+        oKeys = ['\u0412\u0430\u0440\u0456\u0430\u043d\u0442'];
       }
     }
 
@@ -131,14 +131,14 @@ export default function ProductScreen() {
       if (hasExplicitOptions) return label.split('|').map(clean);
 
       const form =
-        labelHas(label, ['Порошок', '?????']) ? 'Порошок' :
-        labelHas(label, ['Сушений', '?????']) ? 'Сушений' :
+        labelHas(label, ['\u041f\u043e\u0440\u043e\u0448\u043e\u043a', 'porosh', 'powder']) ? '\u041f\u043e\u0440\u043e\u0448\u043e\u043a' :
+        labelHas(label, ['\u0421\u0443\u0448\u0435\u043d\u0438\u0439', 'sushen', 'dry']) ? '\u0421\u0443\u0448\u0435\u043d\u0438\u0439' :
         '';
 
-      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*([A-Za-z?-??-?????????.]+)/);
-      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', 'грам') : '';
+      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*([^\s,.;:)]+)/);
+      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', '\u0433\u0440\u0430\u043c') : '';
 
-      if (oKeys.length === 2) return [form || 'Цілий', size || label];
+      if (oKeys.length === 2) return [form || '\u0426\u0456\u043b\u0438\u0439', size || label];
       if (oKeys.length === 1) return [size || form || label];
 
       return [];
