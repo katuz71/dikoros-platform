@@ -371,7 +371,7 @@ export default function CheckoutScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.itemVariant}>
-                    {item?.label ?? item?.weight ?? 'Стандарт'} 
+                    {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || '????????'}
                     {item.quantity > 1 ? ` x ${item.quantity} шт` : ''}
                   </Text>
                 </View>
