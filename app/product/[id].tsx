@@ -214,6 +214,7 @@ export default function ProductScreen() {
 
       setLoading(true);
       setError(null);
+      setSelectedOptions({});
       
       let url = `${API_URL}/products/${productId}`;
       try {
@@ -230,6 +231,20 @@ export default function ProductScreen() {
              const found = Array.isArray(allProducts) ? allProducts.find((p: any) => p.id === productId) : null;
              if (found) {
                 setProduct(found);
+
+                try {
+                  const rawRecent = await AsyncStorage.getItem('recentProducts');
+                  const parsedRecent = rawRecent ? JSON.parse(rawRecent) : [];
+                  const recentArray = Array.isArray(parsedRecent) ? parsedRecent : [];
+                  const nextRecent = [
+                    found,
+                    ...recentArray.filter((item: any) => item?.id !== found?.id)
+                  ].slice(0, 12);
+                  await AsyncStorage.setItem('recentProducts', JSON.stringify(nextRecent));
+                } catch (e) {
+                  console.warn('Save recent product error:', e);
+                }
+
                 setLoading(false);
                 return;
              }
@@ -239,6 +254,19 @@ export default function ProductScreen() {
         if (res.ok) {
           const data = await res.json();
           setProduct(data);
+
+          try {
+            const rawRecent = await AsyncStorage.getItem('recentProducts');
+            const parsedRecent = rawRecent ? JSON.parse(rawRecent) : [];
+            const recentArray = Array.isArray(parsedRecent) ? parsedRecent : [];
+            const nextRecent = [
+              data,
+              ...recentArray.filter((item: any) => item?.id !== data?.id)
+            ].slice(0, 12);
+            await AsyncStorage.setItem('recentProducts', JSON.stringify(nextRecent));
+          } catch (e) {
+            console.warn('Save recent product error:', e);
+          }
           
           // Initial selection logic (default to first available options)
           if (data.option_names) {
