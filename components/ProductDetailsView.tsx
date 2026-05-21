@@ -337,13 +337,31 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionValues}>
                   {matrix[ik].map(val => {
                     const isSel = clean(selectedOptions[ik]) === clean(val);
+
+                    const isAvailable = variantRows.some((row: any) => {
+                      return internalKeys.every((key) => {
+                        const expected = key === ik ? val : selectedOptions[key];
+                        if (!expected) return true;
+                        return clean(row.options[key]) === clean(expected);
+                      });
+                    });
+
                     return (
                       <TouchableOpacity 
                         key={val} 
-                        onPress={() => applyOptionChange(ik, val)}
-                        style={[styles.optionBtn, isSel && styles.optionBtnActive]}
+                        disabled={!isAvailable}
+                        onPress={() => isAvailable && applyOptionChange(ik, val)}
+                        style={[
+                          styles.optionBtn,
+                          isSel && styles.optionBtnActive,
+                          !isAvailable && styles.optionBtnDisabled
+                        ]}
                       >
-                        <Text style={[styles.optionBtnText, isSel && styles.optionBtnTextActive]}>{val}</Text>
+                        <Text style={[
+                          styles.optionBtnText,
+                          isSel && styles.optionBtnTextActive,
+                          !isAvailable && styles.optionBtnTextDisabled
+                        ]}>{val}</Text>
                       </TouchableOpacity>
                     );
                   })}

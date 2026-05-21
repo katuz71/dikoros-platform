@@ -263,34 +263,10 @@ export default function ProductScreen() {
 
   // Normalize option selection to always match existing variant
   // Normalize option selection to always match existing variant
+  // Change only the selected option. Impossible combinations are disabled in ProductDetailsView.
   const applyOptionChange = useCallback((key: string, value: string) => {
-    setSelectedOptions(prev => {
-      const next = { ...prev, [key]: value };
-
-      const exact = variantRows.find(row =>
-        internalKeys.every(ik => clean(row.options[ik]) === clean(next[ik]))
-      );
-
-      if (exact) {
-        return { ...exact.options };
-      }
-
-      const candidates = variantRows.filter(row => clean(row.options[key]) === clean(value));
-
-      const best = candidates
-        .map(row => {
-          const score = internalKeys.reduce((sum, ik) => {
-            if (ik === key) return sum + 10;
-            return sum + (clean(row.options[ik]) === clean(prev[ik]) ? 1 : 0);
-          }, 0);
-
-          return { row, score };
-        })
-        .sort((a, b) => b.score - a.score)[0]?.row || variantRows[0];
-
-      return best ? { ...best.options } : next;
-    });
-  }, [variantRows, internalKeys]);
+    setSelectedOptions(prev => ({ ...prev, [key]: value }));
+  }, []);
 
   // Data Loading
   useEffect(() => {
