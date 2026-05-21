@@ -123,42 +123,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const compositionField = cleanProductHtml(product?.composition);
     const usageField = cleanProductHtml(product?.usage);
 
-    const usageMarkers = [
-      'Рекомендації щодо прийому:',
-      'Спосіб застосування:',
-      'Застосування:',
-      'Як використовувати:',
-      'Використання:',
-    ];
-
-    let desc = source;
-    let usage = usageField;
-    let composition = compositionField;
-
-    if (!usage) {
-      for (const marker of usageMarkers) {
-        const idx = desc.indexOf(marker);
-        if (idx !== -1) {
-          usage = desc.slice(idx).trim();
-          desc = desc.slice(0, idx).trim();
-          break;
-        }
-      }
-    }
-
-    if (!composition) {
-      const usageLines = String(usage || '').split(/\r?\n/);
-      const compositionLines = usageLines.filter(line => line.toLowerCase().includes('склад'));
-      if (compositionLines.length > 0) {
-        composition = compositionLines.join('\n').trim();
-        usage = usageLines.filter(line => !line.toLowerCase().includes('склад')).join('\n').trim();
-      }
-    }
-
     return {
-      desc: desc || source || '—',
-      composition: composition || '—',
-      usage: usage || '—',
+      desc: source || '?',
+      composition: compositionField || '?',
+      usage: usageField || '?',
     };
   };
 
