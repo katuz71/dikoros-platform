@@ -74,20 +74,36 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
 
   const cleanProductHtml = (html: any) => {
-    return String(html || '')
+    const decode = (value: string) => {
+      return String(value || '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&mdash;/g, '\u2014')
+        .replace(/&ndash;/g, '\u2013')
+        .replace(/&deg;/g, '\u00b0')
+        .replace(/&rsquo;/g, '\u2019')
+        .replace(/&lsquo;/g, '\u2018')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+    };
+
+    let text = decode(String(html || ''));
+
+    // second pass for double-encoded HTML/entities
+    text = decode(text);
+
+    return text
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
       .replace(/<\/li>/gi, '\n')
       .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&mdash;/g, '—')
-      .replace(/&ndash;/g, '–')
-      .replace(/&deg;/g, '°')
-      .replace(/&rsquo;/g, '’')
-      .replace(/&#39;/g, "'")
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, '&')
       .replace(/[ \t]+/g, ' ')
       .replace(/\n\s+/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
@@ -263,6 +279,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 cacheKey={`pdp:${String(product?.id ?? '')}:${i}`}
                 style={styles.mainImage}
                 size={Dimensions.get('window').width}
+                contentFit="contain" 
               />
               );
             })}

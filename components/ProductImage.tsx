@@ -9,11 +9,12 @@ interface ProductImageProps {
   cacheKey?: string | number;
   style?: any;
   size?: number;
+  contentFit?: 'cover' | 'contain';
 }
 
 const preferredIndexByKey = new Map<string, number>();
 
-export default function ProductImage({ uri, uris, cacheKey, style, size = 200 }: ProductImageProps) {
+export default function ProductImage({ uri, uris, cacheKey, style, size = 200, contentFit = 'cover' }: ProductImageProps) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
 
