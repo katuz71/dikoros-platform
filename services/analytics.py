@@ -34,7 +34,8 @@ async def send_to_facebook_capi(event_name: str, data: dict, user_data: dict) ->
             {
                 "event_name": fb_event_name,
                 "event_time": int(time.time()),
-                "action_source": "website",
+                "event_id": data.get("event_id") or str(uuid.uuid4()),
+                "action_source": "app",
                 "user_data": {
                     "ph": [_hash_data(user_data.get("phone"))] if user_data.get("phone") else [],
                     "em": [_hash_data(user_data.get("email"))] if user_data.get("email") else [],
@@ -65,7 +66,12 @@ async def send_to_google_analytics(event_name: str, data: dict, user_data: dict)
         ga_params["value"] = float(ga_params["value"])
 
     payload = {
-        "client_id": user_data.get("client_id") or user_data.get("phone") or str(uuid.uuid4()),
+        "client_id": (
+            user_data.get("client_id")
+            or _hash_data(user_data.get("phone"))
+            or data.get("event_id")
+            or str(uuid.uuid4())
+        ),
         "events": [
             {
                 "name": event_name,
