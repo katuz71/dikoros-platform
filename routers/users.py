@@ -215,7 +215,7 @@ def export_users(
     for r in rows:
         row = dict(r)
         total = row.get("total_spent") or 0
-        level = 20 if total > 25000 else 15 if total > 10000 else 10 if total > 5000 else 5 if total > 2000 else 0
+        level = calculate_cashback_percent(float(total or 0))
         writer.writerow([
             row.get("phone") or "",
             row.get("name") or "",
