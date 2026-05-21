@@ -1149,7 +1149,7 @@ export default function Index() {
   const filteredProducts = getSortedProducts();
   const hitProducts = products.filter((p: any) => p?.is_hit || p?.is_bestseller).slice(0, 16);
   const promoProducts = products.filter((p: any) => p?.is_promotion || (p?.old_price && Number(p.old_price) > Number(p.price))).slice(0, 16);
-  const markedNewProducts = products.filter((p: any) => p?.is_new || String(p?.badge || '').toLowerCase().includes('???')).slice(0, 16);
+  const markedNewProducts = products.filter((p: any) => p?.is_new || String(p?.badge || '').toLowerCase().includes('нов')).slice(0, 16);
   const newProducts = markedNewProducts.length ? markedNewProducts : products.slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
@@ -1330,7 +1330,7 @@ export default function Index() {
                 key={index}
                 onPress={() => {
                   setSelectedCategory(cat);
-                  setCategoryViewOpen(cat !== '???');
+                  setCategoryViewOpen(cat !== 'Всі');
                 }}
                 style={[
                   styles.categoryItem,
@@ -1592,7 +1592,7 @@ export default function Index() {
               key={index}
               onPress={() => {
                 setSelectedCategory(cat);
-                setCategoryViewOpen(cat !== '???');
+                setCategoryViewOpen(cat !== 'Всі');
               }}
               style={[
                 styles.categoryItem,
