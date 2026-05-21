@@ -281,7 +281,7 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         height,
         backgroundColor: '#f5f5f5',
         borderRadius: 12,
-        marginRight: 10,
+        marginRight: 0,
         alignItems: 'center',
         justifyContent: 'center'
       }}>
@@ -297,7 +297,7 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         width,
         height, 
         borderRadius: 12,
-        marginRight: 10,
+        marginRight: 0,
         backgroundColor: '#f5f5f5'
       }} 
       resizeMode="cover"
@@ -1278,18 +1278,18 @@ export default function Index() {
         <View style={styles.headerIcons}>
           <TouchableOpacity 
             onPress={() => setIsSearchVisible(!isSearchVisible)}
-            style={{ marginRight: 10, position: 'relative' }}
+            style={{ marginRight: 0, position: 'relative' }}
           >
             <Ionicons name="search" size={24} color="black" />
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => router.push('/(tabs)/favorites')}
-            style={{ marginRight: 10, position: 'relative' }}
+            style={{ marginRight: 0, position: 'relative' }}
           >
             <Ionicons name="heart" color="red" size={24} />
           </TouchableOpacity>
           <TouchableOpacity 
-            style={{ marginRight: 10, position: 'relative' }} 
+            style={{ marginRight: 0, position: 'relative' }} 
             onPress={() => router.push('/(tabs)/cart')}
           >
             <Ionicons name="cart" size={26} color="black" />
@@ -1406,7 +1406,8 @@ export default function Index() {
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
-        const CARD_WIDTH = width - 40;
+        const SLIDE_WIDTH = width;
+        const BANNER_WIDTH = width - 40;
 
         return (
           <ScrollView
@@ -1415,8 +1416,7 @@ export default function Index() {
             showsHorizontalScrollIndicator={false}
             pagingEnabled={true}
             style={{ marginBottom: 20 }}
-            contentContainerStyle={{ paddingLeft: 20, paddingRight: 20 }}
-            snapToInterval={CARD_WIDTH + 10}
+            snapToInterval={SLIDE_WIDTH}
             decelerationRate="fast"
           >
             {banners.map((b) => {
@@ -1426,19 +1426,26 @@ export default function Index() {
               }
 
               const fullImageUrl = getImageUrl(imageUrl, {
-                width: CARD_WIDTH,
+                width: BANNER_WIDTH,
                 height: 220,
                 quality: 80,
                 format: 'jpg'
               });
 
               return (
-                <BannerImage
+                <View
                   key={b?.id || Math.random()}
-                  uri={fullImageUrl}
-                  width={CARD_WIDTH}
-                  height={220}
-                />
+                  style={{
+                    width: SLIDE_WIDTH,
+                    paddingHorizontal: 20
+                  }}
+                >
+                  <BannerImage
+                    uri={fullImageUrl}
+                    width={BANNER_WIDTH}
+                    height={220}
+                  />
+                </View>
               );
             })}
           </ScrollView>
@@ -1463,7 +1470,7 @@ export default function Index() {
                     height: 86,
                     borderRadius: 14,
                     backgroundColor: '#F3F4F6',
-                    marginRight: 10,
+                    marginRight: 0,
                     overflow: 'hidden',
                     borderWidth: 1,
                     borderColor: '#EEF0F2'
@@ -1728,7 +1735,7 @@ export default function Index() {
                                 width: 50,
                                 height: 50,
                                 borderRadius: 8,
-                                marginRight: 10,
+                                marginRight: 0,
                                 backgroundColor: '#f0f0f0',
                               }}
                               resizeMode="cover"
@@ -1810,7 +1817,7 @@ export default function Index() {
                   paddingHorizontal: 15,
                   paddingVertical: 10,
                   fontSize: 16,
-                  marginRight: 10,
+                  marginRight: 0,
                   height: 45,
                 }}
                 value={inputMessage}
