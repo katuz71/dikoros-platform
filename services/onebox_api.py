@@ -153,12 +153,12 @@ async def create_onebox_order(order_data: dict) -> dict:
                 ).strip()
 
                 product_name = (
-                    f"{base_name} ? {variant_label}"
+                    f"{base_name} — {variant_label}"
                     if variant_label and variant_label not in base_name
                     else base_name
                 )
 
-                item_lines.append(f"- {product_name}: {amount_int} x {price_val} ???")
+                item_lines.append(f"- {product_name}: {amount_int} x {price_val} грн")
 
                 p_obj = {
                     "name": product_name,
@@ -179,15 +179,15 @@ async def create_onebox_order(order_data: dict) -> dict:
         sum_str = "{:.4f}".format(total_sum)
 
         desc_lines = [
-            "?? ????? ?? ??????????",
-            f"???: {name}",
-            f"???????: {phone}",
-            f"?????: {sum_str} ???",
-            f"??????: {payment_method}",
-            f"????????: {delivery_method}",
-            f"?????: {full_address}",
+            "🛒 ЗАКАЗ ИЗ ПРИЛОЖЕНИЯ",
+            f"Имя: {name}",
+            f"Телефон: {phone}",
+            f"Сумма: {sum_str} грн",
+            f"Оплата: {payment_method}",
+            f"Доставка: {delivery_method}",
+            f"Адрес: {full_address}",
             "",
-            "??????:",
+            "Товары:",
             *item_lines,
         ]
         full_description = "\n".join(desc_lines)
@@ -198,7 +198,7 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientphone": phone,
             "phone": phone,
 
-            "name": f"????? ?? ?????????? ?? {name}",
+            "name": f"Заказ из приложения от {name}",
             "description": full_description,
             "comments": full_description,
             "order_content": full_description,
