@@ -1266,7 +1266,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, categoryViewOpen && { display: 'none' }]}>
         <View>
           <Image
             source={require('../../assets/images/dikoros-logo.webp')}
@@ -1441,33 +1441,41 @@ export default function Index() {
           </ScrollView>
         );
       })()}
-      <HomeProductCarousel
-        title={'\u041e\u0441\u0442\u0430\u043d\u043d\u0456 \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u043d\u0443\u0442\u0456'}
-        products={recentProducts}
-        favorites={favorites}
-        onOpenProduct={(item) => openProductWithRecent(item)}
-        onAddToCart={(item) => {
-          Vibration.vibrate(10);
-          const picked = _pickDefaultVariant(item);
-          addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
-          showToast('Товар додано в кошик');
-        }}
-        onToggleFavorite={(item) => {
-          Vibration.vibrate(10);
-          const isFav = favorites.some(fav => fav.id === item.id);
-          toggleFavorite({
-            id: item.id,
-            name: item.name || '',
-            price: item.price || 0,
-            image: item.image || item.picture || item.image_url || '',
-            category: item.category,
-            old_price: item.old_price,
-            badge: item.badge,
-            unit: item.unit
-          });
-          showToast(isFav ? 'Видалено з обраного' : 'Додано в обране');
-        }}
-      />
+      {recentProducts.length > 0 && (
+        <View style={{ marginBottom: 22 }}>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 12 }}>
+            ??????? ???????????
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+            {recentProducts.map((item) => {
+              const imageUrl = getImageUrl(item.image || item.picture || item.image_url || '');
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.85}
+                  onPress={() => openProductWithRecent(item)}
+                  style={{
+                    width: 86,
+                    height: 86,
+                    borderRadius: 14,
+                    backgroundColor: '#F3F4F6',
+                    marginRight: 12,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: '#EEF0F2'
+                  }}
+                >
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       <HomeProductCarousel
         title={'\u0425\u0456\u0442\u0438 \u043f\u0440\u043e\u0434\u0430\u0436\u0456\u0432'}
