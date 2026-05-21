@@ -123,10 +123,31 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const compositionField = cleanProductHtml(product?.composition);
     const usageField = cleanProductHtml(product?.usage);
 
+    const lines = source
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    const skladWords = ['склад', 'інгредієнт'];
+    const usageWords = ['застосування', 'використання', 'прийом', 'дозування', 'вживати', 'наносити', 'зовнішнього', 'внутрішнього'];
+
+    const findLines = (words: string[]) => {
+      return lines
+        .filter(line => {
+          const lower = line.toLowerCase();
+          return words.some(word => lower.includes(word));
+        })
+        .join('\n')
+        .trim();
+    };
+
+    const extractedComposition = findLines(skladWords);
+    const extractedUsage = findLines(usageWords);
+
     return {
       desc: source || '?',
-      composition: compositionField || 'Інформація про склад не вказана.',
-      usage: usageField || 'Спосіб використання не вказаний.',
+      composition: compositionField || extractedComposition || 'Інформація про склад не вказана.',
+      usage: usageField || extractedUsage || 'Спосіб використання не вказаний.',
     };
   };
 
