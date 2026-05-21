@@ -32,11 +32,26 @@ type Props = {
 
 const formatPrice = (price: number) => `${Number(price || 0).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ' ')} ₴`;
 
-const getBadge = (item: Product) => {
-  if (item.is_promotion || (item.old_price && Number(item.old_price) > Number(item.price))) return '\u0410\u041a\u0426\u0406\u042f';
-  if (item.is_hit || item.is_bestseller) return '\u0425\u0406\u0422';
-  if (item.is_new) return '\u041d\u041e\u0412\u0418\u041d\u041a\u0410';
-  return item.badge || '';
+const getBadges = (item: Product) => {
+  const badges: string[] = [];
+
+  if (item.is_promotion || (item.old_price && Number(item.old_price) > Number(item.price))) {
+    badges.push('АКЦІЯ');
+  }
+
+  if (item.is_hit || item.is_bestseller) {
+    badges.push('ХІТ');
+  }
+
+  if (item.is_new) {
+    badges.push('НОВИНКА');
+  }
+
+  if (item.badge && !badges.includes(item.badge)) {
+    badges.push(item.badge);
+  }
+
+  return badges;
 };
 
 export default function HomeProductCarousel({
@@ -62,7 +77,7 @@ export default function HomeProductCarousel({
         contentContainerStyle={styles.list}
       >
         {products.map((item) => {
-          const badge = getBadge(item);
+          const badges = getBadges(item);
           const isFavorite = favorites.some((fav) => fav.id === item.id);
           const imageUrl = getImageUrl(item.image || item.picture || item.image_url || '');
 
@@ -76,9 +91,13 @@ export default function HomeProductCarousel({
               <View style={styles.imageWrap}>
                 <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
 
-                {!!badge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{badge}</Text>
+                {badges.length > 0 && (
+                  <View style={styles.badgesWrap}>
+                    {badges.map((badge) => (
+                      <View key={badge} style={styles.badge}>
+                        <Text style={styles.badgeText}>{badge}</Text>
+                      </View>
+                    ))}
                   </View>
                 )}
 
@@ -154,10 +173,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  badge: {
+  badgesWrap: {
     position: 'absolute',
     top: 8,
     left: 8,
+    gap: 4,
+    alignItems: 'flex-start',
+  },
+  badge: {
     backgroundColor: '#F97316',
     paddingHorizontal: 7,
     paddingVertical: 4,
