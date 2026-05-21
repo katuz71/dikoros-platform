@@ -307,8 +307,8 @@ export default function ProfileScreen() {
       <View style={styles.gridContainer}>
         <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
         <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
-        <GridBtn icon="heart-outline" label="??? ??????" onPress={() => router.push('/(tabs)/favorites')} />
-        <GridBtn icon="mail-outline" label="????????????" onPress={() => Alert.alert('Повідомлення', 'Поки немає нових повідомлень')} />
+        <GridBtn icon="heart-outline" label="Мої списки" onPress={() => router.push('/(tabs)/favorites')} />
+        <GridBtn icon="mail-outline" label="Повідомлення" onPress={() => Alert.alert('Повідомлення', 'Поки немає нових повідомлень')} />
         <GridBtn icon="person-outline" label="Інформація" onPress={openInfoModal} />
         <GridBtn icon="globe-outline" label="UA | UAH" onPress={() => Alert.alert('Мова та валюта', 'Зараз доступно: UA / UAH')} />
       </View>
