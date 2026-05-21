@@ -42,7 +42,7 @@ export default function CheckoutScreen() {
 
   const formatPrice = (value: number) => {
     const safeValue = Math.round(Number(value) || 0);
-    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ?`;
+    return `${safeValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
   };
 
   // Поля формы
@@ -376,7 +376,7 @@ export default function CheckoutScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.itemVariant}>
-                    {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || '????????'}
+                    {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || 'Стандарт'}
                     {item.quantity > 1 ? ` x ${item.quantity} шт` : ''}
                   </Text>
                 </View>
