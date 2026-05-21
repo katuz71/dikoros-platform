@@ -100,11 +100,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const usageField = cleanProductHtml(product?.usage);
 
     const usageMarkers = [
-      '???????????? ???? ???????:',
-      '?????? ????????????:',
-      '????????????:',
-      '?? ???????????????:',
-      '????????????:',
+      'Рекомендації щодо прийому:',
+      'Спосіб застосування:',
+      'Застосування:',
+      'Як використовувати:',
+      'Використання:',
     ];
 
     let desc = source;
@@ -124,17 +124,17 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
     if (!composition) {
       const usageLines = String(usage || '').split(/\r?\n/);
-      const compositionLines = usageLines.filter(line => line.toLowerCase().includes('?????'));
+      const compositionLines = usageLines.filter(line => line.toLowerCase().includes('склад'));
       if (compositionLines.length > 0) {
         composition = compositionLines.join('\n').trim();
-        usage = usageLines.filter(line => !line.toLowerCase().includes('?????')).join('\n').trim();
+        usage = usageLines.filter(line => !line.toLowerCase().includes('склад')).join('\n').trim();
       }
     }
 
     return {
-      desc: desc || source || '?',
-      composition: composition || '?',
-      usage: usage || '?',
+      desc: desc || source || '—',
+      composition: composition || '—',
+      usage: usage || '—',
     };
   };
 
