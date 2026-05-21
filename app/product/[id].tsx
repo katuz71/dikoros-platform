@@ -108,19 +108,70 @@ export default function ProductScreen() {
       return words.some(word => lower.includes(word.toLowerCase()));
     };
 
-    const hasPowder = variantLabels.some(label => labelHas(label, ['\u041f\u043e\u0440\u043e\u0448\u043e\u043a', 'porosh', 'powder']));
-    const hasDry = variantLabels.some(label => labelHas(label, ['\u0421\u0443\u0448\u0435\u043d\u0438\u0439', 'sushen', 'dry']));
-    const hasSize = variantLabels.some(label =>
-      /\d+/.test(label) &&
-      labelHas(label, ['\u0433\u0440\u0430\u043c', '\u0433\u0440', '\u0433', '\u043c\u0433', '\u043c\u043b', '\u043b', '\u0448\u0442', '\u043a\u0430\u043f\u0441\u0443\u043b'])
+    const extractSize = (label: string) => {
+      const unitWords = [
+        '\u0433\u0440\u0430\u043c',
+        '\u0433\u0440\u0430\u043c\u0438',
+        '\u0433\u0440',
+        '\u0433',
+        '\u043c\u0433',
+        '\u043c\u043b',
+        '\u043b',
+        '\u0448\u0442',
+        '\u043a\u0430\u043f\u0441\u0443\u043b',
+      ];
+
+      const matches = Array.from(label.matchAll(/(\d+(?:[,.]\d+)?)\s*([^\s,.;:)]+)/g));
+
+      for (const match of matches) {
+        const value = String(match[1] || '').trim();
+        const rawUnit = String(match[2] || '').toLowerCase().replace('.', '').trim();
+
+        const isUnit = unitWords.some(unit => rawUnit.includes(unit.toLowerCase()));
+        if (isUnit) {
+          return `${value} ${rawUnit}`.replace('\u0433\u0440', '\u0433\u0440\u0430\u043c');
+        }
+      }
+
+      return '';
+    };
+
+    const extractForm = (label: string) => {
+      if (labelHas(label, ['\u043f\u043e\u0440\u043e\u0448', 'porosh', 'powder'])) return '\u041f\u043e\u0440\u043e\u0448\u043e\u043a';
+      if (labelHas(label, ['\u043c\u0435\u043b\u0435\u043d', 'melen', 'ground'])) return '\u041c\u0435\u043b\u0435\u043d\u0438\u0439';
+      return '\u0426\u0456\u043b\u0438\u0439';
+    };
+
+    const extractSort = (label: string) => {
+      const lower = clean(label).toLowerCase();
+
+      if (labelHas(lower, ['\u043b\u043e\u043c'])) return '\u041b\u043e\u043c';
+      if (labelHas(lower, ['\u0435\u043b\u0456\u0442', '\u044d\u043b\u0438\u0442', 'elit', 'elite'])) return '\u0415\u043b\u0456\u0442';
+
+      if (/(^|[\s,;-])2\s*????/i.test(lower)) return '2 \u0441\u043e\u0440\u0442';
+      if (/(^|[\s,;-])1\s*????/i.test(lower)) return '1 \u0441\u043e\u0440\u0442';
+
+      return '\u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442';
+    };
+
+    const hasForm = variantLabels.some(label =>
+      labelHas(label, ['\u043f\u043e\u0440\u043e\u0448', '\u043c\u0435\u043b\u0435\u043d', 'powder', 'ground'])
     );
 
+    const hasSort = variantLabels.some(label =>
+      labelHas(label, ['\u0441\u043e\u0440\u0442', '\u0435\u043b\u0456\u0442', '\u043b\u043e\u043c', 'elite'])
+    );
+
+    const hasSize = variantLabels.some(label => !!extractSize(label));
+
     if (!oKeys.length && rawVariants.length > 1) {
-      if (hasSize && (hasPowder || hasDry)) {
-        oKeys = ['\u0424\u043e\u0440\u043c\u0430', '\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f'];
-      } else if (hasSize) {
-        oKeys = ['\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f'];
-      } else {
+      oKeys = [];
+
+      if (hasForm) oKeys.push('\u0424\u043e\u0440\u043c\u0430');
+      if (hasSort) oKeys.push('\u0421\u043e\u0440\u0442');
+      if (hasSize) oKeys.push('\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f');
+
+      if (!oKeys.length) {
         oKeys = ['\u0412\u0430\u0440\u0456\u0430\u043d\u0442'];
       }
     }
@@ -130,18 +181,20 @@ export default function ProductScreen() {
     const inferVariantParts = (label: string) => {
       if (hasExplicitOptions) return label.split('|').map(clean);
 
-      const form =
-        labelHas(label, ['\u041f\u043e\u0440\u043e\u0448\u043e\u043a', 'porosh', 'powder']) ? '\u041f\u043e\u0440\u043e\u0448\u043e\u043a' :
-        labelHas(label, ['\u0421\u0443\u0448\u0435\u043d\u0438\u0439', 'sushen', 'dry']) ? '\u0421\u0443\u0448\u0435\u043d\u0438\u0439' :
-        '';
+      if (oKeys.length === 1 && oKeys[0] === '\u0412\u0430\u0440\u0456\u0430\u043d\u0442') {
+        return [label];
+      }
 
-      const sizeMatch = label.match(/(\d+(?:[,.]\d+)?)\s*([^\s,.;:)]+)/);
-      const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}`.replace('??.', '\u0433\u0440\u0430\u043c') : '';
+      const parts: string[] = [];
 
-      if (oKeys.length === 2) return [form || '\u0426\u0456\u043b\u0438\u0439', size || label];
-      if (oKeys.length === 1) return [size || form || label];
+      oKeys.forEach((key) => {
+        if (key === '\u0424\u043e\u0440\u043c\u0430') parts.push(extractForm(label));
+        else if (key === '\u0421\u043e\u0440\u0442') parts.push(extractSort(label));
+        else if (key === '\u0424\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f') parts.push(extractSize(label) || label);
+        else parts.push(label);
+      });
 
-      return [];
+      return parts;
     };
 
     // 3. Build rows
