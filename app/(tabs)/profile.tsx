@@ -315,7 +315,7 @@ export default function ProfileScreen() {
 
       {/* СПИСКИ МЕНЮ */}
       <MenuSection title="Бонуси та знижки">
-        <MenuItem label="Мої винагороди" onPress={() => Alert.alert('Мої винагороди', `Доступні бонуси: ${profile?.bonus_balance || 0} ?`)} />
+        <MenuItem label="Мої винагороди" onPress={() => Alert.alert('Мої винагороди', `Доступні бонуси: ${profile?.bonus_balance || 0} ₴`)} />
         <MenuItem label="Бонуси на покупки" onPress={() => setModalVisible(true)} />
         <MenuItem label="Знижки та акції" isLast onPress={() => Alert.alert('Знижки та акції', 'Акційні товари доступні на головній сторінці')} />
       </MenuSection>
