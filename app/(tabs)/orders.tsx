@@ -40,7 +40,7 @@ const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
     </View>
     {order.items && order.items.length > 0 && (
        <Text style={styles.itemsSummary} numberOfLines={1}>
-          {order.items.map((i: any) => `${i.name} (${i.quantity} шт)`).join(', ')}
+          {order.items.map((i: any) => `${i.name}${i.variant_info || i.packSize || i.unit ? ` ? ${i.variant_info || i.packSize || i.unit}` : ''} (${i.quantity} ??)`).join(', ')}
        </Text>
     )}
   </TouchableOpacity>
