@@ -1114,7 +1114,32 @@ export default function Index() {
   }, [fetchProducts]);
 
   // Safe products array
-  const safeProducts = Array.isArray(products) ? products : [];
+  const safeProductsRaw = Array.isArray(products) ? products : [];
+
+  const variantChildIds = useMemo(() => {
+    const ids = new Set<number>();
+
+    safeProductsRaw.forEach((product: any) => {
+      const variants = parseMaybeJsonArray(product?.variants);
+
+      if (variants.length <= 1) return;
+
+      variants.forEach((variant: any) => {
+        const variantId = Number(variant?.id);
+        const productId = Number(product?.id);
+
+        if (variantId && variantId !== productId) {
+          ids.add(variantId);
+        }
+      });
+    });
+
+    return ids;
+  }, [safeProductsRaw]);
+
+  const safeProducts = useMemo(() => {
+    return safeProductsRaw.filter((product: any) => !variantChildIds.has(Number(product?.id)));
+  }, [safeProductsRaw, variantChildIds]);
 
   // Derive categories from products
   const derivedCategories = useMemo(() => {
@@ -1147,10 +1172,10 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
-  const hitProducts = products.filter((p: any) => p?.is_hit || p?.is_bestseller).slice(0, 16);
-  const promoProducts = products.filter((p: any) => p?.is_promotion || (p?.old_price && Number(p.old_price) > Number(p.price))).slice(0, 16);
-  const markedNewProducts = products.filter((p: any) => p?.is_new || String(p?.badge || '').toLowerCase().includes('нов')).slice(0, 16);
-  const newProducts = markedNewProducts.length ? markedNewProducts : products.slice(0, 16);
+  const hitProducts = safeProducts.filter((p: any) => p?.is_hit || p?.is_bestseller).slice(0, 16);
+  const promoProducts = safeProducts.filter((p: any) => p?.is_promotion || (p?.old_price && Number(p.old_price) > Number(p.price))).slice(0, 16);
+  const markedNewProducts = safeProducts.filter((p: any) => p?.is_new || String(p?.badge || '').toLowerCase().includes('нов')).slice(0, 16);
+  const newProducts = markedNewProducts.length ? markedNewProducts : safeProducts.slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
 
