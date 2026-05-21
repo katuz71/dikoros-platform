@@ -280,7 +280,7 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         width,
         height,
         backgroundColor: '#f5f5f5',
-        borderRadius: 12,
+        borderRadius: 10,
         marginRight: 0,
         alignItems: 'center',
         justifyContent: 'center'
@@ -296,7 +296,7 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
       style={{ 
         width,
         height, 
-        borderRadius: 12,
+        borderRadius: 10,
         marginRight: 0,
         backgroundColor: '#f5f5f5'
       }} 
@@ -1299,7 +1299,7 @@ export default function Index() {
                 right: -8,
                 top: -5,
                 backgroundColor: 'red',
-                borderRadius: 12,
+                borderRadius: 10,
                 minWidth: 22,
                 height: 22,
                 justifyContent: 'center',
@@ -1406,44 +1406,52 @@ export default function Index() {
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
-        const CARD_WIDTH = width - 40;
+        const SLIDE_WIDTH = width;
+        const BANNER_WIDTH = width - 40;
+
         return (
-          <ScrollView 
+          <ScrollView
             ref={bannerRef}
-            horizontal 
+            horizontal
             showsHorizontalScrollIndicator={false}
             pagingEnabled={true}
             style={{ marginBottom: 20 }}
-            contentContainerStyle={{ paddingLeft: 20, paddingRight: 20 }}
-            snapToInterval={CARD_WIDTH}
+            snapToInterval={SLIDE_WIDTH}
             decelerationRate="fast"
           >
             {banners.map((b) => {
-              // Обеспечиваем правильное формирование URL для баннера
-              // Используем getImageUrl для обработки относительных путей
               const imageUrl = b.image_url || b.image || b.picture;
               if (!imageUrl) {
                 return null;
               }
+
               const fullImageUrl = getImageUrl(imageUrl, {
-                width: CARD_WIDTH,
+                width: BANNER_WIDTH,
                 height: 240,
                 quality: 80,
                 format: 'jpg'
               });
-              
+
               return (
-                <BannerImage 
+                <View
                   key={b?.id || Math.random()}
-                  uri={fullImageUrl}
-                  width={CARD_WIDTH}
-                  height={240}
-                />
+                  style={{
+                    width: SLIDE_WIDTH,
+                    paddingHorizontal: 20
+                  }}
+                >
+                  <BannerImage
+                    uri={fullImageUrl}
+                    width={BANNER_WIDTH}
+                    height={240}
+                  />
+                </View>
               );
             })}
           </ScrollView>
         );
       })()}
+
       {recentProducts.length > 0 && (
         <View style={{ marginBottom: 22 }}>
           <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 12, textAlign: 'center' }}>
@@ -1703,7 +1711,7 @@ export default function Index() {
                               flexDirection: 'row',
                               backgroundColor: '#fff',
                               padding: 10,
-                              borderRadius: 12,
+                              borderRadius: 10,
                               marginBottom: 8,
                               borderWidth: 1,
                               borderColor: '#eee',
