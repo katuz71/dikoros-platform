@@ -105,7 +105,7 @@ export default function ProductImage({ uri, uris, cacheKey, style, size = 200, c
         <Image
           source={imageUri}
           style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
+          contentFit={contentFit}
           cachePolicy="disk"
           onLoadStart={() => {
             console.log('🖼️ Image load start:', imageUri);
