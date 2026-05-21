@@ -34,7 +34,7 @@ export default function ProductCard({
   isFavorite 
 }: ProductCardProps) {
   const safeName = item.name || '';
-  const safePrice = typeof item.price === 'number' ? item.price : 0;
+  {displayPrice || `${safePrice} ?`}
   const safeOldPrice = typeof item.old_price === 'number' ? item.old_price : null;
   const hasDiscount = safeOldPrice !== null && safeOldPrice > safePrice;
   const safeBadge = item.badge || null;
