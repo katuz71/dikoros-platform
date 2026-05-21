@@ -1,4 +1,5 @@
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
+import { trackEvent } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -329,17 +330,36 @@ export default function CheckoutScreen() {
           return;
         }
 
+        const purchaseItems = items.map((i: any) => ({
+          item_id: String(i.id),
+          item_name: i.name,
+          price: Number(i.price || 0),
+          quantity: Number(i.quantity || 1),
+          item_variant: i?.variantSize || i?.packSize || i?.unit || '??'
+        }));
+
+        const purchaseEventId = `purchase_${result.order_id}`;
+
+        trackEvent('purchase', {
+          event_id: purchaseEventId,
+          transaction_id: String(result.order_id),
+          value: Math.floor(finalPriceWithBonuses),
+          currency: 'UAH',
+          content_type: 'product',
+          content_ids: items.map((i: any) => i.id),
+          num_items: items.reduce((sum: number, i: any) => sum + Number(i.quantity || 1), 0),
+          items: purchaseItems,
+          promo_code: appliedPromoCode || undefined,
+          discount_value: Math.round(Number(totalPrice || 0) - Number(finalPriceWithBonuses || 0)),
+          payment_method: paymentMethod
+        });
+
         clearCart();
         logFirebaseEvent('purchase', {
           currency: 'UAH',
           value: Math.floor(finalPriceWithBonuses),
           transaction_id: String(result.order_id),
-          items: items.map((i: any) => ({
-            item_id: String(i.id),
-            item_name: i.name,
-            price: i.price,
-            quantity: i.quantity
-          }))
+          items: purchaseItems
         });
 
         Alert.alert(
