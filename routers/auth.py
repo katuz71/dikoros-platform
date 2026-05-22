@@ -235,6 +235,7 @@ def auth_social_login(body: SocialAuthRequest):
         conn.close()
         out = dict(user_dict)
         out["access_token"] = create_access_token(user_dict["phone"])
+        out["is_new_user"] = False
         # Якщо в БД збережено технічний ідентифікатор (google_*/fb_*) — не повертаємо його як телефон; клієнт має запросити номер.
         if (user_dict.get("phone") or "").startswith("google_") or (user_dict.get("phone") or "").startswith("fb_") or (user_dict.get("phone") or "").startswith("tg_"):
             out["phone"] = None
@@ -301,6 +302,7 @@ def auth_social_login(body: SocialAuthRequest):
         raise HTTPException(status_code=500, detail="Failed to create user")
     out = dict(user)
     out["access_token"] = create_access_token(phone_key)
+    out["is_new_user"] = True
     # Новий соц. юзер — телефон не заповнювали; клієнт має запросити номер при першому вході.
     out["phone"] = None
     out["needs_phone"] = True
