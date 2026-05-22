@@ -737,7 +737,7 @@ async def chat_endpoint(request: ChatRequest):
         all_products_rows = conn.execute(
             """
             SELECT id, name, category, price, old_price, image, images,
-                   description, usage, composition, sku, external_id
+                   description, usage, composition
             FROM products
             """
         ).fetchall()
