@@ -572,11 +572,18 @@ IDs: [39151, 39206, 39202]»
 
     except Exception as e:
         logger.exception("CHAT ERROR")
+        error_text = "\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437."
         return ChatResponse(
-            message="ОШИБКА СЕРВЕРА 500",  # диагностика: уникальное сообщение при ошибке
+            message=error_text,
             products=[],
+            reply=error_text,
+            items=[],
+            quick_replies=[
+                "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
+                "\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c",
+            ],
+            session_id=(getattr(request, "session_id", None) or "anon"),
         )
-
 
 @router.post("/api/chat")
 async def chat_endpoint_api(request: ChatRequest):
