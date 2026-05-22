@@ -4,6 +4,8 @@ import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { useEffect } from 'react';
@@ -19,6 +21,8 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+WebBrowser.maybeCompleteAuthSession();
 
 // --- ТИПЫ ---
 interface UserProfile {
@@ -71,6 +75,12 @@ export default function ProfileScreen() {
   const [userReviews, setUserReviews] = useState<any[]>([]);
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
 
+  const [, googleResponse, promptGoogleLogin] = Google.useIdTokenAuthRequest({
+    clientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
+    webClientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
+    androidClientId: '451079322222-49sf5d8pc3kb2fr10022b5im58s21ao6.apps.googleusercontent.com',
+  });
+
 
   // 1. Проверка авторизации и обновление данных при фокусе
   useFocusEffect(
@@ -82,6 +92,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     checkLogin();
   }, []);
+
+  useEffect(() => {
+    const idToken = googleResponse?.type === 'success'
+      ? (googleResponse.params?.id_token || googleResponse.authentication?.idToken)
+      : null;
+
+    if (idToken) {
+      handleGoogleSocialLogin(idToken);
+    }
+  }, [googleResponse]);
 
   const canonicalizePhone = (value: string) => {
     const digits = (value || '').replace(/\D/g, '');
@@ -263,6 +283,65 @@ export default function ProfileScreen() {
       } else {
         const err = await res.json().catch(() => null);
         Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 SMS-\u043a\u043e\u0434');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
+    }
+  };
+
+  const handleGoogleSocialLogin = async (idToken: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/social-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'google',
+          token: idToken,
+        }),
+      });
+
+      if (!res.ok) {
+        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0443\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google');
+        return;
+      }
+
+      const user = await res.json();
+      const authId = user.auth_id || user.phone;
+
+      if (authId) {
+        await AsyncStorage.setItem('userPhone', authId);
+        await attachPushToken(authId);
+        setPhone(authId);
+      }
+
+      if (user.access_token) {
+        await AsyncStorage.setItem('accessToken', user.access_token);
+      }
+
+      if (user.name) {
+        await AsyncStorage.setItem('userName', user.name);
+      }
+
+      if (user.is_new_user) {
+        trackEvent('CompleteRegistration', {
+          method: 'google',
+          value: 150,
+          currency: 'UAH',
+        });
+
+        logFirebaseEvent('sign_up', {
+          method: 'google',
+        });
+      }
+
+      setProfile(user);
+      setShowLoginModal(false);
+      setSmsSent(false);
+      setSmsCode('');
+
+      if (authId) {
+        fetchData(authId);
       }
     } catch (error) {
       console.error(error);
@@ -647,6 +726,21 @@ export default function ProfileScreen() {
                 keyboardType="number-pad"
                 maxLength={6}
               />
+            )}
+
+            {!smsSent && (
+              <>
+                <TouchableOpacity
+                  style={[styles.loginButton, {backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginBottom: 10}]}
+                  onPress={() => promptGoogleLogin()}
+                >
+                  <Text style={[styles.loginButtonText, {color: '#333'}]}>{'\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google'}</Text>
+                </TouchableOpacity>
+
+                <View style={{alignItems: 'center', marginBottom: 10}}>
+                  <Text style={{color: '#999'}}>{'\u0430\u0431\u043e'}</Text>
+                </View>
+              </>
             )}
 
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
