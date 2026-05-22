@@ -269,6 +269,7 @@ def auth_social_login(body: SocialAuthRequest):
                 conn.close()
                 out = dict(user_by_phone)
                 out["access_token"] = create_access_token(clean_phone)
+                out["is_new_user"] = False
                 return out
 
     conn.close()
