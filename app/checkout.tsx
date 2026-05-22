@@ -299,6 +299,22 @@ export default function CheckoutScreen() {
         // Always persist account phone so user can see orders in profile
         if (phoneForAccount) {
           await AsyncStorage.setItem('userPhone', phoneForAccount);
+
+          try {
+            const expoPushToken = await AsyncStorage.getItem('expoPushToken');
+            if (expoPushToken) {
+              await fetch(`${API_URL}/api/user/push-token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  auth_id: phoneForAccount,
+                  token: expoPushToken,
+                }),
+              });
+            }
+          } catch (e) {
+            console.warn('Save push token after checkout failed:', e);
+          }
         }
 
         if (shouldSaveUserData) {
