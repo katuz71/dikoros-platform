@@ -392,6 +392,41 @@ async def payment_callback_monobank(request: Request):
 
         cur.execute("UPDATE orders SET status=? WHERE id=?", ("Оплачено", order_id))
         conn.commit()
+
+        try:
+            order_items = json.loads(order_dict.get("items") or "[]")
+            purchase_items = [
+                {
+                    "item_id": str(item.get("id") or item.get("product_id") or ""),
+                    "item_name": item.get("name") or "",
+                    "price": float(item.get("price") or 0),
+                    "quantity": int(item.get("quantity") or 1),
+                    "item_variant": item.get("variant_info") or item.get("packSize") or item.get("unit") or "\u0448\u0442",
+                }
+                for item in order_items
+            ]
+
+            await track_analytics_event(
+                "purchase",
+                {
+                    "event_id": f"purchase_{order_id}",
+                    "transaction_id": str(order_id),
+                    "value": float(order_dict.get("total_price") or 0),
+                    "currency": "UAH",
+                    "content_type": "product",
+                    "content_ids": [item.get("id") or item.get("product_id") for item in order_items],
+                    "num_items": sum(int(item.get("quantity") or 1) for item in order_items),
+                    "items": purchase_items,
+                    "payment_method": order_dict.get("payment_method") or "card",
+                },
+                {
+                    "phone": order_dict.get("user_phone") or order_dict.get("phone"),
+                    "email": order_dict.get("email"),
+                    "user_agent": "Monobank Callback",
+                },
+            )
+        except Exception as analytics_err:
+            logger.warning("Card purchase analytics failed: %s", analytics_err)
     finally:
         conn.close()
     logger.info("Monobank payment confirmed: order_id=%s", order_id)
