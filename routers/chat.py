@@ -306,39 +306,48 @@ def _chat_detect_button_context(text: str) -> dict:
         "experience": None,
     }
 
-    if any(k in t for k in ["????????", "?????", "?????", "micro"]):
+    # topic
+    if any(k in t for k in [
+        "\u043c\u0438\u043a\u0440\u043e\u0434\u043e\u0437", "\u043c\u0438\u043a\u0440\u043e", "\u043c\u0443\u0445\u043e\u043c", "micro"
+    ]):
         ctx["topic"] = "microdosing"
-    if any(k in t for k in ["??????", "??????", "??????????", "??????"]):
+    if any(k in t for k in [
+        "\u0438\u0436\u043e\u0432\u0438\u043a", "\u0435\u0436\u043e\u0432\u0438\u043a", "\u0433\u0440\u0435\u0431\u0438\u043d\u0447\u0430\u0441\u0442", "\u0433\u0435\u0440\u0438\u0446\u0438"
+    ]):
         ctx["topic"] = "hericium"
-    if any(k in t for k in ["????????"]):
+    if any(k in t for k in ["\u043a\u043e\u0440\u0434\u0438\u0446\u0435\u043f"]):
         ctx["topic"] = "cordyceps"
-    if any(k in t for k in ["????"]):
+    if any(k in t for k in ["\u0447\u0430\u0433\u0430"]):
         ctx["topic"] = "chaga"
-    if any(k in t for k in ["????", "???????? ???????"]):
+    if any(k in t for k in ["\u0440\u0435\u0438\u0448", "\u0442\u0440\u0443\u0442\u043e\u0432\u0438\u043a \u043b\u0430\u043a\u043e\u0432\u0430\u043d"]):
         ctx["topic"] = "reishi"
 
-    if any(k in t for k in ["??????"]):
+    # form
+    if any(k in t for k in ["\u043a\u0430\u043f\u0441\u0443\u043b"]):
         ctx["form"] = "capsules"
-    if any(k in t for k in ["?????", "?????", "????", "?????"]):
+    if any(k in t for k in ["\u043f\u043e\u0440\u043e\u0448", "\u0441\u0443\u0448\u0435\u043d", "\u0448\u043b\u044f\u043f", "\u0431\u0430\u043d\u043e\u0447"]):
         ctx["form"] = "powder"
 
-    if any(k in t for k in ["?????", "?????", "????", "?????", "??????????"]):
+    # goal
+    if any(k in t for k in ["\u0444\u043e\u043a\u0443\u0441", "\u043f\u0430\u043c\u044f\u0442", "\u043c\u043e\u0437\u0433", "\u043c\u043e\u0437\u043e\u043a", "\u043a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0430\u0446"]):
         ctx["goal"] = "focus"
-    if any(k in t for k in ["????", "?????", "??????", "??????", "???", "???"]):
+    if any(k in t for k in ["\u0441\u043f\u043e\u043a", "\u0441\u0442\u0440\u0435\u0441", "\u0442\u0440\u0435\u0432\u043e\u0433", "\u0442\u0440\u0438\u0432\u043e\u0433", "\u0441\u043e\u043d", "\u0441\u043d\u0443"]):
         ctx["goal"] = "calm"
-    if any(k in t for k in ["?????", "?????", "????", "?????", "?????"]):
+    if any(k in t for k in ["\u0435\u043d\u0435\u0440\u0433", "\u044d\u043d\u0435\u0440\u0433", "\u0432\u0442\u043e\u043c", "\u0443\u0441\u0442\u0430\u043b", "\u0441\u043f\u043e\u0440\u0442"]):
         ctx["goal"] = "energy"
-    if any(k in t for k in ["?????", "????", "??????", "???????"]):
+    if any(k in t for k in ["\u0438\u043c\u043c\u0443\u043d", "\u0438\u043c\u0443\u043d", "\u0437\u0430\u0441\u0442\u0443\u0434", "\u043f\u0440\u043e\u0441\u0442\u0443\u0434"]):
         ctx["goal"] = "immunity"
 
-    if any(k in t for k in ["?????", "??????", "???????"]):
+    # budget
+    if any(k in t for k in ["\u0434\u0435\u0448\u0435\u0432", "\u0431\u044e\u0434\u0436\u0435\u0442", "\u043d\u0435\u0434\u043e\u0440\u043e\u0433"]):
         ctx["budget"] = "low"
-    if any(k in t for k in ["???????", "???????", "??????", "????????", "???"]):
+    if any(k in t for k in ["\u043f\u0440\u0435\u043c\u0438\u0443\u043c", "\u043f\u0440\u0435\u043c\u0456\u0443\u043c", "\u043b\u0443\u0447\u0448\u0435\u0435", "\u043d\u0430\u0438\u043a\u0440\u0430\u0449\u0435", "\u0442\u043e\u043f"]):
         ctx["budget"] = "high"
 
-    if any(k in t for k in ["???????", "??????", "?????", "?????", "?????"]):
+    # experience
+    if any(k in t for k in ["\u0432\u043f\u0435\u0440\u0432\u044b\u0435", "\u0432\u043f\u0435\u0440\u0448\u0435", "\u043d\u043e\u0432\u0438\u0447", "\u043d\u043e\u0432\u0430\u0447", "\u0441\u0442\u0430\u0440\u0442"]):
         ctx["experience"] = "new"
-    if any(k in t for k in ["?????", "hard", "????", "??????", "??????"]):
+    if any(k in t for k in ["\u0441\u0438\u043b\u044c\u043d", "hard", "\u043e\u043f\u044b\u0442", "\u0434\u043e\u0441\u0432\u0438\u0434", "\u0434\u043e\u0441\u0432\u0456\u0434"]):
         ctx["experience"] = "experienced"
 
     return ctx
