@@ -562,6 +562,41 @@ def _chat_score_product(product: dict, token_patterns: List[tuple], intents: Lis
 
 
 
+
+def _chat_fallback_product_ids_by_catalog_base(user_message: str, max_count: int = 3) -> List[int]:
+    query_tokens = [_chat_stem_token(t) for t in _chat_tokenize(user_message)]
+    query_tokens = [t for t in query_tokens if len(t) >= 3]
+
+    if not query_tokens:
+        return []
+
+    scored: List[tuple] = []
+
+    for name, pid in _CHAT_PRODUCTS_NAME_TO_ID:
+        normalized_name = _chat_normalize_text(name)
+        score = 0
+
+        for token in query_tokens:
+            if token in normalized_name:
+                score += 10
+
+        if score > 0:
+            scored.append((score, pid))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    out: List[int] = []
+    seen = set()
+    for _, pid in scored:
+        if pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+        if len(out) >= max_count:
+            break
+
+    return out
+
+
 def _chat_fallback_product_ids_by_intents(intents: List[str], normalized_text: str) -> List[int]:
     ids: List[int] = []
 
@@ -642,7 +677,7 @@ async def chat_endpoint(request: ChatRequest):
             token_patterns: List[tuple] = []
             for w in words:
                 # \b works fine for unicode letters in python regex.
-                token_patterns.append((w, re.compile(rf"\\b{re.escape(w)}\\b", flags=re.IGNORECASE)))
+                token_patterns.append((w, re.compile(rf"\b{re.escape(w)}\b", flags=re.IGNORECASE)))
 
             scored_products: List[tuple] = []
             for p in all_products:
@@ -670,7 +705,9 @@ async def chat_endpoint(request: ChatRequest):
 
         # 2. GPT Генерация ответа
         if not is_info_question and not found_products:
-            fallback_ids = _chat_fallback_product_ids_by_intents(intents, normalized_message)
+            fallback_ids = _chat_fallback_product_ids_by_catalog_base(user_message)
+            if not fallback_ids:
+                fallback_ids = _chat_fallback_product_ids_by_intents(intents, normalized_message)
             if fallback_ids:
                 found_products = get_products_by_ids(fallback_ids)
 
