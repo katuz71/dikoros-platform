@@ -1,5 +1,7 @@
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { API_URL } from '@/config/api';
+import { trackEvent } from '@/utils/analytics';
+import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -235,6 +237,18 @@ export default function ProfileScreen() {
         }
 
         await attachPushToken(canon);
+
+        if (user.is_new_user) {
+          trackEvent('CompleteRegistration', {
+            method: 'sms',
+            value: 150,
+            currency: 'UAH',
+          });
+
+          logFirebaseEvent('sign_up', {
+            method: 'sms',
+          });
+        }
 
         if (user.name) {
           await AsyncStorage.setItem('userName', user.name);
