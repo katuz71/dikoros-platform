@@ -43,23 +43,23 @@ interface Message {
 }
 
 const INITIAL_QUICK_REPLIES = [
-  '?? ???? ????????????',
-  '??? ?????? ?? ???????',
-  '??? ?????? ?? ???',
-  '?????? ??? ??????',
-  '??????? ???? ??????',
+  '\u0429\u043e \u0442\u0430\u043a\u0435 \u043c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0438\u043d\u0433?',
+  '\u0414\u043b\u044f \u0444\u043e\u043a\u0443\u0441\u0443 \u0442\u0430 \u0435\u043d\u0435\u0440\u0433\u0456\u0457',
+  '\u0414\u043b\u044f \u0441\u043f\u043e\u043a\u043e\u044e \u0442\u0430 \u0441\u043d\u0443',
+  '\u041d\u0430\u0431\u043e\u0440\u0438 \u0434\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443',
+  '\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0443\u0441\u0456\u0445 \u0433\u0440\u0438\u0431\u0456\u0432',
 ];
 
 const INITIAL_WELCOME_MESSAGE: Message = {
   id: 'welcome',
-  text: '??????! ? ??????? Dikoros. ???????? ????????? ?????, ???????? ?? ????? ??? ???? ???????. ?? ????????',
+  text: '\u041f\u0440\u0438\u0432\u0456\u0442! \u042f \u0435\u043a\u0441\u043f\u0435\u0440\u0442 Dikoros. \u0414\u043e\u043f\u043e\u043c\u043e\u0436\u0443 \u043f\u0456\u0434\u0456\u0431\u0440\u0430\u0442\u0438 \u0433\u0440\u0438\u0431\u0438, \u0432\u0456\u0442\u0430\u043c\u0456\u043d\u0438 \u0447\u0438 \u0442\u0440\u0430\u0432\u0438 \u043f\u0456\u0434 \u0432\u0430\u0448\u0443 \u043f\u043e\u0442\u0440\u0435\u0431\u0443. \u0429\u043e \u0448\u0443\u043a\u0430\u0454\u043c\u043e?',
   sender: 'bot',
   quickReplies: INITIAL_QUICK_REPLIES,
 };
 
 const formatPrice = (price?: number) => {
   const safePrice = price || 0;
-  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ?`;
+  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} \u20b4`;
 };
 
 const normalizeProducts = (items: any[] = []): Product[] => {
@@ -181,7 +181,7 @@ export default function ChatScreen() {
 
       const botMsg: Message = {
         id: `b_${Date.now()}`,
-        text: data.reply || data.text || data.response || '?? ????, ? ?? ???????? ?????.',
+        text: data.reply || data.text || data.response || '\u041d\u0430 \u0436\u0430\u043b\u044c, \u044f \u043d\u0435 \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0432 \u0437\u0430\u043f\u0438\u0442.',
         sender: 'bot',
         products,
         quickReplies: nextQuickReplies,
@@ -196,9 +196,9 @@ export default function ChatScreen() {
       console.error(error);
       const errorMsg: Message = {
         id: `e_${Date.now()}`,
-        text: '??????? ?????????. ????????? ?? ??? ??? ???????? ?????????.',
+        text: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437 \u0430\u0431\u043e \u043d\u0430\u043f\u0438\u0448\u0456\u0442\u044c \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0443.',
         sender: 'bot',
-        quickReplies: ['?????????? ? ??????????', '???????'],
+        quickReplies: ['\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c', '\u041a\u0430\u0442\u0430\u043b\u043e\u0433'],
       };
       const nextMessages = [...messagesWithUser, errorMsg];
       setMessages(nextMessages);
@@ -210,7 +210,7 @@ export default function ChatScreen() {
   };
 
   const handleQuickReply = (reply: string) => {
-    if (reply === '?????????? ? ??????????' || reply === "??'??????? ? ??????????") {
+    if (reply === '\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c' || reply === "\u0417\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c") {
       setInputText(reply);
     }
     sendMessage(reply);
@@ -218,7 +218,7 @@ export default function ChatScreen() {
 
   const renderProductCard = (prod: Product) => {
     const productId = String(prod.id || '');
-    const title = prod.name || prod.title || '?????';
+    const title = prod.name || prod.title || '\u0422\u043e\u0432\u0430\u0440';
     const image = prod.image || prod.image_url || prod.picture;
 
     return (
@@ -284,8 +284,8 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>??? ? ?????????</Text>
-          <Text style={styles.headerSubtitle}>Dikoros AI ???????????</Text>
+          <Text style={styles.headerTitle}>\u0427\u0430\u0442 \u0437 \u0435\u043a\u0441\u043f\u0435\u0440\u0442\u043e\u043c</Text>
+          <Text style={styles.headerSubtitle}>Dikoros AI \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442</Text>
         </View>
 
         <TouchableOpacity onPress={clearChat} style={styles.clearButton} activeOpacity={0.7}>
@@ -315,7 +315,7 @@ export default function ChatScreen() {
             loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#999" style={{ marginRight: 10 }} />
-                <Text style={styles.loadingText}>??????????? ??????...</Text>
+                <Text style={styles.loadingText}>\u041a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0434\u0440\u0443\u043a\u0443\u0454...</Text>
               </View>
             ) : null
           }
@@ -343,7 +343,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="????????? ??? ?????? ??? ????????..."
+            placeholder="\u0417\u0430\u043f\u0438\u0442\u0430\u0439\u0442\u0435 \u043f\u0440\u043e \u0442\u043e\u0432\u0430\u0440\u0438 \u0430\u0431\u043e \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443..."
             placeholderTextColor="#999"
             multiline
             maxLength={500}
