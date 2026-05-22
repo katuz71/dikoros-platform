@@ -563,6 +563,91 @@ def _chat_score_product(product: dict, token_patterns: List[tuple], intents: Lis
 
 
 
+
+def _chat_normalize_code(text: str) -> str:
+    if not text:
+        return ""
+
+    t = str(text).upper()
+    mapping = {
+        "\u0410": "A", "\u0412": "B", "\u0415": "E", "\u041a": "K",
+        "\u041c": "M", "\u041d": "H", "\u041e": "O", "\u0420": "P",
+        "\u0421": "C", "\u0422": "T", "\u0425": "X", "\u0427": "CH",
+        "\u0406": "I", "\u0407": "I",
+    }
+
+    for src, dst in mapping.items():
+        t = t.replace(src, dst)
+
+    return "".join(ch for ch in t if ch.isalnum())
+
+
+def _chat_direct_product_ids_by_sku_or_alias(user_message: str, products: list, max_count: int = 3) -> List[int]:
+    t = _chat_normalize_text(user_message or "")
+    query_code = _chat_normalize_code(user_message or "")
+
+    scored: List[tuple] = []
+
+    # SKU / external_id / id exact-ish matching
+    if query_code:
+        for p in products:
+            fields = [
+                p.get("sku"),
+                p.get("external_id"),
+                p.get("id"),
+                p.get("name"),
+            ]
+
+            for field in fields:
+                field_code = _chat_normalize_code(field)
+                if field_code and (query_code in field_code or field_code in query_code):
+                    scored.append((100, p.get("id")))
+                    break
+
+    # Manual aliases for known problematic web-chat requests.
+    alias_rules = [
+        (
+            [
+                "\u043d\u0430\u0441\u0442\u043e\u0439\u043a",   # ???????
+                "\u043d\u0430\u0441\u0442\u043e\u044f\u043d\u043a", # ????????
+            ],
+            ["\u043c\u0443\u0445\u043e\u043c"], # ?????
+            [39178],
+        ),
+        (
+            ["250"],
+            ["\u043c\u0443\u0445\u043e\u043c", "\u043d\u0430\u0441\u0442\u043e\u0439\u043a", "\u043d\u0430\u0441\u0442\u043e\u044f\u043d\u043a"],
+            [39178],
+        ),
+        (
+            ["MXMCH025H25", "MXM025H25"],
+            [],
+            [39178],
+        ),
+    ]
+
+    for must_any, also_any, ids in alias_rules:
+        match_main = any(_chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code for x in must_any)
+        match_extra = True if not also_any else any(_chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code for x in also_any)
+
+        if match_main and match_extra:
+            for pid in ids:
+                scored.append((90, pid))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    out: List[int] = []
+    seen = set()
+    for _, pid in scored:
+        if pid and pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+        if len(out) >= max_count:
+            break
+
+    return out
+
+
 def _chat_fallback_product_ids_by_catalog_base(user_message: str, max_count: int = 3) -> List[int]:
     query_tokens = [_chat_stem_token(t) for t in _chat_tokenize(user_message)]
     query_tokens = [t for t in query_tokens if len(t) >= 3]
@@ -652,7 +737,7 @@ async def chat_endpoint(request: ChatRequest):
         all_products_rows = conn.execute(
             """
             SELECT id, name, category, price, old_price, image, images,
-                   description, usage, composition
+                   description, usage, composition, sku, external_id
             FROM products
             """
         ).fetchall()
@@ -671,7 +756,12 @@ async def chat_endpoint(request: ChatRequest):
 
         found_products = []
 
-        if words:
+        if not is_info_question:
+            direct_ids = _chat_direct_product_ids_by_sku_or_alias(user_message, all_products)
+            if direct_ids:
+                found_products = get_products_by_ids(direct_ids)
+
+        if words and not found_products:
             import re
 
             token_patterns: List[tuple] = []
