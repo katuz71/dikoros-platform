@@ -641,6 +641,11 @@ def _chat_direct_product_ids_by_sku_or_alias(user_message: str, products: list, 
             [361],
         ),
         (
+            ["микродоз", "мікродоз"],
+            ["мухомор"],
+            [23, 63, 50],
+        ),
+        (
             ["сон", "сна", "сну", "sleep", "спокий", "спокой"],
             [],
             [91, 15, 16],
@@ -1020,7 +1025,44 @@ IDs: [39151, 39206, 39202]»
                 "description": (p.get("description") or "")[:280],
             }
 
-        final_products = [_as_chat_product(p) for p in chat_products]
+        def _dedupe_product_key(product: dict) -> str:
+            name = _chat_normalize_text(product.get("name") or "")
+            # Remove common variant/packaging words so near-duplicates collapse.
+            noise_words = [
+                "60", "120", "150", "капсул", "капсули", "капсула",
+                "грам", "грама", "гр", "0", "5", "баночц", "баночк",
+                "порошок", "мелений", "сушений"
+            ]
+            for word in noise_words:
+                name = name.replace(word, " ")
+            name = " ".join(name.split()).strip()
+            return name[:90]
+
+        unique_chat_products = []
+        seen_keys = set()
+
+        for product in chat_products:
+            key = _dedupe_product_key(product)
+            if key and key in seen_keys:
+                continue
+            seen_keys.add(key)
+            unique_chat_products.append(product)
+
+        # If dedupe removed too much, fill from found_products with next unique items.
+        if len(unique_chat_products) < 3 and found_products:
+            existing_ids = {p.get("id") for p in unique_chat_products}
+            for product in found_products:
+                pid = product.get("id")
+                key = _dedupe_product_key(product)
+                if not pid or pid in existing_ids or key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                existing_ids.add(pid)
+                unique_chat_products.append(product)
+                if len(unique_chat_products) >= 3:
+                    break
+
+        final_products = [_as_chat_product(p) for p in unique_chat_products[:3]]
         quick_replies = _chat_info_quick_replies() if is_info_question else _chat_build_quick_replies(user_message, final_products)
 
         return ChatResponse(
