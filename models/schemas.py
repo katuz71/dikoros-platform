@@ -211,6 +211,15 @@ class UserAuth(BaseModel):
     phone: str
 
 
+class SmsAuthStartRequest(BaseModel):
+    phone: str
+
+
+class SmsAuthVerifyRequest(BaseModel):
+    phone: str
+    code: str
+
+
 class SocialAuthRequest(BaseModel):
     token: str
     provider: str
