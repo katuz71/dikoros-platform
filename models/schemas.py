@@ -134,12 +134,18 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: List[ChatMessage]
+    messages: Optional[List[ChatMessage]] = None
+    message: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     message: str
     products: List[dict]
+    reply: Optional[str] = None
+    items: Optional[List[dict]] = None
+    quick_replies: Optional[List[str]] = None
+    session_id: Optional[str] = None
 
 
 class ReviewCreate(BaseModel):

@@ -357,7 +357,14 @@ def _chat_score_product(product: dict, token_patterns: List[tuple], intents: Lis
 async def chat_endpoint(request: ChatRequest):
     """Умный эндпоинт чата с поддержкой GPT и поиска товаров"""
     try:
-        user_message = request.messages[-1].content
+        if request.message:
+            user_message = request.message
+        elif request.messages:
+            user_message = request.messages[-1].content
+        else:
+            user_message = ""
+
+        session_id = (request.session_id or "anon").strip() or "anon"
         user_message_lower = user_message.lower()
         normalized_message = _chat_normalize_text(user_message)
         intents = _chat_detect_intents(normalized_message)
@@ -545,7 +552,23 @@ IDs: [39151, 39206, 39202]»
             }
 
         final_products = [_as_chat_product(p) for p in chat_products]
-        return ChatResponse(message=response_text, products=final_products)
+        quick_replies = [
+            "\u041c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0456\u043d\u0433",
+            "\u0414\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
+            "\u0421\u0438\u043b\u044c\u043d\u0456\u0448\u0438\u0439 \u0432\u0430\u0440\u0456\u0430\u043d\u0442",
+            "\u041a\u0430\u043f\u0441\u0443\u043b\u0438",
+            "\u041f\u043e\u0440\u043e\u0448\u043e\u043a",
+            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
+        ]
+
+        return ChatResponse(
+            message=response_text,
+            products=final_products,
+            reply=response_text,
+            items=final_products,
+            quick_replies=quick_replies,
+            session_id=session_id,
+        )
 
     except Exception as e:
         logger.exception("CHAT ERROR")
