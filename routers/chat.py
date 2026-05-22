@@ -561,6 +561,38 @@ def _chat_score_product(product: dict, token_patterns: List[tuple], intents: Lis
 
 
 
+
+def _chat_fallback_product_ids_by_intents(intents: List[str], normalized_text: str) -> List[int]:
+    ids: List[int] = []
+
+    if "focus" in intents:
+        ids += [39186, 39171, 39210]
+
+    if "energy" in intents:
+        ids += [39206, 39202, 39222]
+
+    if "immunity" in intents:
+        ids += [39151, 39173, 39212]
+
+    if "sleep" in intents or "stress" in intents:
+        ids += [39186, 39205, 39175]
+
+    if "digest" in intents:
+        ids += [39162, 39159, 39158]
+
+    if "\u043c\u0456\u043a\u0440\u043e\u0434\u043e\u0437" in normalized_text or "\u043c\u0438\u043a\u0440\u043e\u0434\u043e\u0437" in normalized_text:
+        ids += [39181, 39208, 39235]
+
+    seen = set()
+    out: List[int] = []
+    for pid in ids:
+        if pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+
+    return out[:3]
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """Умный эндпоинт чата с поддержкой GPT и поиска товаров"""
@@ -637,6 +669,11 @@ async def chat_endpoint(request: ChatRequest):
                 found_products = [p for _, p in filtered[:3]]
 
         # 2. GPT Генерация ответа
+        if not is_info_question and not found_products:
+            fallback_ids = _chat_fallback_product_ids_by_intents(intents, normalized_message)
+            if fallback_ids:
+                found_products = get_products_by_ids(fallback_ids)
+
         if openai_client:
             # Формируем расширенный контекст товаров для бота
             products_context = ""
