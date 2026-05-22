@@ -296,6 +296,120 @@ def _chat_detect_intents(normalized_text: str) -> List[str]:
     return intents
 
 
+def _chat_detect_button_context(text: str) -> dict:
+    t = _chat_normalize_text(text or "")
+    ctx = {
+        "topic": None,
+        "form": None,
+        "goal": None,
+        "budget": None,
+        "experience": None,
+    }
+
+    if any(k in t for k in ["????????", "?????", "?????", "micro"]):
+        ctx["topic"] = "microdosing"
+    if any(k in t for k in ["??????", "??????", "??????????", "??????"]):
+        ctx["topic"] = "hericium"
+    if any(k in t for k in ["????????"]):
+        ctx["topic"] = "cordyceps"
+    if any(k in t for k in ["????"]):
+        ctx["topic"] = "chaga"
+    if any(k in t for k in ["????", "???????? ???????"]):
+        ctx["topic"] = "reishi"
+
+    if any(k in t for k in ["??????"]):
+        ctx["form"] = "capsules"
+    if any(k in t for k in ["?????", "?????", "????", "?????"]):
+        ctx["form"] = "powder"
+
+    if any(k in t for k in ["?????", "?????", "????", "?????", "??????????"]):
+        ctx["goal"] = "focus"
+    if any(k in t for k in ["????", "?????", "??????", "??????", "???", "???"]):
+        ctx["goal"] = "calm"
+    if any(k in t for k in ["?????", "?????", "????", "?????", "?????"]):
+        ctx["goal"] = "energy"
+    if any(k in t for k in ["?????", "????", "??????", "???????"]):
+        ctx["goal"] = "immunity"
+
+    if any(k in t for k in ["?????", "??????", "???????"]):
+        ctx["budget"] = "low"
+    if any(k in t for k in ["???????", "???????", "??????", "????????", "???"]):
+        ctx["budget"] = "high"
+
+    if any(k in t for k in ["???????", "??????", "?????", "?????", "?????"]):
+        ctx["experience"] = "new"
+    if any(k in t for k in ["?????", "hard", "????", "??????", "??????"]):
+        ctx["experience"] = "experienced"
+
+    return ctx
+
+
+def _chat_build_quick_replies(user_message: str, found_products: list | None = None) -> list[str]:
+    ctx = _chat_detect_button_context(user_message)
+    chips: list[str] = []
+
+    found_products = found_products or []
+
+    if not user_message.strip():
+        return [
+            "\u0429\u043e \u0442\u0430\u043a\u0435 \u043c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0438\u043d\u0433?",
+            "\u0414\u043b\u044f \u0444\u043e\u043a\u0443\u0441\u0443 \u0442\u0430 \u0435\u043d\u0435\u0440\u0433\u0456\u0457",
+            "\u0414\u043b\u044f \u0441\u043f\u043e\u043a\u043e\u044e \u0442\u0430 \u0441\u043d\u0443",
+            "\u041d\u0430\u0431\u043e\u0440\u0438 \u0434\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
+            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0443\u0441\u0456\u0445 \u0433\u0440\u0438\u0431\u0456\u0432",
+        ]
+
+    if ctx["topic"] is None:
+        chips += [
+            "\u041c\u0443\u0445\u043e\u043c\u043e\u0440\u0438",
+            "\u0407\u0436\u043e\u0432\u0438\u043a \u0433\u0440\u0435\u0431\u0456\u043d\u0447\u0430\u0441\u0442\u0438\u0439",
+            "\u041a\u043e\u0440\u0434\u0438\u0446\u0435\u043f\u0441",
+            "\u0427\u0430\u0433\u0430",
+            "\u041c\u0456\u043a\u0441\u0438",
+        ]
+
+    if ctx["experience"] is None:
+        chips += [
+            "\u0414\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
+            "\u0421\u0438\u043b\u044c\u043d\u0456\u0448\u0438\u0439 \u0432\u0430\u0440\u0456\u0430\u043d\u0442",
+        ]
+
+    if ctx["form"] is None:
+        chips += [
+            "\u041a\u0430\u043f\u0441\u0443\u043b\u0438",
+            "\u041f\u043e\u0440\u043e\u0448\u043e\u043a",
+        ]
+
+    if ctx["goal"] is None:
+        chips += [
+            "\u0424\u043e\u043a\u0443\u0441",
+            "\u0421\u043f\u043e\u043a\u0456\u0439",
+            "\u0415\u043d\u0435\u0440\u0433\u0456\u044f",
+            "\u0406\u043c\u0443\u043d\u0456\u0442\u0435\u0442",
+        ]
+
+    if found_products:
+        chips += [
+            "\u0411\u044e\u0434\u0436\u0435\u0442\u043d\u043e",
+            "\u041f\u0440\u0435\u043c\u0456\u0443\u043c",
+            "\u041f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0437\u0430\u043f\u0438\u0442\u0430\u043d\u043d\u044f",
+        ]
+    else:
+        chips += [
+            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
+            "\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c",
+        ]
+
+    seen = set()
+    out = []
+    for chip in chips:
+        if chip not in seen:
+            seen.add(chip)
+            out.append(chip)
+
+    return out[:8]
+
+
 def _chat_score_product(product: dict, token_patterns: List[tuple], intents: List[str]) -> float:
     # token_patterns: List[(token, compiled_regex)]
     import re
@@ -552,14 +666,7 @@ IDs: [39151, 39206, 39202]»
             }
 
         final_products = [_as_chat_product(p) for p in chat_products]
-        quick_replies = [
-            "\u041c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0456\u043d\u0433",
-            "\u0414\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
-            "\u0421\u0438\u043b\u044c\u043d\u0456\u0448\u0438\u0439 \u0432\u0430\u0440\u0456\u0430\u043d\u0442",
-            "\u041a\u0430\u043f\u0441\u0443\u043b\u0438",
-            "\u041f\u043e\u0440\u043e\u0448\u043e\u043a",
-            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
-        ]
+        quick_replies = _chat_build_quick_replies(user_message, final_products)
 
         return ChatResponse(
             message=response_text,
