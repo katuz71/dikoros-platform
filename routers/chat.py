@@ -181,6 +181,29 @@ CHAT_KNOWLEDGE_TEXT = _format_chat_knowledge(CHAT_KNOWLEDGE)
 
 
 
+
+
+def _chat_info_fallback_answer(user_message: str) -> str:
+    t = _chat_normalize_text(user_message or "")
+
+    if any(x in t for x in ["достав", "відправ", "отправ", "нова пошта", "новая почта"]):
+        return CHAT_KNOWLEDGE.get("shipping") or "Доставка здійснюється службами доставки по Україні. Для уточнення деталей напишіть менеджеру."
+
+    if any(x in t for x in ["оплат", "платеж", "оплата", "сплат"]):
+        return CHAT_KNOWLEDGE.get("payment") or "Оплату можна уточнити під час оформлення замовлення або у менеджера."
+
+    if any(x in t for x in ["повер", "возврат", "обмен", "обмін", "вернуть"]):
+        return CHAT_KNOWLEDGE.get("returns") or "Питання повернення або обміну можна узгодити з менеджером згідно з умовами магазину."
+
+    if any(x in t for x in ["контакт", "телефон", "менеджер", "зв'яз", "связ"]):
+        return CHAT_KNOWLEDGE.get("legal_and_contacts") or "Для зв’язку з менеджером скористайтесь контактами на сайті."
+
+    return (
+        "Можу підказати по доставці, оплаті, поверненню або контактам. "
+        "Уточніть, будь ласка, що саме вас цікавить."
+    )
+
+
 def _extract_ids_from_ids_line(text: str) -> List[int]:
     """Парсить рядок формату IDs: [ID1, ID2, ID3] і повертає список int id. Якщо не знайдено — порожній список."""
     match = re.search(r"IDs:\s*\[([^\]]+)\]", text, re.IGNORECASE)
@@ -264,6 +287,16 @@ def _chat_normalize_text(text: str) -> str:
         .replace("і", "и")
         .replace("ї", "и")
     )
+
+    # RU/UA synonym normalization for common product queries.
+    t = (
+        t.replace("ежовик", "ижовик")
+        .replace("ежевик", "ижовик")
+        .replace("гребенчат", "гребинчаст")
+        .replace("микродозинг", "микродозинг")
+        .replace("микродоз", "микродоз")
+    )
+
     return t
 
 
@@ -607,6 +640,11 @@ def _chat_direct_product_ids_by_sku_or_alias(user_message: str, products: list, 
             [],
             [361],
         ),
+        (
+            ["сон", "сна", "сну", "sleep", "спокий", "спокой"],
+            [],
+            [91, 15, 16],
+        ),
     ]
 
     for must_any, also_any, ids in alias_rules:
@@ -906,7 +944,9 @@ IDs: [39151, 39206, 39202]»
                 response_text = completion.choices[0].message.content
             except Exception:
                 logger.exception("CHAT OPENAI ERROR")
-                if found_products:
+                if is_info_question:
+                    response_text = _chat_info_fallback_answer(user_message)
+                elif found_products:
                     names = [p.get("name") for p in found_products[:3] if p.get("name")]
                     response_text = (
                         "Знайшов відповідні товари за вашим запитом:\n\n"
@@ -930,8 +970,31 @@ IDs: [39151, 39206, 39202]»
             mentioned_ids = _extract_product_ids_from_text(response_text, max_count=3)
             if mentioned_ids:
                 chat_products = get_products_by_ids(mentioned_ids)
+
+                # Safety fallback: if extracted ids are stale/wrong and DB returns no cards,
+                # use already found products from the current search.
+                if not chat_products and found_products:
+                    fallback_ids = []
+                    seen_ids = set()
+                    for p in found_products:
+                        pid = p.get("id")
+                        if pid and pid not in seen_ids:
+                            seen_ids.add(pid)
+                            fallback_ids.append(pid)
+                        if len(fallback_ids) >= 3:
+                            break
+                    chat_products = get_products_by_ids(fallback_ids)
             elif found_products:
-                chat_products = get_products_by_ids([p.get("id") for p in found_products[:3] if p.get("id")])
+                fallback_ids = []
+                seen_ids = set()
+                for p in found_products:
+                    pid = p.get("id")
+                    if pid and pid not in seen_ids:
+                        seen_ids.add(pid)
+                        fallback_ids.append(pid)
+                    if len(fallback_ids) >= 3:
+                        break
+                chat_products = get_products_by_ids(fallback_ids)
             else:
                 chat_products = []
 
