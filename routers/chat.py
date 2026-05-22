@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter
@@ -145,6 +146,39 @@ def _parse_chat_products_base() -> List[tuple]:
 
 
 _CHAT_PRODUCTS_NAME_TO_ID = _parse_chat_products_base()
+
+def _load_chat_knowledge() -> dict:
+    path = Path(__file__).resolve().parent.parent / "knowledge.json"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        logger.exception("CHAT KNOWLEDGE LOAD ERROR")
+        return {}
+
+
+def _format_chat_knowledge(knowledge: dict) -> str:
+    if not knowledge:
+        return ""
+
+    blocks = [
+        ("Philosophy", knowledge.get("philosophy", "")),
+        ("Production", knowledge.get("production", "")),
+        ("Quality control", knowledge.get("quality_control", "")),
+        ("Shipping", knowledge.get("shipping", "")),
+        ("Payment", knowledge.get("payment", "")),
+        ("Returns", knowledge.get("returns", "")),
+        ("Legal and contacts", knowledge.get("legal_and_contacts", "")),
+        ("Product expertise", knowledge.get("product_expertise", "")),
+    ]
+
+    return "\n".join(f"{title}:\n{text}" for title, text in blocks if text)
+
+
+CHAT_KNOWLEDGE = _load_chat_knowledge()
+CHAT_KNOWLEDGE_TEXT = _format_chat_knowledge(CHAT_KNOWLEDGE)
+
 
 
 def _extract_ids_from_ids_line(text: str) -> List[int]:
