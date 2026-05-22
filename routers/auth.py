@@ -83,8 +83,10 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
     conn = get_db_connection()
     try:
         user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+        is_new_user = False
 
         if not user:
+            is_new_user = True
             logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
             conn.execute(
                 "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at) VALUES (?, 150, 0, 0, ?)",
@@ -97,6 +99,7 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
 
         out = dict(user)
         out["access_token"] = create_access_token(clean_phone)
+        out["is_new_user"] = is_new_user
         return out
     finally:
         conn.close()
