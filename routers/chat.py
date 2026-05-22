@@ -586,53 +586,66 @@ def _chat_direct_product_ids_by_sku_or_alias(user_message: str, products: list, 
     t = _chat_normalize_text(user_message or "")
     query_code = _chat_normalize_code(user_message or "")
 
+    # Manual aliases for known problematic web-chat requests.
+    # Important: aliases must run BEFORE generic SKU search.
+    alias_rules = [
+        (
+            [
+                "настойк",
+                "настоянк",
+            ],
+            ["мухом"],
+            [361],
+        ),
+        (
+            ["250"],
+            [],
+            [361],
+        ),
+        (
+            ["MXMCH025H25", "MXM025H25"],
+            [],
+            [361],
+        ),
+    ]
+
+    for must_any, also_any, ids in alias_rules:
+        match_main = any(
+            _chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code
+            for x in must_any
+        )
+        match_extra = True if not also_any else any(
+            _chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code
+            for x in also_any
+        )
+
+        if match_main and match_extra:
+            return ids[:max_count]
+
     scored: List[tuple] = []
 
-    # SKU / external_id / id exact-ish matching
+    # SKU / external_id exact-ish matching.
+    # Do NOT search by product id as substring: "250мл" must not match product id 250.
     if query_code:
         for p in products:
             fields = [
                 p.get("sku"),
                 p.get("external_id"),
-                p.get("id"),
-                p.get("name"),
             ]
 
             for field in fields:
                 field_code = _chat_normalize_code(field)
-                if field_code and (query_code in field_code or field_code in query_code):
+                if field_code and len(field_code) >= 4 and (query_code in field_code or field_code in query_code):
                     scored.append((100, p.get("id")))
                     break
 
-    # Manual aliases for known problematic web-chat requests.
-    alias_rules = [
-        (
-            [
-                "\u043d\u0430\u0441\u0442\u043e\u0439\u043a",   # ???????
-                "\u043d\u0430\u0441\u0442\u043e\u044f\u043d\u043a", # ????????
-            ],
-            ["\u043c\u0443\u0445\u043e\u043c"], # ?????
-            [39178],
-        ),
-        (
-            ["250"],
-            ["\u043c\u0443\u0445\u043e\u043c", "\u043d\u0430\u0441\u0442\u043e\u0439\u043a", "\u043d\u0430\u0441\u0442\u043e\u044f\u043d\u043a"],
-            [39178],
-        ),
-        (
-            ["MXMCH025H25", "MXM025H25"],
-            [],
-            [39178],
-        ),
-    ]
-
-    for must_any, also_any, ids in alias_rules:
-        match_main = any(_chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code for x in must_any)
-        match_extra = True if not also_any else any(_chat_normalize_text(x) in t or _chat_normalize_code(x) in query_code for x in also_any)
-
-        if match_main and match_extra:
-            for pid in ids:
-                scored.append((90, pid))
+    # Conservative name matching only for meaningful text queries.
+    if len(t) >= 5:
+        for p in products:
+            name = p.get("name")
+            name_text = _chat_normalize_text(name)
+            if name_text and (t in name_text or name_text in t):
+                scored.append((70, p.get("id")))
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
@@ -646,7 +659,6 @@ def _chat_direct_product_ids_by_sku_or_alias(user_message: str, products: list, 
             break
 
     return out
-
 
 def _chat_fallback_product_ids_by_catalog_base(user_message: str, max_count: int = 3) -> List[int]:
     query_tokens = [_chat_stem_token(t) for t in _chat_tokenize(user_message)]
@@ -884,13 +896,24 @@ IDs: [39151, 39206, 39202]»
             else:
                 history.append({"role": "user", "content": user_message})
 
-            completion = await openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=history,
-                temperature=0.8,
-                max_tokens=500
-            )
-            response_text = completion.choices[0].message.content
+            try:
+                completion = await openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=history,
+                    temperature=0.8,
+                    max_tokens=500
+                )
+                response_text = completion.choices[0].message.content
+            except Exception:
+                logger.exception("CHAT OPENAI ERROR")
+                if found_products:
+                    names = [p.get("name") for p in found_products[:3] if p.get("name")]
+                    response_text = (
+                        "Знайшов відповідні товари за вашим запитом:\n\n"
+                        + "\n".join(f"* **{name}**" for name in names)
+                    )
+                else:
+                    response_text = "Вибачте, я не знайшов товарів за вашим запитом. Спробуйте уточнити назву або артикул."
         else:
             # Fallback (если нет ключа API)
             if found_products:
