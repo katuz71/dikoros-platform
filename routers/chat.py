@@ -330,6 +330,30 @@ def _chat_detect_intents(normalized_text: str) -> List[str]:
     return intents
 
 
+
+def _chat_is_info_question(text: str) -> bool:
+    t = _chat_normalize_text(text or "")
+    needles = [
+        "??????", "???? ???", "????? ????", "???????", "??????",
+        "?????", "?????", "??????", "??????", "?????", "??????",
+        "????????", "???????", "?????", "?????", "????",
+        "???????", "???????", "email", "?????", "?????",
+        "????????", "????????", "??????", "?????", "???????",
+        "??????", "????????",
+    ]
+    return any(n in t for n in needles)
+
+
+def _chat_info_quick_replies() -> list[str]:
+    return [
+        "\u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0430",
+        "\u041e\u043f\u043b\u0430\u0442\u0430",
+        "\u041f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f",
+        "\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c",
+        "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
+    ]
+
+
 def _chat_detect_button_context(text: str) -> dict:
     t = _chat_normalize_text(text or "")
     ctx = {
@@ -525,6 +549,7 @@ async def chat_endpoint(request: ChatRequest):
         user_message_lower = user_message.lower()
         normalized_message = _chat_normalize_text(user_message)
         intents = _chat_detect_intents(normalized_message)
+        is_info_question = _chat_is_info_question(user_message)
 
         # 1. Поиск товаров (Улучшенный: Python-фильтрация для поддержки кириллицы и поиска в описании)
         conn = get_db_connection()
@@ -546,6 +571,9 @@ async def chat_endpoint(request: ChatRequest):
         # Убираем повторы, сохраняя порядок
         seen = set()
         words = [w for w in words if not (w in seen or seen.add(w))]
+
+        if is_info_question:
+            words = []
 
         found_products = []
 
@@ -617,7 +645,7 @@ async def chat_endpoint(request: ChatRequest):
 Пиши текст з описом користі та порадою. Не вставляй у текст посилання. Згадуй рівно 3 товари зі списку нижче — обовʼязково повною назвою, як у списку (наприклад: «Мікродозінг Brain & Sleep Їжовик гребінчастий»), щоб під повідомленням зʼявились три карточки з фото.
 
 РЕЛЕВАНТНІ ТОВАРИ ЗА ПОТОЧНИМ ЗАПИТОМ (рекомендуй лише з них, рівно 3):
-CHAT KNOWLEDGE BASE DIKOROS\nUse this block for company, production, quality, shipping, payment, returns and contacts:\n{CHAT_KNOWLEDGE_TEXT}\n\n{products_context}
+CHAT KNOWLEDGE BASE DIKOROS\nUse this block for company, production, quality, shipping, payment, returns and contacts:\n{CHAT_KNOWLEDGE_TEXT}\n\nINFO_MODE: {is_info_question}\nIf INFO_MODE is True, answer only from CHAT KNOWLEDGE BASE DIKOROS, do not recommend products, do not add IDs, and do not mention product cards.\n\n{products_context}
 
 АКТУАЛЬНА БАЗА ТОВАРІВ (назви для згадки в тексті):
 {CHAT_PRODUCTS_BASE}
@@ -680,16 +708,20 @@ IDs: [39151, 39206, 39202]»
                 response_text = "Вибачте, я не знайшов товарів за вашим запитом. Спробуйте змінити пошук (наприклад 'Їжовик' або 'Кордицепс')."
 
         # Підбір карточок: спочатку рядок IDs: [id1, id2, id3], інакше — згадки товарів у тексті (max_count=3)
-        mentioned_ids = _extract_product_ids_from_text(response_text, max_count=3)
-        if mentioned_ids:
-            chat_products = get_products_by_ids(mentioned_ids)
-        elif found_products:
-            # Fallback: якщо GPT не використав — показуємо до 3 товарів із пошуку
-            chat_products = get_products_by_ids([p.get("id") for p in found_products[:3] if p.get("id")])
-        else:
+        # Info questions: cards disabled.
+        if is_info_question:
+            response_text = _strip_ids_line_from_response(response_text)
             chat_products = []
+        else:
+            mentioned_ids = _extract_product_ids_from_text(response_text, max_count=3)
+            if mentioned_ids:
+                chat_products = get_products_by_ids(mentioned_ids)
+            elif found_products:
+                chat_products = get_products_by_ids([p.get("id") for p in found_products[:3] if p.get("id")])
+            else:
+                chat_products = []
 
-        # Прибираємо технічний рядок IDs: [...] з відповіді перед відправкою на фронт
+        # Strip technical IDs line before sending to frontend
         response_text = _strip_ids_line_from_response(response_text)
 
         def _as_chat_product(p: dict) -> dict:
@@ -712,7 +744,7 @@ IDs: [39151, 39206, 39202]»
             }
 
         final_products = [_as_chat_product(p) for p in chat_products]
-        quick_replies = _chat_build_quick_replies(user_message, final_products)
+        quick_replies = _chat_info_quick_replies() if is_info_question else _chat_build_quick_replies(user_message, final_products)
 
         return ChatResponse(
             message=response_text,
