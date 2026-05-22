@@ -168,6 +168,23 @@ export default function ProfileScreen() {
         const user = await res.json();
         const canon = canonicalizePhone(inputPhone);
         await AsyncStorage.setItem('userPhone', canon);
+
+        try {
+          const expoPushToken = await AsyncStorage.getItem('expoPushToken');
+          if (expoPushToken) {
+            await fetch(`${API_URL}/api/user/push-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                auth_id: canon,
+                token: expoPushToken,
+              }),
+            });
+          }
+        } catch (e) {
+          console.warn('Save push token after login failed:', e);
+        }
+
         if (user.name) {
             await AsyncStorage.setItem('userName', user.name);
         }
