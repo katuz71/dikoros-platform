@@ -47,6 +47,8 @@ export default function ProfileScreen() {
   // Состояния
   const [phone, setPhone] = useState('');
   const [inputPhone, setInputPhone] = useState('');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsSent, setSmsSent] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   // Info Modal States
@@ -150,54 +152,107 @@ export default function ProfileScreen() {
   };
 
   // 3. Логика входа / выхода
-  const handleLogin = async () => {
-    if (inputPhone.length < 10) {
-      Alert.alert('Помилка', 'Введіть коректний номер (напр. 0991234567)');
+  const attachPushToken = async (authId: string) => {
+    try {
+      const expoPushToken = await AsyncStorage.getItem('expoPushToken');
+      if (expoPushToken) {
+        await fetch(`${API_URL}/api/user/push-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            auth_id: authId,
+            token: expoPushToken,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('Save push token after login failed:', e);
+    }
+  };
+
+  const handleSendSmsCode = async () => {
+    const canon = canonicalizePhone(inputPhone);
+
+    if (canon.length < 10) {
+      Alert.alert('???????', '??????? ????????? ????? (????. 0991234567)');
       return;
     }
 
     try {
-      // Регистрируем или получаем пользователя
-      const res = await fetch(`${API_URL}/api/auth`, {
+      const res = await fetch(`${API_URL}/api/auth/sms/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: canonicalizePhone(inputPhone) })
+        body: JSON.stringify({ phone: canon })
+      });
+
+      if (res.ok) {
+        setSmsSent(true);
+        setSmsCode('');
+        Alert.alert('??? ???????????', '??????? SMS-??? ??? ?????.');
+      } else {
+        Alert.alert('???????', '?? ??????? ?????????? SMS-???');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('???????', '????? ?\'???????');
+    }
+  };
+
+  const handleLogin = async () => {
+    const canon = canonicalizePhone(inputPhone);
+
+    if (canon.length < 10) {
+      Alert.alert('???????', '??????? ????????? ????? (????. 0991234567)');
+      return;
+    }
+
+    if (!smsSent) {
+      await handleSendSmsCode();
+      return;
+    }
+
+    if (smsCode.trim().length < 4) {
+      Alert.alert('???????', '??????? SMS-???');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/sms/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: canon,
+          code: smsCode.trim()
+        })
       });
 
       if (res.ok) {
         const user = await res.json();
-        const canon = canonicalizePhone(inputPhone);
-        await AsyncStorage.setItem('userPhone', canon);
 
-        try {
-          const expoPushToken = await AsyncStorage.getItem('expoPushToken');
-          if (expoPushToken) {
-            await fetch(`${API_URL}/api/user/push-token`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                auth_id: canon,
-                token: expoPushToken,
-              }),
-            });
-          }
-        } catch (e) {
-          console.warn('Save push token after login failed:', e);
+        await AsyncStorage.setItem('userPhone', canon);
+        if (user.access_token) {
+          await AsyncStorage.setItem('accessToken', user.access_token);
         }
+
+        await attachPushToken(canon);
 
         if (user.name) {
-            await AsyncStorage.setItem('userName', user.name);
+          await AsyncStorage.setItem('userName', user.name);
         }
+
         setPhone(canon);
-        setProfile(user); // Сразу ставим профиль
+        setProfile(user);
         setShowLoginModal(false);
-        fetchData(canon); // Подгружаем заказы и обновляем
+        setSmsSent(false);
+        setSmsCode('');
+        fetchData(canon);
       } else {
-        Alert.alert('Помилка', 'Сервер не відповідає');
+        const err = await res.json().catch(() => null);
+        Alert.alert('???????', err?.detail || '???????? SMS-???');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Помилка', 'Немає з\'єднання');
+      Alert.alert('???????', '????? ?\'???????');
     }
   };
 
@@ -210,6 +265,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           await AsyncStorage.removeItem('userPhone');
           await AsyncStorage.removeItem('userName');
+          await AsyncStorage.removeItem('accessToken');
           setPhone('');
           setProfile(null);
           setOrders([]);
@@ -543,7 +599,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Вхід / Реєстрація</Text>
-              <TouchableOpacity onPress={() => setShowLoginModal(false)}>
+              <TouchableOpacity onPress={() => { setShowLoginModal(false); setSmsSent(false); setSmsCode(''); }}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
