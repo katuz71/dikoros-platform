@@ -367,7 +367,10 @@ async def payment_callback_monobank(request: Request):
     conn = get_db_connection()
     try:
         cur = conn.cursor()
-        order = cur.execute("SELECT id, user_phone, phone, email, bonus_used, status, total_price, items, payment_method FROM orders WHERE id=?"
+        order = cur.execute(
+            "SELECT id, user_phone, phone, email, bonus_used, status, total_price, items, payment_method FROM orders WHERE id=?",
+            (order_id,),
+        ).fetchone()
         if not order:
             return {"status": "error", "reason": "order not found"}
 
