@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import random
+import time
 import requests
 from datetime import datetime
 
@@ -12,12 +14,92 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from db import get_db_connection
-from models.schemas import SocialAuthRequest, UserAuth
+from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest
 from services.auth import create_access_token
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+SMS_AUTH_CODES = {}
+SMS_CODE_TTL_SECONDS = 10 * 60
+
+
+@router.post("/api/auth/sms/start")
+def auth_sms_start(body: SmsAuthStartRequest):
+    """
+    Start SMS login/registration.
+    Dev mode: generates code and writes it to backend logs.
+    Later this function will call the real SMS provider.
+    """
+    clean_phone = "".join(filter(str.isdigit, str(body.phone)))
+    if not clean_phone:
+        raise HTTPException(status_code=400, detail="Invalid phone")
+
+    code = f"{random.randint(100000, 999999)}"
+    SMS_AUTH_CODES[clean_phone] = {
+        "code": code,
+        "expires_at": time.time() + SMS_CODE_TTL_SECONDS,
+        "attempts": 0,
+    }
+
+    logger.warning("[SMS AUTH DEV] phone=%s code=%s", clean_phone, code)
+
+    return {
+        "status": "ok",
+        "message": "SMS code generated",
+        "dev_mode": True,
+    }
+
+
+@router.post("/api/auth/sms/verify")
+def auth_sms_verify(body: SmsAuthVerifyRequest):
+    """
+    Verify SMS code and login/register user.
+    New users receive 150 bonus only once at account creation.
+    """
+    clean_phone = "".join(filter(str.isdigit, str(body.phone)))
+    code = (body.code or "").strip()
+
+    if not clean_phone or not code:
+        raise HTTPException(status_code=400, detail="Invalid phone or code")
+
+    record = SMS_AUTH_CODES.get(clean_phone)
+    if not record:
+        raise HTTPException(status_code=400, detail="SMS code not found")
+
+    if time.time() > float(record.get("expires_at") or 0):
+        SMS_AUTH_CODES.pop(clean_phone, None)
+        raise HTTPException(status_code=400, detail="SMS code expired")
+
+    record["attempts"] = int(record.get("attempts") or 0) + 1
+    if record["attempts"] > 5:
+        SMS_AUTH_CODES.pop(clean_phone, None)
+        raise HTTPException(status_code=429, detail="Too many attempts")
+
+    if str(record.get("code")) != code:
+        raise HTTPException(status_code=400, detail="Invalid SMS code")
+
+    conn = get_db_connection()
+    try:
+        user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+
+        if not user:
+            logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
+            conn.execute(
+                "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at) VALUES (?, 150, 0, 0, ?)",
+                (clean_phone, datetime.now().isoformat()),
+            )
+            conn.commit()
+            user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+
+        SMS_AUTH_CODES.pop(clean_phone, None)
+
+        out = dict(user)
+        out["access_token"] = create_access_token(clean_phone)
+        return out
+    finally:
+        conn.close()
 
 
 @router.post("/api/auth")
