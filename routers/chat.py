@@ -617,7 +617,7 @@ async def chat_endpoint(request: ChatRequest):
 Пиши текст з описом користі та порадою. Не вставляй у текст посилання. Згадуй рівно 3 товари зі списку нижче — обовʼязково повною назвою, як у списку (наприклад: «Мікродозінг Brain & Sleep Їжовик гребінчастий»), щоб під повідомленням зʼявились три карточки з фото.
 
 РЕЛЕВАНТНІ ТОВАРИ ЗА ПОТОЧНИМ ЗАПИТОМ (рекомендуй лише з них, рівно 3):
-{products_context}
+CHAT KNOWLEDGE BASE DIKOROS\nUse this block for company, production, quality, shipping, payment, returns and contacts:\n{CHAT_KNOWLEDGE_TEXT}\n\n{products_context}
 
 АКТУАЛЬНА БАЗА ТОВАРІВ (назви для згадки в тексті):
 {CHAT_PRODUCTS_BASE}
@@ -657,10 +657,13 @@ IDs: [39151, 39206, 39202]»
 """
 
             history = [{"role": "system", "content": system_prompt}]
-            # Добавляем последние 3 сообщения для контекста разговора
-            for msg in request.messages[-3:]:
-                role = "user" if msg.role == "user" else "assistant"
-                history.append({"role": role, "content": msg.content})
+            # Supports both formats: legacy messages[] and shopbot-compatible message/session_id.
+            if request.messages:
+                for msg in request.messages[-3:]:
+                    role = "user" if msg.role == "user" else "assistant"
+                    history.append({"role": role, "content": msg.content})
+            else:
+                history.append({"role": "user", "content": user_message})
 
             completion = await openai_client.chat.completions.create(
                 model="gpt-4o-mini",
