@@ -174,7 +174,7 @@ export default function ProfileScreen() {
     const canon = canonicalizePhone(inputPhone);
 
     if (canon.length < 10) {
-      Alert.alert('???????', '??????? ????????? ????? (????. 0991234567)');
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440 \u0028\u043d\u0430\u043f\u0440\u002e 0991234567\u0029');
       return;
     }
 
@@ -188,13 +188,13 @@ export default function ProfileScreen() {
       if (res.ok) {
         setSmsSent(true);
         setSmsCode('');
-        Alert.alert('??? ???????????', '??????? SMS-??? ??? ?????.');
+        Alert.alert('\u041a\u043e\u0434 \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0443\u002e');
       } else {
-        Alert.alert('???????', '?? ??????? ?????????? SMS-???');
+        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u0438\u0442\u0438 SMS-\u043a\u043e\u0434');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('???????', '????? ?\'???????');
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
     }
   };
 
@@ -202,7 +202,7 @@ export default function ProfileScreen() {
     const canon = canonicalizePhone(inputPhone);
 
     if (canon.length < 10) {
-      Alert.alert('???????', '??????? ????????? ????? (????. 0991234567)');
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440 \u0028\u043d\u0430\u043f\u0440\u002e 0991234567\u0029');
       return;
     }
 
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
     }
 
     if (smsCode.trim().length < 4) {
-      Alert.alert('???????', '??????? SMS-???');
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434');
       return;
     }
 
@@ -248,11 +248,11 @@ export default function ProfileScreen() {
         fetchData(canon);
       } else {
         const err = await res.json().catch(() => null);
-        Alert.alert('???????', err?.detail || '???????? SMS-???');
+        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 SMS-\u043a\u043e\u0434');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('???????', '????? ?\'???????');
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
     }
   };
 
@@ -598,28 +598,56 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Вхід / Реєстрація</Text>
+              <Text style={styles.modalTitle}>{'\u0412\u0445\u0456\u0434 \u002f \u0420\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u044f'}</Text>
               <TouchableOpacity onPress={() => { setShowLoginModal(false); setSmsSent(false); setSmsCode(''); }}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>Введіть номер телефону для входу</Text>
+
+            <Text style={styles.modalSubtitle}>
+              {smsSent ? '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434\u002c \u044f\u043a\u0438\u0439 \u043c\u0438 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043b\u0438 \u043d\u0430 \u0432\u0430\u0448 \u043d\u043e\u043c\u0435\u0440' : '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0443'}
+            </Text>
+
             <TextInput
               style={styles.input}
               placeholder="099 123 45 67"
               value={inputPhone}
-              onChangeText={setInputPhone}
+              onChangeText={(value) => {
+                setInputPhone(value);
+                if (smsSent) {
+                  setSmsSent(false);
+                  setSmsCode('');
+                }
+              }}
               keyboardType="phone-pad"
+              editable={!smsSent}
               autoFocus
             />
+
+            {smsSent && (
+              <TextInput
+                style={styles.input}
+                placeholder="SMS-\u043a\u043e\u0434"
+                value={smsCode}
+                onChangeText={setSmsCode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            )}
+
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Продовжити</Text>
+              <Text style={styles.loginButtonText}>{smsSent ? '\u0423\u0432\u0456\u0439\u0442\u0438' : '\u041e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 SMS-\u043a\u043e\u0434'}</Text>
             </TouchableOpacity>
+
+            {smsSent && (
+              <TouchableOpacity style={{marginTop: 12, alignItems: 'center'}} onPress={handleSendSmsCode}>
+                <Text style={{color: '#458B00', fontWeight: '700'}}>{'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043a\u043e\u0434 \u0449\u0435 \u0440\u0430\u0437'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
 
-      {/* 🔥 МОДАЛКА ТАБЛИЦЫ КЕШБЭКА */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
