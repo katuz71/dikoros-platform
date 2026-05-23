@@ -72,6 +72,7 @@ def auth_email_register(body: EmailRegisterRequest):
             raise HTTPException(status_code=500, detail="Failed to create user")
 
         out = dict(user)
+        out.pop("password_hash", None)
         out["access_token"] = create_access_token(auth_id)
         out["is_new_user"] = True
         out["phone"] = None
@@ -104,6 +105,7 @@ def auth_email_login(body: EmailLoginRequest):
         auth_id = user_dict.get("phone") or f"email_{email}"
 
         out = dict(user_dict)
+        out.pop("password_hash", None)
         out["access_token"] = create_access_token(auth_id)
         out["is_new_user"] = False
 
