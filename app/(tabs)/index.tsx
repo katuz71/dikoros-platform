@@ -92,12 +92,12 @@ type Product = {
   size?: string;
   description?: string;
   badge?: string;
-  quantity?: number;
+  quantity?: number | string | boolean;
   composition?: string; // Changed from ingredients to match OrdersContext
   usage?: string;
   weight?: string;
   pack_sizes?: string[] | string;  // Changed to array to match backend, but might be string from DB
-  old_price?: number;  // For discount logic
+  old_price?: number | null;  // For discount logic
   unit?: string;  // Measurement unit (e.g., "шт", "г", "мл")
   delivery_info?: string;
   return_info?: string;
@@ -1115,7 +1115,7 @@ export default function Index() {
     }
   };
 
-  const subtotal = cart.reduce((sum: number, item: Product) => sum + (item.price * (item.quantity || 1)), 0);
+  const subtotal = cart.reduce((sum: number, item: Product) => sum + (item.price * (Number(item.quantity) || 1)), 0);
   const totalAmount = subtotal - (subtotal * discount);
 
   const onRefresh = useCallback(async () => {
@@ -1344,7 +1344,7 @@ export default function Index() {
                 borderColor: 'white'
               }}>
                 <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
-                  {cart.reduce((sum: number, item: Product) => sum + (item.quantity || 1), 0)}
+                  {cart.reduce((sum: number, item: Product) => sum + (Number(item.quantity) || 1), 0)}
                 </Text>
               </View>
             )}
@@ -1526,7 +1526,7 @@ export default function Index() {
         title={'\u0425\u0456\u0442\u0438 \u043f\u0440\u043e\u0434\u0430\u0436\u0456\u0432'}
         products={hitProducts.length ? hitProducts : products.slice(0, 12)}
         favorites={favorites}
-        onOpenProduct={(item) => openProductWithRecent(item)}
+        onOpenProduct={(item) => openProductWithRecent(item as Product)}
         onAddToCart={(item) => {
           Vibration.vibrate(10);
           const picked = _pickDefaultVariant(item);
@@ -1554,7 +1554,7 @@ export default function Index() {
         title={'\u0410\u043a\u0446\u0456\u0457'}
         products={promoProducts}
         favorites={favorites}
-        onOpenProduct={(item) => openProductWithRecent(item)}
+        onOpenProduct={(item) => openProductWithRecent(item as Product)}
         onAddToCart={(item) => {
           Vibration.vibrate(10);
           const picked = _pickDefaultVariant(item);
@@ -1582,7 +1582,7 @@ export default function Index() {
         title={'Новинки'}
         products={newProducts}
         favorites={favorites}
-        onOpenProduct={(item) => openProductWithRecent(item)}
+        onOpenProduct={(item) => openProductWithRecent(item as Product)}
         onAddToCart={(item) => {
           Vibration.vibrate(10);
           const picked = _pickDefaultVariant(item);

@@ -8,9 +8,12 @@ interface FavoriteProduct {
   price: number;
   image: string;
   category?: string;
-  old_price?: number;
+  old_price?: number | null;
   badge?: string;
   unit?: string;
+  variants?: any[];
+  option_names?: string | null;
+  minPrice?: number;
 }
 
 interface FavoritesStore {

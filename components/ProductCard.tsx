@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import ProductImage from './ProductImage';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -10,8 +10,8 @@ interface ProductCardProps {
   item: {
     id: number;
     name: string;
-    price: number;
-    old_price?: number;
+    price: number | null;
+    old_price?: number | null;
     image?: string;
     picture?: string;
     image_url?: string;
@@ -23,6 +23,7 @@ interface ProductCardProps {
   onFavoritePress: () => void;
   onCartPress: () => void;
   isFavorite: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export default function ProductCard({ 
@@ -31,10 +32,11 @@ export default function ProductCard({
   onPress, 
   onFavoritePress, 
   onCartPress, 
-  isFavorite 
+  isFavorite,
+  style
 }: ProductCardProps) {
   const safeName = item.name || '';
-  {displayPrice || `${safePrice} ₴`}
+  const safePrice = typeof item.price === 'number' ? item.price : 0;
   const safeOldPrice = typeof item.old_price === 'number' ? item.old_price : null;
   const hasDiscount = safeOldPrice !== null && safeOldPrice > safePrice;
   const safeBadge = item.badge || null;
@@ -44,7 +46,7 @@ export default function ProductCard({
     <TouchableOpacity 
       onPress={onPress}
       activeOpacity={0.85}
-      style={styles.card}
+      style={[styles.card, style]}
     >
       {/* Блок изображения (Верх) */}
       <View style={styles.imageBlock}>
