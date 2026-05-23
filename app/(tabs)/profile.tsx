@@ -55,6 +55,10 @@ export default function ProfileScreen() {
   const [inputPhone, setInputPhone] = useState('');
   const [smsCode, setSmsCode] = useState('');
   const [smsSent, setSmsSent] = useState(false);
+  const [emailAuthMode, setEmailAuthMode] = useState<'login' | 'register'>('login');
+  const [inputEmail, setInputEmail] = useState('');
+  const [inputPassword, setInputPassword] = useState('');
+  const [inputName, setInputName] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   // Info Modal States
@@ -191,6 +195,81 @@ export default function ProfileScreen() {
       console.warn('Save push token after login failed:', e);
     }
   };
+
+  const handleEmailAuth = async () => {
+    const email = inputEmail.trim().toLowerCase();
+    const password = inputPassword;
+
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 email');
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041f\u0430\u0440\u043e\u043b\u044c \u043c\u0430\u0454 \u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u043c\u0456\u043d\u0456\u043c\u0443\u043c 6 \u0441\u0438\u043c\u0432\u043e\u043b\u0456\u0432');
+      return;
+    }
+
+    try {
+      const endpoint = emailAuthMode === 'register'
+        ? '/api/auth/email/register'
+        : '/api/auth/email/login';
+
+      const payload: any = { email, password };
+      if (emailAuthMode === 'register') {
+        payload.name = inputName.trim();
+      }
+
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0443\u0432\u0456\u0439\u0442\u0438');
+        return;
+      }
+
+      const user = await res.json();
+      const authId = user.auth_id || user.phone || `email_${email}`;
+
+      await AsyncStorage.setItem('userPhone', authId);
+      if (user.access_token) {
+        await AsyncStorage.setItem('accessToken', user.access_token);
+      }
+      if (user.name) {
+        await AsyncStorage.setItem('userName', user.name);
+      }
+
+      await attachPushToken(authId);
+
+      if (user.is_new_user) {
+        trackEvent('CompleteRegistration', {
+          method: 'email',
+          value: 150,
+          currency: 'UAH',
+        });
+
+        logFirebaseEvent('sign_up', {
+          method: 'email',
+        });
+      }
+
+      setPhone(authId);
+      setProfile(user);
+      setShowLoginModal(false);
+      setSmsSent(false);
+      setSmsCode('');
+      setInputPassword('');
+      fetchData(authId);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
+    }
+  };
+
 
   const handleSendSmsCode = async () => {
     const canon = canonicalizePhone(inputPhone);
@@ -692,66 +771,77 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{'\u0412\u0445\u0456\u0434 \u002f \u0420\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u044f'}</Text>
-              <TouchableOpacity onPress={() => { setShowLoginModal(false); setSmsSent(false); setSmsCode(''); }}>
+              <TouchableOpacity onPress={() => { setShowLoginModal(false); setSmsSent(false); setSmsCode(''); setInputPassword(''); }}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtitle}>
-              {smsSent ? '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434\u002c \u044f\u043a\u0438\u0439 \u043c\u0438 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043b\u0438 \u043d\u0430 \u0432\u0430\u0448 \u043d\u043e\u043c\u0435\u0440' : '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0443'}
+              {emailAuthMode === 'register' ? '\u0421\u0442\u0432\u043e\u0440\u0456\u0442\u044c \u0430\u043a\u0430\u0443\u043d\u0442 \u0447\u0435\u0440\u0435\u0437 email' : '\u0423\u0432\u0456\u0439\u0434\u0456\u0442\u044c \u0447\u0435\u0440\u0435\u0437 email'}
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="099 123 45 67"
-              value={inputPhone}
-              onChangeText={(value) => {
-                setInputPhone(value);
-                if (smsSent) {
-                  setSmsSent(false);
-                  setSmsCode('');
-                }
-              }}
-              keyboardType="phone-pad"
-              editable={!smsSent}
-              autoFocus
-            />
+            <View style={{flexDirection: 'row', gap: 8, marginBottom: 12}}>
+              <TouchableOpacity
+                style={[styles.loginButton, {flex: 1, padding: 12, backgroundColor: emailAuthMode === 'login' ? '#458B00' : '#FFFFFF', borderWidth: 1, borderColor: '#458B00'}]}
+                onPress={() => setEmailAuthMode('login')}
+              >
+                <Text style={[styles.loginButtonText, {color: emailAuthMode === 'login' ? '#FFF' : '#458B00'}]}>{'\u0423\u0432\u0456\u0439\u0442\u0438'}</Text>
+              </TouchableOpacity>
 
-            {smsSent && (
+              <TouchableOpacity
+                style={[styles.loginButton, {flex: 1, padding: 12, backgroundColor: emailAuthMode === 'register' ? '#458B00' : '#FFFFFF', borderWidth: 1, borderColor: '#458B00'}]}
+                onPress={() => setEmailAuthMode('register')}
+              >
+                <Text style={[styles.loginButtonText, {color: emailAuthMode === 'register' ? '#FFF' : '#458B00'}]}>{'\u0420\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u044f'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {emailAuthMode === 'register' && (
               <TextInput
                 style={styles.input}
-                placeholder="SMS-\u043a\u043e\u0434"
-                value={smsCode}
-                onChangeText={setSmsCode}
-                keyboardType="number-pad"
-                maxLength={6}
+                placeholder={"\u0412\u0430\u0448\u0435 \u0456\u043c\u2019\u044f"}
+                value={inputName}
+                onChangeText={setInputName}
+                autoCapitalize="words"
               />
             )}
 
-            {!smsSent && (
-              <>
-                <TouchableOpacity
-                  style={[styles.loginButton, {backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginBottom: 10}]}
-                  onPress={() => promptGoogleLogin()}
-                >
-                  <Text style={[styles.loginButtonText, {color: '#333'}]}>{'\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google'}</Text>
-                </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={inputEmail}
+              onChangeText={setInputEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
 
-                <View style={{alignItems: 'center', marginBottom: 10}}>
-                  <Text style={{color: '#999'}}>{'\u0430\u0431\u043e'}</Text>
-                </View>
-              </>
-            )}
+            <TextInput
+              style={styles.input}
+              placeholder={"\u041f\u0430\u0440\u043e\u043b\u044c"}
+              value={inputPassword}
+              onChangeText={setInputPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>{smsSent ? '\u0423\u0432\u0456\u0439\u0442\u0438' : '\u041e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 SMS-\u043a\u043e\u0434'}</Text>
+            <TouchableOpacity style={styles.loginButton} onPress={handleEmailAuth}>
+              <Text style={styles.loginButtonText}>
+                {emailAuthMode === 'register' ? '\u0417\u0430\u0440\u0435\u0454\u0441\u0442\u0440\u0443\u0432\u0430\u0442\u0438\u0441\u044f' : '\u0423\u0432\u0456\u0439\u0442\u0438'}
+              </Text>
             </TouchableOpacity>
 
-            {smsSent && (
-              <TouchableOpacity style={{marginTop: 12, alignItems: 'center'}} onPress={handleSendSmsCode}>
-                <Text style={{color: '#458B00', fontWeight: '700'}}>{'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043a\u043e\u0434 \u0449\u0435 \u0440\u0430\u0437'}</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.loginButton, {backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginTop: 10, marginBottom: 10}]}
+              onPress={() => promptGoogleLogin()}
+            >
+              <Text style={[styles.loginButtonText, {color: '#333'}]}>{'\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google'}</Text>
+            </TouchableOpacity>
+
+
+
+
           </View>
         </View>
       </Modal>
