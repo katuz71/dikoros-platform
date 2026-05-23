@@ -113,12 +113,25 @@ async def create_onebox_order(order_data: dict) -> dict:
         headers = {"Token": token, "Content-Type": "application/json"}
 
         raw_items = order_data.get("items") or order_data.get("products") or []
+
         name = str(order_data.get("name") or "").strip()
         phone = str(order_data.get("phone") or "").strip()
+        user_phone = str(order_data.get("user_phone") or "").strip()
+        email = str(order_data.get("email") or "").strip()
+        contact_preference = str(order_data.get("contact_preference") or "").strip()
+
         city = str(order_data.get("city") or "").strip()
+        city_ref = str(order_data.get("cityRef") or order_data.get("city_ref") or "").strip()
         warehouse = str(order_data.get("warehouse") or "").strip()
+        warehouse_ref = str(order_data.get("warehouseRef") or order_data.get("warehouse_ref") or "").strip()
+
         payment_method = str(order_data.get("payment_method") or "").strip()
         delivery_method = str(order_data.get("delivery_method") or "").strip()
+        bonus_used = str(order_data.get("bonus_used") or "0").strip()
+        bonus_balance = str(order_data.get("bonus_balance") or "").strip()
+        return_url = str(order_data.get("return_url") or "").strip()
+        client_comment = str(order_data.get("comment") or order_data.get("comments") or order_data.get("note") or "").strip()
+
         externalid = str(order_data.get("order_id") or order_data.get("id") or "")
         full_address = f"{city}, {warehouse}".strip(", ")
 
@@ -130,11 +143,11 @@ async def create_onebox_order(order_data: dict) -> dict:
             for item in raw_items:
                 item_dict = item if isinstance(item, dict) else vars(item)
 
+                app_product_id = item_dict.get("product_id") or item_dict.get("id") or ""
                 lookup_articul = str(item_dict.get("sku") or item_dict.get("articul") or item_dict.get("code") or "").strip()
-                if not lookup_articul:
-                    item_id = item_dict.get("id") or item_dict.get("product_id")
-                    if item_id:
-                        lookup_articul = await _fetch_sku(item_id)
+
+                if not lookup_articul and app_product_id:
+                    lookup_articul = await _fetch_sku(app_product_id)
 
                 product_id = None
                 if lookup_articul:
@@ -148,17 +161,27 @@ async def create_onebox_order(order_data: dict) -> dict:
                 variant_label = str(
                     item_dict.get("variant_info")
                     or item_dict.get("packSize")
+                    or item_dict.get("pack_size")
                     or item_dict.get("unit")
                     or ""
                 ).strip()
+                item_unit = str(item_dict.get("unit") or "").strip()
+                item_pack_size = str(item_dict.get("packSize") or item_dict.get("pack_size") or "").strip()
 
                 product_name = (
-                    f"{base_name} — {variant_label}"
+                    f"{base_name} - {variant_label}"
                     if variant_label and variant_label not in base_name
                     else base_name
                 )
 
-                item_lines.append(f"- {product_name}: {amount_int} x {price_val} грн")
+                item_lines.append(
+                    f"- {product_name}: {amount_int} x {price_val} \u0433\u0440\u043d"
+                    f" | app_product_id={app_product_id}"
+                    f" | sku={lookup_articul}"
+                    f" | variant={variant_label}"
+                    f" | pack_size={item_pack_size}"
+                    f" | unit={item_unit}"
+                )
 
                 p_obj = {
                     "name": product_name,
@@ -168,6 +191,10 @@ async def create_onebox_order(order_data: dict) -> dict:
                     "price": price_val,
                     "pricepurchase": price_val,
                     "pricesale": price_val,
+                    "app_product_id": str(app_product_id),
+                    "variant_info": variant_label,
+                    "pack_size": item_pack_size,
+                    "unit": item_unit,
                 }
 
                 if product_id:
@@ -179,15 +206,27 @@ async def create_onebox_order(order_data: dict) -> dict:
         sum_str = "{:.4f}".format(total_sum)
 
         desc_lines = [
-            "🛒 ЗАКАЗ ИЗ ПРИЛОЖЕНИЯ",
-            f"Имя: {name}",
-            f"Телефон: {phone}",
-            f"Сумма: {sum_str} грн",
-            f"Оплата: {payment_method}",
-            f"Доставка: {delivery_method}",
-            f"Адрес: {full_address}",
+            "\U0001F6D2 \u0417\u0410\u041a\u0410\u0417 \u0417 \u041f\u0420\u0418\u041b\u041e\u0416\u0415\u041d\u0418\u042f DIKOROSUA",
+            f"\u0418\u043c\u044f: {name}",
+            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438: {phone}",
+            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: {user_phone}",
+            f"Email: {email}",
+            f"\u041f\u0440\u0435\u0434\u043f\u043e\u0447\u0442\u0435\u043d\u0438\u0435 \u0441\u0432\u044f\u0437\u0438: {contact_preference}",
+            f"\u0421\u0443\u043c\u043c\u0430 \u0442\u043e\u0432\u0430\u0440\u043e\u0432: {sum_str} \u0433\u0440\u043d",
+            f"\u0411\u043e\u043d\u0443\u0441\u044b \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u043e: {bonus_used}",
+            f"\u0411\u043e\u043d\u0443\u0441\u043d\u044b\u0439 \u0431\u0430\u043b\u0430\u043d\u0441 \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {bonus_balance}",
+            f"\u041e\u043f\u043b\u0430\u0442\u0430: {payment_method}",
+            f"\u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0430: {delivery_method}",
+            f"\u0413\u043e\u0440\u043e\u0434: {city}",
+            f"CityRef: {city_ref}",
+            f"\u041e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u0435/\u0430\u0434\u0440\u0435\u0441: {warehouse}",
+            f"WarehouseRef: {warehouse_ref}",
+            f"\u041f\u043e\u043b\u043d\u044b\u0439 \u0430\u0434\u0440\u0435\u0441: {full_address}",
+            f"Return URL: {return_url}",
+            f"\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439 \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_comment}",
+            f"External ID: {externalid}",
             "",
-            "Товары:",
+            "\u0422\u043e\u0432\u0430\u0440\u044b:",
             *item_lines,
         ]
         full_description = "\n".join(desc_lines)
@@ -197,8 +236,10 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientname": name,
             "clientphone": phone,
             "phone": phone,
+            "clientemail": email,
+            "email": email,
 
-            "name": f"Заказ из приложения от {name}",
+            "name": f"\u0417\u0430\u043a\u0430\u0437 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u043e\u0442 {name}",
             "description": full_description,
             "comments": full_description,
             "order_content": full_description,
@@ -207,6 +248,10 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientaddress": full_address,
             "address": full_address,
             "order_clientaddress": full_address,
+            "city": city,
+            "warehouse": warehouse,
+            "city_ref": city_ref,
+            "warehouse_ref": warehouse_ref,
 
             "sum": sum_str,
             "order_sum": sum_str,
@@ -214,6 +259,13 @@ async def create_onebox_order(order_data: dict) -> dict:
             "customorder_istochnikDP": "Mobile App",
             "customorder_Sposoboplatidp": payment_method,
             "customorder_sposobdostavkidp": delivery_method,
+            "customorder_email": email,
+            "customorder_contact_preference": contact_preference,
+            "customorder_user_phone": user_phone,
+            "customorder_city_ref": city_ref,
+            "customorder_warehouse_ref": warehouse_ref,
+            "customorder_bonus_used": bonus_used,
+            "customorder_bonus_balance": bonus_balance,
 
             "products": product_array,
 
@@ -239,5 +291,6 @@ async def create_onebox_order(order_data: dict) -> dict:
         return resp.json()
 
     except Exception as exc:
-        logger.error(f"[OneBox] ? Error: {exc}", exc_info=True)
+        logger.error(f"[OneBox] Error: {exc}", exc_info=True)
         raise
+
