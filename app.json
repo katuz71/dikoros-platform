@@ -47,7 +47,18 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1000867182417594",
+          "clientToken": "66e1e92a46bf14d6cb21209fa472622b",
+          "displayName": "DikorosUA",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
