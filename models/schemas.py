@@ -217,6 +217,17 @@ class UserAuth(BaseModel):
     phone: str
 
 
+class EmailRegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class EmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
 class SmsAuthStartRequest(BaseModel):
     phone: str
 

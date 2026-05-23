@@ -23,6 +23,37 @@ TELEGRAM_BOT_NAME = os.getenv("TELEGRAM_BOT_NAME", "DikorosUaBot")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 
+PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", JWT_SECRET)
+
+
+def hash_password(password: str) -> str:
+    """Hash password with PBKDF2-HMAC-SHA256."""
+    if not password or len(password) < 6:
+        raise ValueError("Password must be at least 6 characters")
+
+    salt = os.urandom(16)
+    password_bytes = (password + PASSWORD_PEPPER).encode("utf-8")
+    digest = hashlib.pbkdf2_hmac("sha256", password_bytes, salt, 120_000)
+    return f"pbkdf2_sha256$120000${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against stored PBKDF2 hash."""
+    try:
+        algorithm, iterations_raw, salt_hex, digest_hex = (password_hash or "").split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+
+        iterations = int(iterations_raw)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+        password_bytes = (password + PASSWORD_PEPPER).encode("utf-8")
+        actual = hashlib.pbkdf2_hmac("sha256", password_bytes, salt, iterations)
+        return hmac.compare_digest(actual, expected)
+    except Exception:
+        return False
+
+
 def create_access_token(phone: str) -> str:
     """Create a JWT access token for a user identifier."""
     payload = {"sub": phone, "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRE_HOURS)}

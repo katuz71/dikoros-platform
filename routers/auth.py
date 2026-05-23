@@ -14,8 +14,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from db import get_db_connection
-from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest
-from services.auth import create_access_token
+from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest, EmailRegisterRequest, EmailLoginRequest
+from services.auth import create_access_token, hash_password, verify_password
 
 
 router = APIRouter()
@@ -23,6 +23,98 @@ logger = logging.getLogger(__name__)
 
 SMS_AUTH_CODES = {}
 SMS_CODE_TTL_SECONDS = 10 * 60
+
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+@router.post("/api/auth/email/register")
+def auth_email_register(body: EmailRegisterRequest):
+    email = _normalize_email(body.email)
+    password = body.password or ""
+    name = (body.name or "").strip() or None
+
+    if not email or "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    try:
+        password_hash = hash_password(password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    auth_id = f"email_{email}"
+
+    conn = get_db_connection()
+    try:
+        existing = conn.execute(
+            "SELECT * FROM users WHERE email = %s OR phone = %s",
+            (email, auth_id),
+        ).fetchone()
+
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already registered")
+
+        logger.info("New email user registration: email=%s bonus=%s", email, 150)
+
+        conn.execute(
+            """INSERT INTO users (
+                phone, name, email, password_hash, email_verified,
+                bonus_balance, total_spent, cashback_percent, created_at, is_bonus_claimed
+            ) VALUES (%s, %s, %s, %s, TRUE, 150, 0, 0, %s, TRUE)""",
+            (auth_id, name, email, password_hash, datetime.now().isoformat()),
+        )
+        conn.commit()
+
+        user = conn.execute("SELECT * FROM users WHERE phone = %s", (auth_id,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=500, detail="Failed to create user")
+
+        out = dict(user)
+        out["access_token"] = create_access_token(auth_id)
+        out["is_new_user"] = True
+        out["phone"] = None
+        out["needs_phone"] = True
+        out["auth_id"] = auth_id
+        return out
+    finally:
+        conn.close()
+
+
+@router.post("/api/auth/email/login")
+def auth_email_login(body: EmailLoginRequest):
+    email = _normalize_email(body.email)
+    password = body.password or ""
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    conn = get_db_connection()
+    try:
+        user = conn.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        user_dict = dict(user)
+        if not verify_password(password, user_dict.get("password_hash") or ""):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        auth_id = user_dict.get("phone") or f"email_{email}"
+
+        out = dict(user_dict)
+        out["access_token"] = create_access_token(auth_id)
+        out["is_new_user"] = False
+
+        if str(auth_id).startswith("email_"):
+            out["phone"] = None
+            out["needs_phone"] = True
+            out["auth_id"] = auth_id
+
+        return out
+    finally:
+        conn.close()
 
 
 @router.post("/api/auth/sms/start")
