@@ -193,11 +193,15 @@
           const badgesWrap = document.createElement('div'); badgesWrap.className = 'flex flex-wrap gap-1';
           (item.badges || []).forEach(function (badge) { const b = document.createElement('span'); b.className = 'inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs'; b.textContent = badge; badgesWrap.appendChild(b); });
           content.appendChild(title); content.appendChild(price); content.appendChild(badgesWrap);
-          const link = document.createElement('a'); const baseUrl = item.url || '/product/' + item.id; link.href = baseUrl; link.target = '_blank';
+          const baseUrl = item.url && String(item.url).trim();
+          if (baseUrl) {
+            const link = document.createElement('a'); link.href = baseUrl; link.target = '_blank';
             link.addEventListener('click', function() {
               fetch('/track-event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: window.currentSessionId || '', event_type:'product_click', product_id: String(item.id)})}).catch(function(){});
             }); link.className = 'block text-center mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 rounded-xl transition-colors'; link.textContent = 'Детальніше';
-          content.appendChild(link); card.appendChild(content); wrap.appendChild(card);
+            content.appendChild(link);
+          }
+          card.appendChild(content); wrap.appendChild(card);
         });
         chatMessages.appendChild(wrap); scrollChatToBottom();
         if (!skipSave) { chatHistory.push({ type: 'products', items: items }); saveChatHistory(); }
