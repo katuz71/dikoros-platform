@@ -900,10 +900,10 @@ async def chat_endpoint(request: ChatRequest):
 РЕЛЕВАНТНІ ТОВАРИ ЗА ПОТОЧНИМ ЗАПИТОМ (рекомендуй лише з них, рівно 3):
 CHAT KNOWLEDGE BASE DIKOROS\nUse this block for company, production, quality, shipping, payment, returns and contacts:\n{CHAT_KNOWLEDGE_TEXT}\n\nINFO_MODE: {is_info_question}\nIf INFO_MODE is True, answer only from CHAT KNOWLEDGE BASE DIKOROS, do not recommend products, do not add IDs, and do not mention product cards.\n\n{products_context}
 
-АКТУАЛЬНА БАЗА ТОВАРІВ (назви для згадки в тексті):
-{CHAT_PRODUCTS_BASE}
+ВАЖЛИВО ПРО ТОВАРИ
+Якщо в блоці "ДОСТУПНІ ТОВАРИ" є товари — описуй і рекомендуй тільки їх. Не бери товари з загального каталогу, не вигадуй назви, не додавай товари без ID.
 
-ПРАВИЛО ТРЬОХ (обовʼязково)
+ПРАВИЛО КАРТОЧОК (обовʼязково)
 У кожній відповіді ти зобовʼязаний порекомендувати рівно 3 релевантні товари з наданого списку.
 * Контекст: Якщо запит вузький (наприклад, лише про «Чагу») — підбери 3 різні види або форми цього товару (наприклад: капсули, порошок, чай). Якщо запит широкий («для імунітету») — обери 3 різні підходящі гриби або продукти.
 * Згадка: Назви всіх трьох товарів мають бути органічно вписані в текст відповіді та виділені жирним шрифтом (**назва**).
@@ -921,10 +921,10 @@ CHAT KNOWLEDGE BASE DIKOROS\nUse this block for company, production, quality, sh
 * Акценти: Виділяй жирним назви товарів, ключові переваги та важливі рекомендації (синтаксис **текст**).
 * Списки: Якщо перераховуєш кілька властивостей або товарів — використовуй марковані списки (рядок починай з * ).
 * Емодзі: Обовʼязково додавай тематичні емодзі на початку абзаців або списків для дружньої атмосфери (наприклад: 🍄, 🌿, ⚡, 🧘, 🛡️).
-* Привітання й прощання: Роби їх короткими та теплими.
+* Привітання: Не починай кожну відповідь з "Привіт", "Вітаю", "Доброго дня". Вітайся тільки якщо користувач сам привітався.
 
 ПРИКЛАД ІДЕАЛЬНОГО ФОРМАТУ (завжди рівно 3 товари):
-«Привіт! 😊 Для твоїх цілей чудово підійдуть такі продукти:
+«😊 Для твоїх цілей підійдуть такі продукти:
 
 🍄 **Чага березова (Імунітет+)** — це потужний природний захист. Вона допомагає організму чинити опір вірусам.
 
@@ -950,7 +950,7 @@ IDs: [39151, 39206, 39202]»
                 completion = await openai_client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=history,
-                    temperature=0.8,
+                    temperature=0.3,
                     max_tokens=500
                 )
                 response_text = completion.choices[0].message.content
@@ -1028,6 +1028,30 @@ IDs: [39151, 39206, 39202]»
         # Strip technical IDs line before sending to frontend
         response_text = _strip_ids_line_from_response(response_text)
 
+        def _is_russian_request(text: str) -> bool:
+            t = (text or "").lower()
+            return any(ch in t for ch in "ыэъё") or any(w in t for w in ["что", "посовет", "для", "энерг", "фокус", "можно", "нужно", "подбери", "есть"])
+
+        def _build_grounded_products_reply(products: list[dict], user_text: str) -> str:
+            if not products:
+                return response_text
+
+            intro = (
+                "😊 За твоїм запитом я б запропонував цей варіант:" if len(products[:3]) == 1
+                else "😊 За твоїм запитом я б запропонував ці варіанти:"
+            )
+            outro = "Нижче прикріпив карточки — можна відкрити товар і подивитися деталі. 👇"
+
+            lines = [intro, ""]
+            icons = ["🍄", "⚡", "🌿"]
+            for i, product in enumerate(products[:3]):
+                name = product.get("name") or product.get("title") or ""
+                desc = "підходить під цей запит і може бути корисним для обраної цілі"
+                lines.append(f"{icons[i % len(icons)]} **{name}** — {desc}.")
+                lines.append("")
+            lines.append(outro)
+            return "\n".join(lines).strip()
+
         def _as_chat_product(p: dict) -> dict:
             image = p.get("image")
             pictures = []
@@ -1104,7 +1128,55 @@ IDs: [39151, 39206, 39202]»
                 if len(unique_chat_products) >= 3:
                     break
 
+        # If search produced less than 3 cards, fill with linked available products by detected intents.
+        if len(unique_chat_products) < 3 and all_products and intents:
+            intent_needles = {
+                "focus": ["їжовик", "ежовик", "lion", "mane", "фокус"],
+                "energy": ["кордицеп", "cordyceps", "енергі", "энерг"],
+                "immunity": ["чага", "chaga", "рейш", "reishi", "імун", "иммун"],
+                "sleep": ["рейш", "reishi", "сон"],
+                "stress": ["рейш", "reishi", "ашваганд", "спок", "стрес"],
+            }
+
+            existing_ids = {p.get("id") for p in unique_chat_products}
+            scored_fill = []
+
+            for product in all_products:
+                pid = product.get("id")
+                if not pid or pid in existing_ids:
+                    continue
+
+                name_text = _chat_normalize_text(product.get("name") or "")
+                score = 0
+
+                for intent in intents:
+                    for needle in intent_needles.get(intent, []):
+                        if needle in name_text:
+                            score += 20
+
+                if score > 0:
+                    scored_fill.append((score, product))
+
+            scored_fill.sort(key=lambda x: x[0], reverse=True)
+
+            for _, product in scored_fill:
+                key = _dedupe_product_key(product)
+                pid = product.get("id")
+                if not pid or pid in existing_ids or key in seen_keys:
+                    continue
+
+                seen_keys.add(key)
+                existing_ids.add(pid)
+                unique_chat_products.append(product)
+
+                if len(unique_chat_products) >= 3:
+                    break
+
         final_products = [_as_chat_product(p) for p in unique_chat_products[:3]]
+
+        if final_products and not is_info_question:
+            response_text = _build_grounded_products_reply(unique_chat_products[:3], user_message)
+
         quick_replies = _chat_info_quick_replies() if is_info_question else _chat_build_quick_replies(user_message, final_products)
 
         return ChatResponse(
