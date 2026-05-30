@@ -978,6 +978,21 @@ IDs: [39151, 39206, 39202]»
             chat_products = []
         else:
             mentioned_ids = _extract_product_ids_from_text(response_text, max_count=3)
+
+            # Keep only product IDs that came from current search results.
+            # This prevents GPT from attaching random catalog items/cards.
+            if mentioned_ids and found_products:
+                allowed_ids = {
+                    int(p.get("id"))
+                    for p in found_products
+                    if p.get("id") is not None
+                }
+                mentioned_ids = [
+                    int(pid)
+                    for pid in mentioned_ids
+                    if int(pid) in allowed_ids
+                ]
+
             if mentioned_ids:
                 chat_products = get_products_by_ids(mentioned_ids)
 
