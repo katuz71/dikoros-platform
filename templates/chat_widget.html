@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Чат магазину — Dikoros Store</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: transparent !important; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    body.chat-active { background: #ffffff !important; }
+    #chat-window { background: #fff !important; width: 100%; height: 100%; min-height: 100dvh; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); opacity: 0; pointer-events: none; transform: translateY(100%); transition: opacity 300ms ease-out, transform 300ms ease-out; }
+    #chat-window.chat-window-expanded { inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; max-height: none !important; }
+    @media (min-width: 640px) { #chat-window { transform: translateY(0); } }
+    @media (min-width: 769px) { #chat-window.chat-window-expanded { inset: auto !important; top: 24px !important; right: 24px !important; bottom: 24px !important; left: auto !important; width: 450px !important; max-width: 450px !important; height: auto !important; max-height: calc(100vh - 48px) !important; } }
+    #chat-window.is-open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    html, body { height: 100%; min-height: 100dvh; }
+    .chat-active .chat-button-container { display: none !important; }
+    #chat-messages .chat-product-card img { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; display: block; }
+    #chat-typing-indicator .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; animation: typing-bounce 1.2s ease-in-out infinite both; }
+    #chat-typing-indicator .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    #chat-typing-indicator .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typing-bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+    #chat-button-container { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; bottom: 16px; right: 16px; width: auto; height: auto; padding: 0; }
+    @media (min-width: 640px) { #chat-button-container { bottom: 24px; right: 24px; } }
+    @supports (padding-bottom: env(safe-area-inset-bottom)) { #chat-button-container { bottom: max(16px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); } }
+    #chat-fab { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 48px; min-width: 48px; padding: 0 16px 0 14px; border-radius: 9999px; background: #059669; color: #fff; font-size: 15px; font-weight: 500; white-space: nowrap; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.4); animation: launcher-enter 0.5s ease-out forwards; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
+    #chat-fab:hover { background: #047857; transform: scale(1.05); box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45); }
+    #chat-fab:active { transform: scale(1.02); }
+    @keyframes launcher-enter { from { opacity: 0; transform: scale(0.85) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    #chat-fab .chat-launcher-icon { flex-shrink: 0; width: 22px; height: 22px; }
+    #chat-fab .chat-launcher-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 2px rgba(255,255,255,0.5); animation: status-pulse 2s ease-in-out infinite; }
+    @keyframes status-pulse { 0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 2px rgba(255,255,255,0.5); } 50% { opacity: 0.9; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.4); } }
+    @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+    #chat-fab::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: #059669; animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+    @media (max-width: 768px) { .launcher-text, #chat-fab .chat-launcher-dot { display: none; } #chat-fab { width: 48px; min-width: 48px; padding: 0; justify-content: center; } }
+    #welcome-bubble { max-width: 200px; padding: 10px 14px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); font-size: 14px; line-height: 1.4; color: #334155; opacity: 0; visibility: hidden; transition: opacity 0.5s ease, visibility 0.5s ease; position: relative; pointer-events: none; }
+    #welcome-bubble.is-visible { opacity: 1; visibility: visible; pointer-events: auto; }
+    #welcome-bubble::after { content: ''; position: absolute; bottom: -6px; right: 20px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #fff; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.08)); }
+    #welcome-bubble.is-hidden { display: none !important; }
+    .message-content ul { margin: 5px 0; padding-left: 20px; }
+    .message-content strong { color: #2e7d32; }
+    .manager-btn { background-color: #ff9800 !important; color: #fff !important; font-weight: bold; border-color: #ff9800 !important; }
+    #message-input, .chat-input, #chat-form textarea { resize: none; }
+    @media (max-width: 768px) { body, .chat-container, #chat-container, .chat-window, #chat-window { border-radius: 0 !important; box-shadow: none !important; margin: 0 !important; border: none !important; } }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 antialiased">
+  <div id="chat-button-container" class="chat-button-container fixed z-50 cursor-pointer">
+    <div id="welcome-bubble">Привіт! Маєте питання щодо вибору? Я на зв'язку!</div>
+    <button type="button" id="chat-fab" class="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg border-0 sm:pointer-events-auto">
+      <svg class="chat-launcher-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+      <span class="chat-launcher-text launcher-text">Я на зв'язку</span>
+      <span class="chat-launcher-dot"></span>
+    </button>
+  </div>
+
+  <div id="chat-window" class="fixed z-40 flex flex-col bg-white shadow-2xl rounded-b-2xl overflow-hidden inset-0 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[450px] sm:max-h-[calc(100vh-3rem)]">
+    <header class="flex-shrink-0 flex items-center gap-3 px-4 py-3 bg-emerald-600 text-white rounded-none">
+      <img src="/static/logo.png" alt="" class="w-10 h-10 rounded-none flex-shrink-0 object-contain" />
+      <div class="flex-1 min-w-0 flex flex-col gap-1">
+        <h1 class="text-xl font-bold tracking-tight truncate">Dikoros</h1>
+        <div class="flex items-center gap-2 text-left">
+          <span class="inline-flex items-center gap-1.5 text-emerald-100 text-sm"><span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>В мережі</span>
+          <span class="text-emerald-200/90 text-xs">·</span>
+          <span class="text-emerald-200/90 text-xs">AI-консультант</span>
+        </div>
+      </div>
+      <button type="button" id="chat-clear-history" class="flex-shrink-0 p-2 rounded-full hover:bg-emerald-500/50 opacity-70 hover:opacity-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
+      <button type="button" id="chat-close" class="flex-shrink-0 p-2 rounded-full hover:bg-emerald-500/50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+    </header>
+
+    <main id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 bg-slate-50">
+      <p class="text-slate-500 text-sm text-center py-8">Напишіть повідомлення — консультант допоможе з вибором товарів.</p>
+    </main>
+
+    <footer class="flex-shrink-0 p-3 border-t border-slate-200 bg-white">
+      <form id="chat-form" class="flex gap-2 items-center">
+        <input type="text" id="message-input" placeholder="Ваше повідомлення..." autocomplete="off" class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-sm" />
+        <button type="submit" id="send-btn" class="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 transition-colors flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
+      </form>
+    </footer>
+  </div>
+  <div id="chat-overlay" class="fixed inset-0 bg-black/20 z-30 opacity-0 pointer-events-none transition-opacity duration-300 sm:hidden"></div>
+
+  <script>
+    (function () {
+      const chatFab = document.getElementById('chat-fab'), chatWindow = document.getElementById('chat-window'), chatClose = document.getElementById('chat-close'), chatOverlay = document.getElementById('chat-overlay'), chatMessages = document.getElementById('chat-messages'), form = document.getElementById('chat-form'), input = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn'), welcomeBubble = document.getElementById('welcome-bubble');
+      const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      window.currentSessionId = sessionId;
+      const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Каталог усіх грибів"];
+      let chatHistory = [];
+
+      function saveChatHistory() { try { localStorage.setItem('shopbot_history', JSON.stringify(chatHistory)); } catch (_) {} }
+      function loadChatHistory() {
+        var raw = null; try { raw = localStorage.getItem('shopbot_history'); } catch (_) {}
+        if (!raw) { initChat(); return; }
+        var arr = []; try { arr = JSON.parse(raw); } catch (_) { initChat(); return; }
+        if (!Array.isArray(arr) || !arr.length) { initChat(); return; }
+        clearPlaceholder(); chatMessages.innerHTML = ''; chatHistory = [];
+        for (var i = 0; i < arr.length; i++) {
+          var e = arr[i];
+          if (e && e.type === 'message') appendMessage(e.role, e.text, true);
+          else if (e && e.type === 'products' && e.items && e.items.length) appendProductCards(e.items, true);
+          else if (e && e.type === 'quick_replies' && e.labels && e.labels.length) appendQuickReplies(e.labels, sendMessage, true);
+        }
+        chatHistory = arr; scrollChatToBottom();
+      }
+      function clearChatHistory() { try { localStorage.removeItem('shopbot_history'); } catch (_) {} chatHistory = []; clearPlaceholder(); chatMessages.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">Напишіть повідомлення — консультант допоможе з вибором товарів.</p>'; initChat(); }
+
+      let chatOpen = false; const isMobile = () => window.innerWidth < 640;
+      let welcomeTimeoutId = null, hideBubbleTimeoutId = null;
+
+      function hideWelcomeBubble() { if (!welcomeBubble) return; clearTimeout(welcomeTimeoutId); clearTimeout(hideBubbleTimeoutId); welcomeBubble.classList.remove('is-visible'); welcomeBubble.classList.add('is-hidden'); try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} }
+      function showWelcomeBubble() { if (!welcomeBubble || welcomeBubble.classList.contains('is-hidden')) return; welcomeBubble.classList.add('is-visible'); try { window.parent.postMessage('expand_vignette', '*'); } catch(e){} try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} hideBubbleTimeoutId = setTimeout(function () { welcomeBubble.classList.remove('is-visible'); setTimeout(function () { welcomeBubble.classList.add('is-hidden'); }, 500); }, 8000); }
+      try { if (localStorage.getItem('chat_welcome_shown') !== 'true') { welcomeTimeoutId = setTimeout(function () { if (!chatOpen) showWelcomeBubble(); }, 10000); } } catch (_) {}
+
+      function openChat() { try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} hideWelcomeBubble(); chatOpen = true; try { window.parent.postMessage('chat_opened', '*'); } catch (_) {} document.body.classList.add('chat-active'); chatWindow.classList.add('chat-window-expanded', 'is-open'); if (isMobile()) { chatOverlay.classList.remove('pointer-events-none', 'opacity-0'); chatOverlay.classList.add('pointer-events-auto', 'opacity-100'); } }
+      function closeChat() { chatOpen = false; try { window.parent.postMessage('chat_closed', '*'); } catch (_) {} document.body.classList.remove('chat-active'); chatWindow.classList.remove('chat-window-expanded', 'is-open'); if (isMobile()) { chatOverlay.classList.add('pointer-events-none', 'opacity-0'); chatOverlay.classList.remove('pointer-events-auto', 'opacity-100'); } }
+
+      chatFab.addEventListener('click', function (e) { e.stopPropagation(); chatOpen ? closeChat() : openChat(); });
+      chatClose.addEventListener('click', closeChat); chatOverlay.addEventListener('click', closeChat);
+      document.getElementById('chat-button-container').addEventListener('click', function () { if (!chatOpen) openChat(); });
+      if (welcomeBubble) welcomeBubble.addEventListener('click', function (e) { e.stopPropagation(); hideWelcomeBubble(); });
+
+      function clearPlaceholder() { const p = chatMessages.querySelector('.text-center.text-slate-500'); if (p) p.remove(); }
+      function scrollChatToBottom() { if (chatMessages) setTimeout(function () { chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); }, 150); }
+
+      function appendTypingIndicator() { removeTypingIndicator(); const wrap = document.createElement('div'); wrap.id = 'chat-typing-indicator'; wrap.className = 'flex justify-start'; const bubble = document.createElement('div'); bubble.className = 'max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-white text-slate-800 shadow-sm border border-slate-100 flex items-center gap-1'; for (var i = 0; i < 3; i++) { const dot = document.createElement('span'); dot.className = 'typing-dot'; bubble.appendChild(dot); } wrap.appendChild(bubble); chatMessages.appendChild(wrap); scrollChatToBottom(); }
+      function removeTypingIndicator() { const el = document.getElementById('chat-typing-indicator'); if (el) el.remove(); }
+      function stripShowProductsTag(text) { if (!text || typeof text !== 'string') return text; return text.replace(/\[SHOW_PRODUCTS[^\]]*\]/gi, '').trim().replace(/\s{2,}/g, ' '); }
+
+      // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ФОРМАТИРОВАНИЯ ---
+      function formatMessageContent(raw) {
+        var t = stripShowProductsTag(raw || '');
+        if (!t) return '';
+        var escaped = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // 1. БРОНЯ: Вырезаем Markdown `[Текст](ссылка)`
+        escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
+
+        // 2. УНИВЕРСАЛЬНЫЙ ПАРСЕР ССЫЛОК (Включая обычные ссылки на сайт)
+        escaped = escaped.replace(/(viber:\/\/chat\?number=[^\s<]+|https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g, function(match) {
+            if (match.includes('t.me')) {
+                return '<br><a href="' + match + '" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top: 4px; margin-bottom: 4px; background-color: #2AABEE; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;"><svg style="width: 16px; height: 16px;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>Telegram</a>';
+            } else if (match.includes('viber')) {
+                return '<br><a href="' + match + '" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top: 4px; margin-bottom: 4px; background-color: #7360F2; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;"><svg style="width: 16px; height: 16px;" fill="currentColor" viewBox="0 0 24 24"><path d="M18.33 13.91c-.34-.14-1.03-.49-1.18-.55-.15-.06-.27-.08-.38.08-.12.16-.45.55-.55.67-.1.12-.2.13-.34.06-.9-.45-1.76-1-2.56-1.76-.8-.76-1.33-1.66-1.78-2.56-.07-.15-.06-.25.06-.34.12-.1.25-.26.35-.4.1-.14.13-.25.2-.4.07-.15.03-.3-.04-.44-.06-.15-.38-1-.53-1.37-.14-.36-.28-.31-.38-.32h-.33c-.15 0-.4.06-.6.28-.2.22-.78.76-.78 1.86s.8 2.16.9 2.3c.1.14 1.55 2.41 3.82 3.35.54.22 1.05.38 1.48.48.56.14 1.07.12 1.47.07.45-.06 1.03-.42 1.18-.83.14-.4.14-.76.1-.83-.05-.08-.18-.1-.34-.17zm3.17-1.91c0-5.25-4.25-9.5-9.5-9.5S2.5 6.75 2.5 12s4.25 9.5 9.5 9.5c1.6 0 3.1-.4 4.4-1.1l4.1.8-1-3.8c.8-1.3 1.2-2.8 1.2-4.4z"/></svg>Viber</a>';
+            } else {
+                return '<a href="' + match + '" target="_blank" style="color: #059669; text-decoration: underline; font-weight: 500;">' + match + '</a>';
+            }
+        });
+
+        // 3. Телефон
+        escaped = escaped.replace(/(\+380[\d\s\-]{9,15})/g, function(match) {
+            var cleanNum = match.replace(/[\s\-]/g, '');
+            return '<br><a href="tel:' + cleanNum + '" style="color: #059669; text-decoration: underline; font-weight: 500;">' + match + '</a>';
+        });
+
+        escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        var lines = escaped.split(/\n/), out = [], i = 0;
+        while (i < lines.length) {
+          if (/^[•]\s*/.test(lines[i])) {
+            var listItems = [];
+            while (i < lines.length && /^[•]\s*/.test(lines[i])) { listItems.push('<li>' + lines[i].replace(/^[•]\s*/, '') + '</li>'); i++; }
+            out.push('<ul>' + listItems.join('') + '</ul>');
+          } else { if (lines[i]) out.push(lines[i]); i++; }
+        }
+        return out.join('<br>\n');
+      }
+      // ------------------------------------------
+
+      function appendMessage(role, text, skipSave) {
+        clearPlaceholder();
+        const wrap = document.createElement('div'); wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
+        const bubble = document.createElement('div'); bubble.className = 'max-w-[85%] px-4 py-2.5 text-sm rounded-2xl ' + (role === 'user' ? 'bg-emerald-700 text-white rounded-br-md' : 'bg-white text-slate-800 rounded-bl-md shadow-sm border border-slate-100');
+        if (role === 'user') { bubble.textContent = text; } else { const contentWrap = document.createElement('div'); contentWrap.className = 'message-content flex flex-col items-start'; contentWrap.innerHTML = formatMessageContent(text); bubble.appendChild(contentWrap); }
+        wrap.appendChild(bubble); chatMessages.appendChild(wrap); scrollChatToBottom();
+        if (!skipSave) { chatHistory.push({ type: 'message', role: role, text: text }); saveChatHistory(); }
+      }
+
+      function normalizeUrl(u) { if (u == null) return ''; u = String(u).trim(); if (!u) return ''; if (u.startsWith('//')) return window.location.protocol + u; if (u.startsWith('http://') || u.startsWith('https://')) return u; if (u.startsWith('/')) return window.location.origin + u; return window.location.origin + '/' + u.replace(/^\.\//, ''); }
+
+      function appendProductCards(items, skipSave) {
+        if (!items || !items.length) return; clearPlaceholder();
+        const wrap = document.createElement('div'); wrap.className = 'flex gap-3 justify-start overflow-x-auto sm:overflow-visible flex-nowrap sm:flex-wrap pb-2 -mx-1 px-1 sm:mx-0 sm:px-0';
+        items.forEach(function (item) {
+          const card = document.createElement('div'); card.className = 'chat-product-card flex-shrink-0 w-[260px] sm:w-auto sm:max-w-[280px] rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow';
+          const imgCandidate = (item.image_url && String(item.image_url).trim()) ? item.image_url : (item.pictures && item.pictures.length && String(item.pictures[0]).trim()) ? item.pictures[0] : '';
+          const imgSrc = normalizeUrl(imgCandidate) || '/static/logo.png';
+          const img = document.createElement('img'); img.src = imgSrc; img.className = 'w-full rounded-t-2xl'; img.onerror = function () { img.onerror = null; img.src = '/static/logo.png'; img.classList.remove('object-cover'); img.classList.add('object-contain'); }; card.appendChild(img);
+          const content = document.createElement('div'); content.className = 'p-3';
+          const title = document.createElement('div'); title.className = 'font-medium text-slate-800 text-sm mb-1 line-clamp-2'; title.textContent = item.title || '';
+          const price = document.createElement('div'); price.className = 'text-emerald-600 font-semibold text-sm mb-2'; price.textContent = (item.price != null ? item.price + ' ' + (item.currency || 'грн') : '—');
+          const badgesWrap = document.createElement('div'); badgesWrap.className = 'flex flex-wrap gap-1';
+          (item.badges || []).forEach(function (badge) { const b = document.createElement('span'); b.className = 'inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs'; b.textContent = badge; badgesWrap.appendChild(b); });
+          content.appendChild(title); content.appendChild(price); content.appendChild(badgesWrap);
+          const link = document.createElement('a'); const baseUrl = item.url || '/product/' + item.id; link.href = baseUrl; link.target = '_blank';
+            link.addEventListener('click', function() {
+              fetch('/track-event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: window.currentSessionId || '', event_type:'product_click', product_id: String(item.id)})}).catch(function(){});
+            }); link.className = 'block text-center mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 rounded-xl transition-colors'; link.textContent = 'Детальніше';
+          content.appendChild(link); card.appendChild(content); wrap.appendChild(card);
+        });
+        chatMessages.appendChild(wrap); scrollChatToBottom();
+        if (!skipSave) { chatHistory.push({ type: 'products', items: items }); saveChatHistory(); }
+      }
+
+      function appendQuickReplies(replies, onSend, skipSave) {
+        if (!replies || !replies.length) return; clearPlaceholder();
+        const wrap = document.createElement('div'); wrap.className = 'flex flex-wrap gap-2 justify-start';
+        replies.forEach(function (label) {
+          const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'px-3 py-1.5 rounded-2xl bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 text-slate-700 hover:text-emerald-800 text-sm transition-colors shadow-sm';
+          if (label && label.indexOf("Зв'язатися з менеджером") !== -1) btn.classList.add('manager-btn'); btn.textContent = label;
+          btn.addEventListener('click', function () { if (label === "Зв'язатися з менеджером") { window.location.href = 'tel:+380632526824'; return; } onSend(label); });
+          wrap.appendChild(btn);
+        });
+        chatMessages.appendChild(wrap); scrollChatToBottom();
+        if (!skipSave) { chatHistory.push({ type: 'quick_replies', labels: replies }); saveChatHistory(); }
+      }
+
+      function parseReplyButtons(reply) {
+        if (!reply || typeof reply !== 'string') return { text: reply || '', buttons: [] };
+        const tagMatch = reply.match(/\[BUTTONS:\s*([^\]]+)\]/i); if (!tagMatch) return { text: reply.trim(), buttons: [] };
+        const buttons = tagMatch[1].trim().split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        const text = reply.replace(/\[BUTTONS:\s*[^\]]+\]/gi, '').trim().replace(/\s{2,}/g, ' '); return { text: text, buttons: buttons };
+      }
+
+      function sendMessage(text) {
+        const t = (text || '').trim(); if (!t) return;
+        appendMessage('user', t); appendTypingIndicator(); scrollChatToBottom(); input.value = ''; sendBtn.disabled = true;
+        fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: t, session_id: sessionId }) })
+          .then(function (res) { return res.json(); }).then(function (data) { removeTypingIndicator(); var parsed = parseReplyButtons(data.reply || ''); if (parsed.text) appendMessage('assistant', parsed.text); if (data.items && data.items.length) appendProductCards(data.items); if (parsed.buttons && parsed.buttons.length) { appendQuickReplies(parsed.buttons, sendMessage); } else if (data.quick_replies && data.quick_replies.length) { appendQuickReplies(data.quick_replies, sendMessage); } })
+          .catch(function () { removeTypingIndicator(); appendMessage('assistant', 'Помилка з\'єднання. Спробуйте пізніше.'); }).finally(function () { sendBtn.disabled = false; });
+      }
+
+      function initChat() {
+        fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '', session_id: sessionId }) })
+          .then(function (res) { return res.json(); }).then(function (data) { var parsed = parseReplyButtons(data.reply || ''); if (parsed.text) appendMessage('assistant', parsed.text); if (data.items && data.items.length) appendProductCards(data.items); appendQuickReplies(INITIAL_SUGGESTIONS, sendMessage); })
+          .catch(function () { appendMessage('assistant', 'Помилка з\'єднання. Спробуйте пізніше.'); });
+      }
+
+      loadChatHistory();
+      function onChatReady() {
+        var chatClearHistoryBtn = document.getElementById('chat-clear-history');
+        if (chatClearHistoryBtn) chatClearHistoryBtn.addEventListener('click', function (e) { e.stopPropagation(); clearChatHistory(); });
+        form.addEventListener('submit', function (e) { e.preventDefault(); sendMessage(input.value.trim()); });
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendMessage(input.value.trim()); } });
+      }
+      if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', onChatReady); } else { onChatReady(); }
+    })();
+  </script>
+</body>
+</html>

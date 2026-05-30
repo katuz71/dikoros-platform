@@ -2,8 +2,9 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -72,6 +73,12 @@ app.add_middleware(
 )
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def get_chat_widget(request: Request):
+    return templates.TemplateResponse("chat_widget.html", {"request": request})
 
 # --- INITIALIZATION ---
 # --- SYNC CONFIG ---
