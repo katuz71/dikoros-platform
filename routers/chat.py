@@ -31,6 +31,7 @@ async def _send_telegram_manager_message(text: str) -> None:
         import httpx
 
         text = (text or "").strip()
+        text = text.replace("**", "").replace("__", "")
         if not text:
             return
 
@@ -45,6 +46,7 @@ async def _send_telegram_manager_message(text: str) -> None:
                     "chat_id": TELEGRAM_CHAT_ID,
                     "text": text,
                     "disable_web_page_preview": True,
+                    "disable_notification": False,
                 },
             )
     except Exception:
