@@ -17,8 +17,11 @@ def get_products_by_ids(ids: List[int]) -> List[dict]:
     placeholders = ",".join(["?" for _ in unique_ids])
     rows = conn.execute(
         f"""
-        SELECT id, name, price, old_price, image, images, description, link_url
-        FROM products WHERE id IN ({placeholders})
+        SELECT id, name, price, old_price, image, images, description, link_url, status
+        FROM products
+        WHERE id IN ({placeholders})
+          AND status = 'available'
+          AND coalesce(trim(link_url), '') <> ''
         """,
         tuple(unique_ids),
     ).fetchall()
