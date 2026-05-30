@@ -897,6 +897,98 @@ async def chat_endpoint(request: ChatRequest):
         all_products = [dict(r) for r in all_products_rows]
         conn.close()
 
+        def _topic_products_by_needles(needles: list[str], limit: int = 3, exclude_needles: list[str] | None = None) -> list[dict]:
+            scored = []
+            exclude_needles = exclude_needles or []
+
+            for product in all_products:
+                name = (product.get("name") or "").strip()
+                if not name:
+                    continue
+
+                norm_name = _chat_normalize_text(name)
+                raw_name = name.lower()
+
+                if "без назви" in norm_name:
+                    continue
+
+                if any(n in norm_name or n in raw_name for n in exclude_needles):
+                    continue
+
+                if not any(n in norm_name or n in raw_name for n in needles):
+                    continue
+
+                score = 0
+
+                for needle in needles:
+                    if needle in norm_name or needle in raw_name:
+                        score += 30
+
+                if "капсул" in norm_name:
+                    score += 8
+                if "порош" in norm_name or "баноч" in norm_name:
+                    score += 6
+                if "мікродоз" in raw_name or "микродоз" in raw_name:
+                    score += 5
+                if "1 грам" in norm_name or "1грам" in norm_name:
+                    score -= 6
+
+                price = product.get("price")
+                try:
+                    if price is not None and float(price) <= 10:
+                        score -= 5
+                except Exception:
+                    pass
+
+                scored.append((score, int(product.get("id") or 0), product))
+
+            scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+
+            out = []
+            seen_keys = set()
+
+            for _, _, product in scored:
+                key = _chat_normalize_text((product.get("name") or "").strip())
+                if key in seen_keys:
+                    continue
+
+                seen_keys.add(key)
+                out.append(product)
+
+                if len(out) >= limit:
+                    break
+
+            return out
+
+        def _exact_quick_reply_products(normalized_text: str) -> list[dict]:
+            t = (normalized_text or "").strip()
+
+            if t in {"чага", "chaga"}:
+                return _topic_products_by_needles(["чаг", "chaga"], 3)
+
+            if t in {"кордицепс", "cordyceps"}:
+                return _topic_products_by_needles(
+                    ["кордицеп", "cordyceps"],
+                    3,
+                    ["мухомор", "amanita", "mix", "мікс", "микс"]
+                )
+
+            if t in {"іжовик гребінчастий", "їжовик гребінчастий", "ижовик гребинчастий", "ежовик гребинчастый"}:
+                return _topic_products_by_needles(
+                    ["іжовик", "їжовик", "ижовик", "ежовик", "hericium", "lion", "mane"],
+                    3,
+                    ["мухомор", "amanita", "mix", "мікс", "микс"]
+                )
+
+            if t in {"мухомори", "мухоморы", "мухомор"}:
+                return _topic_products_by_needles(
+                    ["мухомор", "amanita"],
+                    3,
+                    ["mix", "мікс", "микс", "кордицеп", "cordyceps", "їжовик", "іжовик", "ежовик", "hericium"]
+                )
+
+            return []
+
         # Токены запроса (со стоп-словами и нормализацией)
         words = _chat_tokenize(user_message_lower)
         words = [_chat_stem_token(w) for w in words]
@@ -908,6 +1000,10 @@ async def chat_endpoint(request: ChatRequest):
             words = []
 
         found_products = []
+
+        exact_quick_reply_products = _exact_quick_reply_products(normalized_message)
+        if not is_info_question and exact_quick_reply_products:
+            found_products = exact_quick_reply_products
 
         # Hard route for quick reply: sleep/calm must not match random "сон..." products like honey.
         if not is_info_question and "для спокою та сну" in normalized_message:
@@ -1241,6 +1337,11 @@ IDs: [39151, 39206, 39202]»
                 unique_chat_products.append(product)
                 if len(unique_chat_products) >= 3:
                     break
+
+        exact_quick_reply_products = _exact_quick_reply_products(normalized_message)
+        if exact_quick_reply_products:
+            unique_chat_products = exact_quick_reply_products
+            seen_keys = {_dedupe_product_key(p) for p in unique_chat_products}
 
         if "для спокою та сну" in normalized_message:
             unique_chat_products = get_products_by_ids([196])
