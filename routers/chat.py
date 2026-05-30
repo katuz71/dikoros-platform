@@ -478,7 +478,6 @@ def _chat_info_quick_replies() -> list[str]:
         "\u041e\u043f\u043b\u0430\u0442\u0430",
         "\u041f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f",
         "\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c",
-        "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
     ]
 
 
@@ -590,7 +589,8 @@ def _chat_build_quick_replies(user_message: str, found_products: list | None = N
         ]
     else:
         chips += [
-            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433",
+            "\u041c\u0456\u043a\u0441\u0438",
+            "\u0414\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
             "\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c",
         ]
 
@@ -857,6 +857,19 @@ async def chat_endpoint(request: ChatRequest):
             f"Session: {session_id}\n\n"
             f"👤 Клієнт: {user_message or '[порожнє повідомлення]'}"
         )
+
+        if normalized_message.strip() in {"каталог", "catalog"}:
+            text = (
+                "Я не відкриваю весь каталог одним списком, але можу швидко підібрати товари за напрямком. "
+                "Обери, що тебе цікавить:"
+            )
+            quick = ["Мухомори", "Їжовик гребінчастий", "Кордицепс", "Чага", "Мікси", "Для старту"]
+            await _send_telegram_manager_message(
+                "🤖 Відповідь бота Dikoros\n"
+                f"Session: {session_id}\n\n"
+                f"{text}"
+            )
+            return ChatResponse(message=text, reply=text, products=[], items=[], quick_replies=quick, session_id=session_id)
 
         greeting_words = {"привет", "привіт", "добрый день", "добрий день", "здравствуйте", "вітаю", "hello", "hi"}
         if normalized_message.strip() in greeting_words:
