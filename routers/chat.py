@@ -367,6 +367,16 @@ def _chat_detect_intents(normalized_text: str) -> List[str]:
 def _chat_is_info_question(text: str) -> bool:
     t = _chat_normalize_text(text or "")
     needles = [
+        "що таке",
+        "что такое",
+        "розкажи",
+        "расскажи",
+        "поясни",
+        "объясни",
+        "як працює",
+        "как работает",
+        "що означає",
+        "что означает",
         "\u0434\u043e\u0441\u0442\u0430\u0432",
         "\u043d\u043e\u0432\u0430 \u043f\u043e\u0448",
         "\u043d\u043e\u0432\u043e\u0439 \u043f\u043e\u0447\u0442",
@@ -483,7 +493,7 @@ def _chat_build_quick_replies(user_message: str, found_products: list | None = N
             "\u0414\u043b\u044f \u0444\u043e\u043a\u0443\u0441\u0443 \u0442\u0430 \u0435\u043d\u0435\u0440\u0433\u0456\u0457",
             "\u0414\u043b\u044f \u0441\u043f\u043e\u043a\u043e\u044e \u0442\u0430 \u0441\u043d\u0443",
             "\u041d\u0430\u0431\u043e\u0440\u0438 \u0434\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443",
-            "\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0443\u0441\u0456\u0445 \u0433\u0440\u0438\u0431\u0456\u0432",
+            "\u041c\u0456\u043a\u0441\u0438",
         ]
 
     if ctx["topic"] is None:
@@ -818,7 +828,17 @@ async def chat_endpoint(request: ChatRequest):
 
         found_products = []
 
-        if not is_info_question:
+        # Hard route for quick reply: sleep/calm must not match random "сон..." products like honey.
+        if not is_info_question and "для спокою та сну" in normalized_message:
+            found_products = get_products_by_ids([196])
+
+        if not is_info_question and "набори для старту" in normalized_message:
+            found_products = get_products_by_ids([11, 69, 65])
+
+        if not is_info_question and normalized_message.strip() in ("мікси", "микси"):
+            found_products = get_products_by_ids([11, 58, 69])
+
+        if not is_info_question and not found_products:
             direct_ids = _chat_direct_product_ids_by_sku_or_alias(user_message, all_products)
             if direct_ids:
                 found_products = get_products_by_ids(direct_ids)
@@ -1028,6 +1048,15 @@ IDs: [39151, 39206, 39202]»
         # Strip technical IDs line before sending to frontend
         response_text = _strip_ids_line_from_response(response_text)
 
+        if is_info_question and any(x in (user_message or "").lower() for x in ["мікродоз", "микродоз", "microdos", "microdose"]):
+            response_text = (
+                "Мікродозинг — це підхід, коли продукт вживають у дуже малих кількостях, "
+                "щоб м’яко підтримати фокус, настрій або загальне самопочуття без різкого ефекту.\n\n"
+                "🍄 У контексті Dikoros найчастіше мають на увазі грибні продукти у капсулах або порошку.\n\n"
+                "🌿 Якщо хочеш, я можу допомогти підібрати варіант під конкретну ціль: фокус, енергія, спокій або старт."
+            )
+            chat_products = []
+
         def _is_russian_request(text: str) -> bool:
             t = (text or "").lower()
             return any(ch in t for ch in "ыэъё") or any(w in t for w in ["что", "посовет", "для", "энерг", "фокус", "можно", "нужно", "подбери", "есть"])
@@ -1040,12 +1069,16 @@ IDs: [39151, 39206, 39202]»
                 "😊 За твоїм запитом я б запропонував цей варіант:" if len(products[:3]) == 1
                 else "😊 За твоїм запитом я б запропонував ці варіанти:"
             )
-            outro = "Нижче прикріпив карточки — можна відкрити товар і подивитися деталі. 👇"
+            outro = (
+                "Нижче прикріпив картку — можна відкрити товар і подивитися деталі. 👇"
+                if len(products[:3]) == 1
+                else "Нижче прикріпив карточки — можна відкрити товар і подивитися деталі. 👇"
+            )
 
             lines = [intro, ""]
             icons = ["🍄", "⚡", "🌿"]
             for i, product in enumerate(products[:3]):
-                name = product.get("name") or product.get("title") or ""
+                name = (product.get("name") or product.get("title") or "").strip()
                 desc = "підходить під цей запит і може бути корисним для обраної цілі"
                 lines.append(f"{icons[i % len(icons)]} **{name}** — {desc}.")
                 lines.append("")
@@ -1069,7 +1102,7 @@ IDs: [39151, 39206, 39202]»
             if image and not pictures:
                 pictures = [image]
 
-            name = p.get("name") or ""
+            name = (p.get("name") or "").strip()
             link_url = (p.get("link_url") or "").strip()
 
             return {
@@ -1128,13 +1161,25 @@ IDs: [39151, 39206, 39202]»
                 if len(unique_chat_products) >= 3:
                     break
 
+        if "для спокою та сну" in normalized_message:
+            unique_chat_products = get_products_by_ids([196])
+            seen_keys = {_dedupe_product_key(p) for p in unique_chat_products}
+
+        if "набори для старту" in normalized_message:
+            unique_chat_products = get_products_by_ids([11, 69, 65])
+            seen_keys = {_dedupe_product_key(p) for p in unique_chat_products}
+
+        if normalized_message.strip() in ("мікси", "микси"):
+            unique_chat_products = get_products_by_ids([11, 58, 69])
+            seen_keys = {_dedupe_product_key(p) for p in unique_chat_products}
+
         # If search produced less than 3 cards, fill with linked available products by detected intents.
         if len(unique_chat_products) < 3 and all_products and intents:
             intent_needles = {
                 "focus": ["їжовик", "ежовик", "lion", "mane", "фокус"],
                 "energy": ["кордицеп", "cordyceps", "енергі", "энерг"],
                 "immunity": ["чага", "chaga", "рейш", "reishi", "імун", "иммун"],
-                "sleep": ["рейш", "reishi", "сон"],
+                "sleep": ["рейш", "reishi"],
                 "stress": ["рейш", "reishi", "ашваганд", "спок", "стрес"],
             }
 
