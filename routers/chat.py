@@ -17,6 +17,62 @@ from services.products import get_products_by_ids
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+
+async def _send_telegram_manager_message(text: str) -> None:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    try:
+        import httpx
+
+        text = (text or "").strip()
+        if not text:
+            return
+
+        # Telegram limit is 4096 chars; keep safe margin.
+        if len(text) > 3500:
+            text = text[:3500] + "\n\n…"
+
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": text,
+                    "disable_web_page_preview": True,
+                },
+            )
+    except Exception:
+        logger.exception("TELEGRAM MANAGER NOTIFY ERROR")
+
+
+def _format_telegram_products(products: list[dict]) -> str:
+    if not products:
+        return ""
+
+    lines = ["", "🛒 Карточки:"]
+    for idx, product in enumerate(products[:5], 1):
+        title = product.get("title") or product.get("name") or "Без назви"
+        url = product.get("url") or ""
+        price = product.get("price")
+        currency = product.get("currency") or "грн"
+
+        line = f"{idx}. {title}"
+        if price not in (None, "", 0):
+            line += f" — {price} {currency}"
+        if url:
+            line += f"\n{url}"
+
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
 
 
 openai_client = None
@@ -794,9 +850,20 @@ async def chat_endpoint(request: ChatRequest):
         intents = _chat_detect_intents(normalized_message)
         is_info_question = _chat_is_info_question(user_message)
 
+        await _send_telegram_manager_message(
+            "💬 Нове повідомлення з сайту Dikoros\n"
+            f"Session: {session_id}\n\n"
+            f"👤 Клієнт: {user_message or '[порожнє повідомлення]'}"
+        )
+
         greeting_words = {"привет", "привіт", "добрый день", "добрий день", "здравствуйте", "вітаю", "hello", "hi"}
         if normalized_message.strip() in greeting_words:
             text = "Привіт! 😊 Я консультант DikorosUA. Допоможу підібрати гриби, мікродозинг, трави або відповім по доставці й оплаті."
+            await _send_telegram_manager_message(
+                "🤖 Відповідь бота Dikoros\n"
+                f"Session: {session_id}\n\n"
+                f"{text}"
+            )
             return ChatResponse(message=text, reply=text, products=[], items=[], quick_replies=["Мухомори", "Їжовик гребінчастий", "Кордицепс", "Чага", "Мікси", "Доставка", "Оплата"], session_id=session_id)
 
         # 1. Поиск товаров (Улучшенный: Python-фильтрация для поддержки кириллицы и поиска в описании)
@@ -1222,6 +1289,13 @@ IDs: [39151, 39206, 39202]»
             response_text = _build_grounded_products_reply(unique_chat_products[:3], user_message)
 
         quick_replies = _chat_info_quick_replies() if is_info_question else _chat_build_quick_replies(user_message, final_products)
+
+        await _send_telegram_manager_message(
+            "🤖 Відповідь бота Dikoros\n"
+            f"Session: {session_id}\n\n"
+            f"{response_text}"
+            + _format_telegram_products(final_products)
+        )
 
         return ChatResponse(
             message=response_text,
