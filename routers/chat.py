@@ -797,8 +797,10 @@ async def chat_endpoint(request: ChatRequest):
         all_products_rows = conn.execute(
             """
             SELECT id, name, category, price, old_price, image, images,
-                   description, usage, composition
+                   description, usage, composition, link_url, status, sku, external_id
             FROM products
+            WHERE status = 'available'
+              AND coalesce(trim(link_url), '') <> ''
             """
         ).fetchall()
         all_products = [dict(r) for r in all_products_rows]

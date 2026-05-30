@@ -15,7 +15,11 @@
     #chat-window.is-open { opacity: 1; pointer-events: auto; transform: translateY(0); }
     html, body { height: 100%; min-height: 100dvh; }
     .chat-active .chat-button-container { display: none !important; }
-    #chat-messages .chat-product-card img { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; display: block; }
+    #chat-messages .chat-product-card { display: flex; flex-direction: column; }
+    #chat-messages .chat-product-card img { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; display: block; flex-shrink: 0; }
+    #chat-messages .chat-product-card > div { flex: 1; display: flex; flex-direction: column; }
+    #chat-messages .chat-product-card a { margin-top: auto; }
+    #chat-messages .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     #chat-typing-indicator .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; animation: typing-bounce 1.2s ease-in-out infinite both; }
     #chat-typing-indicator .typing-dot:nth-child(2) { animation-delay: 0.15s; }
     #chat-typing-indicator .typing-dot:nth-child(3) { animation-delay: 0.3s; }
