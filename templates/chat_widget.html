@@ -87,7 +87,7 @@
       const chatFab = document.getElementById('chat-fab'), chatWindow = document.getElementById('chat-window'), chatClose = document.getElementById('chat-close'), chatOverlay = document.getElementById('chat-overlay'), chatMessages = document.getElementById('chat-messages'), form = document.getElementById('chat-form'), input = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn'), welcomeBubble = document.getElementById('welcome-bubble');
       const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       window.currentSessionId = sessionId;
-      const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Каталог усіх грибів"];
+      const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Мухомори"];
       let chatHistory = [];
 
       function saveChatHistory() { try { localStorage.setItem('shopbot_history', JSON.stringify(chatHistory)); } catch (_) {} }
