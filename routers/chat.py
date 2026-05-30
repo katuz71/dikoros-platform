@@ -529,7 +529,6 @@ def _chat_build_quick_replies(user_message: str, found_products: list | None = N
         chips += [
             "\u0411\u044e\u0434\u0436\u0435\u0442\u043d\u043e",
             "\u041f\u0440\u0435\u043c\u0456\u0443\u043c",
-            "\u041f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0437\u0430\u043f\u0438\u0442\u0430\u043d\u043d\u044f",
         ]
     else:
         chips += [
@@ -544,7 +543,7 @@ def _chat_build_quick_replies(user_message: str, found_products: list | None = N
             seen.add(chip)
             out.append(chip)
 
-    return out[:8]
+    return out[:6]
 
 
 def _chat_score_product(product: dict, token_patterns: List[tuple], intents: List[str]) -> float:
