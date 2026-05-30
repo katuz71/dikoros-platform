@@ -1044,10 +1044,7 @@ IDs: [39151, 39206, 39202]»
                 pictures = [image]
 
             name = p.get("name") or ""
-            link_url = p.get("link_url") or ""
-            if not link_url:
-                import urllib.parse
-                link_url = "https://dikoros-ua.com/filter/?search=" + urllib.parse.quote(" ".join(name.split()[:3]))
+            link_url = (p.get("link_url") or "").strip()
 
             return {
                 "id": p.get("id"),
