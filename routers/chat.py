@@ -785,6 +785,11 @@ async def chat_endpoint(request: ChatRequest):
         intents = _chat_detect_intents(normalized_message)
         is_info_question = _chat_is_info_question(user_message)
 
+        greeting_words = {"привет", "привіт", "добрый день", "добрий день", "здравствуйте", "вітаю", "hello", "hi"}
+        if normalized_message.strip() in greeting_words:
+            text = "Привіт! 😊 Я консультант DikorosUA. Допоможу підібрати гриби, мікродозинг, трави або відповім по доставці й оплаті."
+            return ChatResponse(message=text, reply=text, products=[], items=[], quick_replies=["Мухомори", "Їжовик гребінчастий", "Кордицепс", "Чага", "Мікси", "Доставка", "Оплата"], session_id=session_id)
+
         # 1. Поиск товаров (Улучшенный: Python-фильтрация для поддержки кириллицы и поиска в описании)
         conn = get_db_connection()
 
