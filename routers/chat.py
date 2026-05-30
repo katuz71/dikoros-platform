@@ -1028,20 +1028,43 @@ IDs: [39151, 39206, 39202]»
 
         def _as_chat_product(p: dict) -> dict:
             image = p.get("image")
+            pictures = []
+
             if not image:
                 try:
                     images = json.loads(p.get("images") or "[]")
-                    if isinstance(images, list) and images:
-                        image = images[0]
+                    if isinstance(images, list):
+                        pictures = [str(x).strip() for x in images if x and str(x).strip()]
+                        if pictures:
+                            image = pictures[0]
                 except Exception:
                     image = None
 
+            if image and not pictures:
+                pictures = [image]
+
+            name = p.get("name") or ""
+            link_url = p.get("link_url") or ""
+            if not link_url:
+                import urllib.parse
+                link_url = "https://dikoros-ua.com/filter/?search=" + urllib.parse.quote(" ".join(name.split()[:3]))
+
             return {
                 "id": p.get("id"),
-                "name": p.get("name"),
+
+                # App format
+                "name": name,
+                "image": image,
+
+                # Website widget compatibility format
+                "title": name,
+                "image_url": image,
+                "pictures": pictures,
+                "url": link_url,
+                "currency": "грн",
+
                 "price": p.get("price") or 0,
                 "old_price": p.get("old_price") or 0,
-                "image": image,
                 "description": (p.get("description") or "")[:280],
             }
 
