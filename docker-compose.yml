@@ -30,3 +30,4 @@ services:
 
 volumes:
   postgres_data:
+    name: dikorosua_postgres_data
