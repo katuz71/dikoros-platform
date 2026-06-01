@@ -847,6 +847,24 @@ async def chat_endpoint(request: ChatRequest):
             user_message = ""
 
         session_id = (request.session_id or "anon").strip() or "anon"
+
+        if not (user_message or "").strip():
+            quick = [
+                "Що таке мікродозинг?",
+                "Для фокусу та енергії",
+                "Для спокою та сну",
+                "Набори для старту",
+                "Мікси",
+            ]
+            return ChatResponse(
+                message="",
+                reply="",
+                products=[],
+                items=[],
+                quick_replies=quick,
+                session_id=session_id,
+            )
+
         user_message_lower = user_message.lower()
         normalized_message = _chat_normalize_text(user_message)
         intents = _chat_detect_intents(normalized_message)
