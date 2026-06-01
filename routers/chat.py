@@ -852,11 +852,14 @@ async def chat_endpoint(request: ChatRequest):
         intents = _chat_detect_intents(normalized_message)
         is_info_question = _chat_is_info_question(user_message)
 
-        await _send_telegram_manager_message(
-            "💬 Нове повідомлення з сайту Dikoros\n"
-            f"Session: {session_id}\n\n"
-            f"👤 Клієнт: {user_message or '[порожнє повідомлення]'}"
-        )
+        should_notify_manager = bool((user_message or "").strip())
+
+        if should_notify_manager:
+            await _send_telegram_manager_message(
+                "💬 Нове повідомлення з сайту Dikoros\n"
+                f"Session: {session_id}\n\n"
+                f"👤 Клієнт: {user_message}"
+            )
 
         if normalized_message.strip() in {
             "каталог", "catalog",
@@ -878,11 +881,12 @@ async def chat_endpoint(request: ChatRequest):
                 )
 
             quick = ["Мухомори", "Їжовик гребінчастий", "Кордицепс", "Чага", "Мікси", "Для старту"]
-            await _send_telegram_manager_message(
-                "🤖 Відповідь бота Dikoros\n"
-                f"Session: {session_id}\n\n"
-                f"{text}"
-            )
+            if should_notify_manager:
+                await _send_telegram_manager_message(
+                    "🤖 Відповідь бота Dikoros\n"
+                    f"Session: {session_id}\n\n"
+                    f"{text}"
+                )
             return ChatResponse(message=text, reply=text, products=[], items=[], quick_replies=quick, session_id=session_id)
 
         greeting_words = {"привет", "привіт", "добрый день", "добрий день", "здравствуйте", "вітаю", "hello", "hi"}
@@ -1420,12 +1424,13 @@ IDs: [39151, 39206, 39202]»
 
         quick_replies = _chat_info_quick_replies() if is_info_question else _chat_build_quick_replies(user_message, final_products)
 
-        await _send_telegram_manager_message(
-            "🤖 Відповідь бота Dikoros\n"
-            f"Session: {session_id}\n\n"
-            f"{response_text}"
-            + _format_telegram_products(final_products)
-        )
+        if should_notify_manager:
+            await _send_telegram_manager_message(
+                "🤖 Відповідь бота Dikoros\n"
+                f"Session: {session_id}\n\n"
+                f"{response_text}"
+                + _format_telegram_products(final_products)
+            )
 
         return ChatResponse(
             message=response_text,

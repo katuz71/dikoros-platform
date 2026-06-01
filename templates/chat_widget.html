@@ -92,7 +92,7 @@
       const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       window.currentSessionId = sessionId;
       const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Мухомори"];
-      const CHAT_WIDGET_VERSION = '20260530_links_v2';
+      const CHAT_WIDGET_VERSION = '20260530_no_autoload_v1';
       try {
         if (localStorage.getItem('shopbot_widget_version') !== CHAT_WIDGET_VERSION) {
           localStorage.removeItem('shopbot_history');
@@ -122,7 +122,7 @@
       let welcomeTimeoutId = null, hideBubbleTimeoutId = null;
 
       function hideWelcomeBubble() { if (!welcomeBubble) return; clearTimeout(welcomeTimeoutId); clearTimeout(hideBubbleTimeoutId); welcomeBubble.classList.remove('is-visible'); welcomeBubble.classList.add('is-hidden'); try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} }
-      function showWelcomeBubble() { if (!welcomeBubble || welcomeBubble.classList.contains('is-hidden')) return; welcomeBubble.classList.add('is-visible'); try { window.parent.postMessage('expand_vignette', '*'); } catch(e){} try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} hideBubbleTimeoutId = setTimeout(function () { welcomeBubble.classList.remove('is-visible'); setTimeout(function () { welcomeBubble.classList.add('is-hidden'); }, 500); }, 8000); }
+      function showWelcomeBubble() { if (!welcomeBubble || welcomeBubble.classList.contains('is-hidden')) return; welcomeBubble.classList.add('is-visible'); try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} hideBubbleTimeoutId = setTimeout(function () { welcomeBubble.classList.remove('is-visible'); setTimeout(function () { welcomeBubble.classList.add('is-hidden'); }, 500); }, 8000); }
       try { if (localStorage.getItem('chat_welcome_shown') !== 'true') { welcomeTimeoutId = setTimeout(function () { if (!chatOpen) showWelcomeBubble(); }, 10000); } } catch (_) {}
 
       function openChat() { try { localStorage.setItem('chat_welcome_shown', 'true'); } catch (_) {} hideWelcomeBubble(); chatOpen = true; try { window.parent.postMessage('chat_opened', '*'); } catch (_) {} document.body.classList.add('chat-active'); chatWindow.classList.add('chat-window-expanded', 'is-open'); if (isMobile()) { chatOverlay.classList.remove('pointer-events-none', 'opacity-0'); chatOverlay.classList.add('pointer-events-auto', 'opacity-100'); } }
@@ -247,9 +247,8 @@
       }
 
       function initChat() {
-        fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '', session_id: sessionId }) })
-          .then(function (res) { return res.json(); }).then(function (data) { var parsed = parseReplyButtons(data.reply || ''); if (parsed.text) appendMessage('assistant', parsed.text); if (data.items && data.items.length) appendProductCards(data.items); appendQuickReplies(INITIAL_SUGGESTIONS, sendMessage); })
-          .catch(function () { appendMessage('assistant', 'Помилка з\'єднання. Спробуйте пізніше.'); });
+        clearPlaceholder();
+        appendQuickReplies(INITIAL_SUGGESTIONS, sendMessage);
       }
 
       loadChatHistory();
