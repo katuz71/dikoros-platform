@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type PolicySection = { h: string; p: string[] };
@@ -87,19 +87,16 @@ const PAGES: Record<string, PolicyPage> = {
     ]
   },
   contacts: {
-    title: t('\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u043d\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f'),
+    title: t('Контактна інформація'),
     sections: [
       {
-        h: 'DikorosUA',
+        h: t('Контакти магазину DikorosUA'),
         p: [
-          t('\u0422\u0435\u043b\u0435\u0444\u043e\u043d: (063)25 26 8 24'),
-          t('\u0422\u0435\u043b\u0435\u0444\u043e\u043d: +380632526824'),
-          t('Dikorosua'),
-          t('Email: [email protected]'),
-          t('\u0413\u0440\u0430\u0444\u0456\u043a \u0440\u043e\u0431\u043e\u0442\u0438: \u0431\u0443\u0434\u043d\u0456 9:00\u201319:00, \u0441\u0443\u0431\u043e\u0442\u0430 \u0442\u0430 \u043d\u0435\u0434\u0456\u043b\u044f 9:00\u201318:00.'),
-          t('\u0410\u0434\u0440\u0435\u0441\u0430: \u0427\u0435\u0440\u043d\u0456\u0433\u0456\u0432\u0441\u044c\u043a\u0430 \u043e\u0431\u043b\u0430\u0441\u0442\u044c, \u0427\u0435\u0440\u043d\u0456\u0433\u0456\u0432\u0441\u044c\u043a\u0438\u0439 \u0440\u0430\u0439\u043e\u043d, \u0441\u0435\u043b\u043e \u0416\u0430\u0432\u0438\u043d\u043a\u0430, \u0432\u0443\u043b\u0438\u0446\u044f \u0406\u043b\u043b\u0456\u043d\u0441\u044c\u043a\u0430 2\u0430.'),
-          t('\u0420\u043e\u0437\u0434\u0440\u0456\u0431\u043d\u0456 \u043f\u0440\u043e\u0434\u0430\u0436\u0456: 063-252-68-24.'),
-          t('\u041e\u043f\u0442\u043e\u0432\u0456 \u0437\u0430\u043a\u0443\u043f\u0456\u0432\u043b\u0456 \u0442\u0430 \u0441\u043f\u0456\u0432\u0440\u043e\u0431\u0456\u0442\u043d\u0438\u0446\u0442\u0432\u043e: 066-365-97-77.')
+          t('Основний телефон: (063) 25 26 8 24'),
+          t('Роздрібні продажі: 063-252-68-24'),
+          t('Оптові закупівлі та співробітництво: 066-365-97-77'),
+          t('Графік роботи: будні 9:00–19:00, субота та неділя 9:00–18:00.'),
+          t('Назва в соцмережах: Dikorosua.')
         ]
       }
     ]
@@ -290,12 +287,26 @@ const PAGES: Record<string, PolicyPage> = {
   }
 };
 
+const CONTACT_ACTIONS = [
+  {
+    label: 'Подзвонити: 063-252-68-24',
+    url: 'tel:+380632526824',
+    icon: 'call-outline',
+  },
+  {
+    label: 'Оптові закупівлі: 066-365-97-77',
+    url: 'tel:+380663659777',
+    icon: 'briefcase-outline',
+  },
+];
+
 export default function PoliciesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const headerTopInset = Math.max(insets.top, 18);
   const params = useLocalSearchParams<{ page?: string }>();
-  const page = PAGES[String(params.page || 'privacy')] || PAGES.privacy;
+  const pageKey = String(params.page || 'privacy');
+  const page = PAGES[pageKey] || PAGES.privacy;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -316,6 +327,22 @@ export default function PoliciesScreen() {
             ))}
           </View>
         ))}
+
+        {pageKey === 'contacts' && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Швидкий зв’язок</Text>
+            {CONTACT_ACTIONS.map((action) => (
+              <TouchableOpacity
+                key={action.url}
+                style={styles.contactActionBtn}
+                onPress={() => Linking.openURL(action.url)}
+              >
+                <Ionicons name={action.icon as any} size={20} color="#2E7D32" />
+                <Text style={styles.contactActionText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -340,4 +367,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 12 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111', marginBottom: 10 },
   paragraph: { fontSize: 15, lineHeight: 22, color: '#333', marginBottom: 8 },
+  contactActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#DDEEDD', backgroundColor: '#F7FFF7', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, marginTop: 10 },
+  contactActionText: { color: '#1F2937', fontWeight: '700', fontSize: 15 },
 });
