@@ -886,8 +886,7 @@ async def chat_endpoint(request: ChatRequest):
                 "📞 Телефон: (063) 25 26 8 24\n"
                 "📲 Viber: viber://chat?number=%2B380632526824\n"
                 "✈️ Telegram: https://t.me/Dikorosua\n"
-                "✉️ Email: dikorosua@gmail.com\n\n"
-                "Також можете написати повідомлення прямо в цьому чаті — менеджер отримає його та зможе відповісти."
+                "✉️ Email: dikorosua@gmail.com"
             )
             quick = ["Доставка", "Оплата", "Повернення", "Мухомори", "Мікси", "Для старту"]
             await _send_telegram_manager_message(

@@ -92,7 +92,7 @@
       const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       window.currentSessionId = sessionId;
       const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Мухомори"];
-      const CHAT_WIDGET_VERSION = '20260605_contacts_v4';
+      const CHAT_WIDGET_VERSION = '20260605_contacts_v7';
       try {
         if (localStorage.getItem('shopbot_widget_version') !== CHAT_WIDGET_VERSION) {
           localStorage.removeItem('shopbot_history');
@@ -141,43 +141,51 @@
       function stripShowProductsTag(text) { if (!text || typeof text !== 'string') return text; return text.replace(/\[SHOW_PRODUCTS[^\]]*\]/gi, '').trim().replace(/\s{2,}/g, ' '); }
 
       // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ФОРМАТИРОВАНИЯ ---
+      function renderManagerContactsBlock() {
+        return [
+          '<div style="display:flex;flex-direction:column;gap:10px;">',
+          '<div style="font-weight:500;color:#0f172a;">Зв’язатися з менеджером можна так:</div>',
+          '<a href="tel:+380632526824" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#059669;color:#fff;border-radius:12px;text-decoration:none;font-weight:600;">📞 Подзвонити</a>',
+          '<a href="viber://chat?number=%2B380632526824" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#7360F2;color:#fff;border-radius:12px;text-decoration:none;font-weight:600;">📲 Viber</a>',
+          '<a href="https://t.me/Dikorosua" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#2AABEE;color:#fff;border-radius:12px;text-decoration:none;font-weight:600;">✈️ Telegram</a>',
+          '<a href="mailto:dikorosua@gmail.com" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#475569;color:#fff;border-radius:12px;text-decoration:none;font-weight:600;">✉️ Email</a>',
+          '</div>'
+        ].join('');
+      }
+
       function formatMessageContent(raw) {
         var t = stripShowProductsTag(raw || '');
         if (!t) return '';
+
+        if (
+          t.indexOf('Зв’язатися з менеджером можна так:') !== -1 ||
+          t.indexOf("Для зв'язку з менеджером") !== -1 ||
+          t.indexOf('viber://chat?number=') !== -1 ||
+          t.indexOf('https://t.me/Dikorosua') !== -1
+        ) {
+          return renderManagerContactsBlock();
+        }
 
         var escaped = t
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
 
-        escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
-
         escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-        escaped = escaped.replace(/(viber:\/\/chat\?number=[^\s<]+)/g, function (url) {
-          return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="text-emerald-700 underline">Viber</a>';
-        });
+        escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
 
         escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, function (url) {
           var clean = url.replace(/[.,;!?]+$/, '');
           var tail = url.slice(clean.length);
-          var label = clean.indexOf('t.me/') !== -1 ? 'Telegram' : clean;
-          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" class="text-emerald-700 underline">' + label + '</a>' + tail;
+          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" class="text-emerald-700 underline">' + clean + '</a>' + tail;
         });
 
         escaped = escaped.replace(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi, function (email) {
           return '<a href="mailto:' + email + '" class="text-emerald-700 underline">' + email + '</a>';
         });
 
-        escaped = escaped.replace(/📞\s*Телефон:\s*\(063\)\s*25\s*26\s*8\s*24/g, function () {
-          return '📞 Телефон:<br><a href="tel:+380632526824" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top: 4px; margin-bottom: 4px; background-color: #059669; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">📞 Подзвонити</a>';
-        });
-
         escaped = escaped.replace(/\(063\)\s*25\s*26\s*8\s*24/g, function (phone) {
-          return '<a href="tel:+380632526824" class="text-emerald-700 underline">' + phone + '</a>';
-        });
-
-        escaped = escaped.replace(/\+380632526824/g, function (phone) {
           return '<a href="tel:+380632526824" class="text-emerald-700 underline">' + phone + '</a>';
         });
 
