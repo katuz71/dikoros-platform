@@ -182,9 +182,9 @@ def get_user_by_phone(identifier: str):
 @router.post("/api/auth/social-login")
 def auth_social_login(body: SocialAuthRequest):
     """
-    Вход через Google або Facebook. Перевіряє токен (google-auth / graph.facebook.com),
-    шукає юзера по google_id/facebook_id або по phone; якщо phone вказано і юзер існує — прив'язує social_id.
-    Новий юзер отримує bonus_balance=150 та is_bonus_claimed=True. Повертає JWT та дані юзера.
+    Login through Google/Facebook is allowed only for accounts already linked
+    after SMS registration. This endpoint must not create or link accounts by
+    arbitrary phone values from the request body.
     """
     provider = (body.provider or "").strip().lower()
     token = (body.token or "").strip()
@@ -221,7 +221,6 @@ def auth_social_login(body: SocialAuthRequest):
         name_from_token = (decoded.get("name") or decoded.get("given_name") or "").strip() or None
         if not social_id:
             raise HTTPException(status_code=401, detail="Google token missing sub")
-        phone_key = f"google_{social_id}"
     else:  # facebook
         r = requests.get(
             "https://graph.facebook.com/me",
@@ -236,70 +235,33 @@ def auth_social_login(body: SocialAuthRequest):
         name_from_token = (data.get("name") or "").strip() or None
         if not social_id:
             raise HTTPException(status_code=401, detail="Facebook token missing id")
-        phone_key = f"fb_{social_id}"
 
     conn = get_db_connection()
-
-    # 1) Шукаємо по social_id (google_id / facebook_id)
-    if provider == "google":
-        user = conn.execute(
-            "SELECT * FROM users WHERE google_id = %s",
-            (social_id,),
-        ).fetchone()
-    else:
-        user = conn.execute(
-            "SELECT * FROM users WHERE facebook_id = %s",
-            (social_id,),
-        ).fetchone()
-
-    if user:
-        user_dict = dict(user)
-        conn.close()
-        out = dict(user_dict)
-        out["access_token"] = create_access_token(user_dict["phone"])
-        out["is_new_user"] = False
-        # Якщо в БД збережено технічний ідентифікатор (google_*/fb_*) — не повертаємо його як телефон; клієнт має запросити номер.
-        if (user_dict.get("phone") or "").startswith("google_") or (user_dict.get("phone") or "").startswith("fb_") or (user_dict.get("phone") or "").startswith("tg_"):
-            out["phone"] = None
-            out["needs_phone"] = True
-            out["auth_id"] = user_dict["phone"]
-        return out
-
-    # 2) Якщо передано phone — шукаємо юзера по телефону і прив'язуємо social_id (без бонусу)
-    if body.phone:
-        clean_phone = "".join(filter(str.isdigit, str(body.phone)))
-        if clean_phone:
-            user_by_phone = conn.execute(
-                "SELECT * FROM users WHERE phone = %s",
-                (clean_phone,),
+    try:
+        # Search only by existing linked social_id. Do not link by request phone here.
+        if provider == "google":
+            user = conn.execute(
+                "SELECT * FROM users WHERE google_id = %s",
+                (social_id,),
             ).fetchone()
-            if user_by_phone:
-                if provider == "google":
-                    conn.execute(
-                        "UPDATE users SET google_id = %s WHERE phone = %s",
-                        (social_id, clean_phone),
-                    )
-                else:
-                    conn.execute(
-                        "UPDATE users SET facebook_id = %s WHERE phone = %s",
-                        (social_id, clean_phone),
-                    )
-                conn.commit()
-                user_by_phone = conn.execute(
-                    "SELECT * FROM users WHERE phone = %s",
-                    (clean_phone,),
-                ).fetchone()
-                conn.close()
-                out = dict(user_by_phone)
-                out["access_token"] = create_access_token(clean_phone)
-                out["is_new_user"] = False
-                return out
+        else:
+            user = conn.execute(
+                "SELECT * FROM users WHERE facebook_id = %s",
+                (social_id,),
+            ).fetchone()
 
-    conn.close()
+        if user:
+            user_dict = dict(user)
+            out = dict(user_dict)
+            out["access_token"] = create_access_token(user_dict["phone"])
+            out["is_new_user"] = False
+            return out
 
-    # Social login is allowed only for existing/linked accounts.
-    # Registration must be completed via SMS first, so every real user has a verified phone.
-    raise HTTPException(
-        status_code=409,
-        detail="Use SMS login or registration first. Then Google can be linked to the account.",
-    )
+        # Social login is allowed only for existing/linked accounts.
+        # Registration must be completed via SMS first, so every real user has a verified phone.
+        raise HTTPException(
+            status_code=409,
+            detail="Use SMS login or registration first. Then Google can be linked to the account.",
+        )
+    finally:
+        conn.close()
