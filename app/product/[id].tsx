@@ -645,8 +645,29 @@ export default function ProductScreen() {
              const pack = variantLabel || p.pack_sizes?.[0] || (p.unit || 'шт');
              addItem(p, 1, pack, p.unit || 'шт', variantPrice);
              showToast('Додано в кошик');
-             trackEvent('AddToCart', { content_ids: [p.id], value: p.price, currency: 'UAH' });
-             logFirebaseEvent('add_to_cart', { item_id: p.id, item_name: p.name, value: p.price });
+             const similarCartItem = {
+               item_id: String(p.id),
+               item_name: p.name,
+               price: variantPrice,
+               quantity: 1,
+               item_variant: pack,
+             };
+
+             trackEvent('AddToCart', {
+               content_ids: [p.id],
+               content_type: 'product',
+               content_name: p.name,
+               value: variantPrice,
+               currency: 'UAH',
+               quantity: 1,
+               items: [similarCartItem],
+             });
+
+             logFirebaseEvent('add_to_cart', {
+               currency: 'UAH',
+               value: variantPrice,
+               items: [similarCartItem],
+             });
           }}
           onSimilarProductToggleFavorite={(p: any) => {
              toggleFavorite(p);
