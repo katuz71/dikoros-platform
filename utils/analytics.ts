@@ -4,16 +4,22 @@ import { AppEventsLogger } from 'react-native-fbsdk-next';
 
 const META_EVENT_MAP: Record<string, string> = {
   CompleteRegistration: 'fb_mobile_complete_registration',
+  complete_registration: 'fb_mobile_complete_registration',
   AddToCart: 'fb_mobile_add_to_cart',
-  Purchase: 'fb_mobile_purchase',
+  add_to_cart: 'fb_mobile_add_to_cart',
   InitiateCheckout: 'fb_mobile_initiated_checkout',
+  initiate_checkout: 'fb_mobile_initiated_checkout',
   ViewContent: 'fb_mobile_content_view',
+  view_content: 'fb_mobile_content_view',
   Search: 'fb_mobile_search',
+  search: 'fb_mobile_search',
 };
 
 const logMetaEvent = (eventName: string, properties: any = {}) => {
   try {
-    const metaEventName = META_EVENT_MAP[eventName] || eventName;
+    const normalizedEventName = String(eventName || '').trim();
+    const lowerEventName = normalizedEventName.toLowerCase();
+    const metaEventName = META_EVENT_MAP[normalizedEventName] || META_EVENT_MAP[lowerEventName] || normalizedEventName;
 
     const params: Record<string, string | number> = {};
     Object.entries(properties || {}).forEach(([key, value]) => {
@@ -24,7 +30,7 @@ const logMetaEvent = (eventName: string, properties: any = {}) => {
       }
     });
 
-    if (eventName === 'Purchase') {
+    if (lowerEventName === 'purchase') {
       const value = typeof properties?.value === 'number' ? properties.value : 0;
       const currency = typeof properties?.currency === 'string' ? properties.currency : 'UAH';
       AppEventsLogger.logPurchase(value, currency, params);
