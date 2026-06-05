@@ -12,10 +12,11 @@ import os
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from db import DATABASE_URL, get_db_connection
 from models.schemas import OrderRequest
+from services.auth import get_current_user_phone
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
 from services.users import clean_warehouse_value, normalize_phone
@@ -35,7 +36,11 @@ def _send_order_created_push_task(push_token: str, order_id: int) -> None:
 
 
 @router.post("/create_order")
-async def create_order_secure(order: OrderRequest, background_tasks: BackgroundTasks):
+async def create_order_secure(
+    order: OrderRequest,
+    background_tasks: BackgroundTasks,
+    current_user_phone: str = Depends(get_current_user_phone),
+):
     conn = None
     try:
         conn = get_db_connection()
@@ -43,6 +48,10 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
 
         clean_phone = normalize_phone(order.phone)
         user_phone = normalize_phone(order.user_phone) if order.user_phone else clean_phone
+        token_phone = normalize_phone(current_user_phone)
+
+        if token_phone != user_phone:
+            raise HTTPException(status_code=403, detail="Order user does not match authenticated user")
 
         user = cur.execute("SELECT * FROM users WHERE phone=?", (user_phone,)).fetchone()
         user_dict = dict(user) if user else None
