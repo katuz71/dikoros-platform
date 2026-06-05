@@ -10,7 +10,7 @@ from datetime import datetime
 from io import StringIO
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from db import DATABASE_URL, get_db_connection
@@ -19,6 +19,7 @@ from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
 from services.users import calculate_cashback_percent, clean_warehouse_value, normalize_phone
 from services.analytics import track_analytics_event
+from services.auth import get_current_user_phone
 
 
 router = APIRouter()
@@ -619,6 +620,13 @@ def export_orders():
     
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=orders.csv"})
+
+
+@router.get("/api/client/orders/me")
+def get_current_client_orders(phone: str = Depends(get_current_user_phone)):
+    clean_phone = normalize_phone(phone)
+    return get_client_orders(clean_phone)
+
 
 @router.get("/api/client/orders/{phone}")
 def get_client_orders(phone: str):
