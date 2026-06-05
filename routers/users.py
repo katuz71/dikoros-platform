@@ -408,11 +408,18 @@ def update_current_user_info(info: UserInfoUpdate, phone: str = Depends(get_curr
     if not clean_phone:
         raise HTTPException(status_code=400, detail="Invalid user identifier")
 
-    return update_user_info(clean_phone, info)
+    return _update_user_info_by_identifier(clean_phone, info)
 
 
 @router.put("/api/user/info/{phone}")
-def update_user_info(phone: str, info: UserInfoUpdate):
+def update_user_info_legacy(phone: str, info: UserInfoUpdate):
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy user info endpoint is disabled. Use /api/user/info/me with authorization."
+    )
+
+
+def _update_user_info_by_identifier(phone: str, info: UserInfoUpdate):
     """Оновлення профілю. phone у path може бути google_*/fb_* для соц. юзерів."""
     clean_phone = normalize_phone(phone)
     if not clean_phone:
