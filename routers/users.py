@@ -473,10 +473,7 @@ def update_user_info(phone: str, info: UserInfoUpdate):
         conn.close()
 
 
-@router.post("/api/user/push-token")
-def save_push_token(body: PushTokenRequest, background_tasks: BackgroundTasks):
-    """Зберігає push-токен для користувача за auth_id. Привітальний пуш тільки якщо клієнт передав send_welcome=True (після sign_up) і ще не надсилався."""
-    auth_id = (body.auth_id or "").strip()
+def _save_push_token_for_user(auth_id: str, body: PushTokenRequest, background_tasks: BackgroundTasks):
     token = (body.token or "").strip()
 
     if not auth_id or not token:
@@ -508,3 +505,23 @@ def save_push_token(body: PushTokenRequest, background_tasks: BackgroundTasks):
         return {"status": "success"}
     finally:
         conn.close()
+
+
+@router.post("/api/user/push-token/me")
+def save_current_user_push_token(
+    body: PushTokenRequest,
+    background_tasks: BackgroundTasks,
+    phone: str = Depends(get_current_user_phone),
+):
+    clean_phone = normalize_phone(phone)
+    if not clean_phone:
+        raise HTTPException(status_code=400, detail="Invalid user identifier")
+
+    return _save_push_token_for_user(clean_phone, body, background_tasks)
+
+
+@router.post("/api/user/push-token")
+def save_push_token(body: PushTokenRequest, background_tasks: BackgroundTasks):
+    """Legacy push-token endpoint. Prefer /api/user/push-token/me for authenticated app users."""
+    auth_id = normalize_phone((body.auth_id or "").strip())
+    return _save_push_token_for_user(auth_id, body, background_tasks)
