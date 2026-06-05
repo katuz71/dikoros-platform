@@ -15,23 +15,50 @@ const META_EVENT_MAP: Record<string, string> = {
   search: 'fb_mobile_search',
 };
 
+type MetaParamValue = string | number;
+
+const normalizeMetaParam = (key: string, value: unknown): MetaParamValue | undefined => {
+  if (value === undefined || value === null) return undefined;
+
+  if (key === 'content_ids' && Array.isArray(value)) {
+    return value.map((item) => String(item)).filter(Boolean).join(',');
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  if (Array.isArray(value) || typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+};
+
 const logMetaEvent = (eventName: string, properties: any = {}) => {
   try {
     const normalizedEventName = String(eventName || '').trim();
     const lowerEventName = normalizedEventName.toLowerCase();
     const metaEventName = META_EVENT_MAP[normalizedEventName] || META_EVENT_MAP[lowerEventName] || normalizedEventName;
 
-    const params: Record<string, string | number> = {};
+    const params: Record<string, MetaParamValue> = {};
     Object.entries(properties || {}).forEach(([key, value]) => {
-      if (typeof value === 'string' || typeof value === 'number') {
-        params[key] = value;
-      } else if (typeof value === 'boolean') {
-        params[key] = value ? 1 : 0;
+      const normalizedValue = normalizeMetaParam(key, value);
+      if (normalizedValue !== undefined) {
+        params[key] = normalizedValue;
       }
     });
 
     if (lowerEventName === 'purchase') {
-      const value = typeof properties?.value === 'number' ? properties.value : 0;
+      const value = typeof properties?.value === 'number' ? properties.value : Number(properties?.value || 0);
       const currency = typeof properties?.currency === 'string' ? properties.currency : 'UAH';
       AppEventsLogger.logPurchase(value, currency, params);
       return;
