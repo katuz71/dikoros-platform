@@ -317,11 +317,13 @@ export default function CheckoutScreen() {
         try {
           const expoPushToken = await AsyncStorage.getItem('expoPushToken');
           if (expoPushToken) {
-            await fetch(`${API_URL}/api/user/push-token`, {
+            await fetch(`${API_URL}/api/user/push-token/me`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
               body: JSON.stringify({
-                auth_id: phoneForAccount,
                 token: expoPushToken,
               }),
             });
