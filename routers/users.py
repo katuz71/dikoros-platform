@@ -394,6 +394,16 @@ def delete_users_batch(batch: BatchDeleteUsers):
         conn.close()
 
 
+
+@router.put("/api/user/info/me")
+def update_current_user_info(info: UserInfoUpdate, phone: str = Depends(get_current_user_phone)):
+    clean_phone = normalize_phone(phone)
+    if not clean_phone:
+        raise HTTPException(status_code=400, detail="Invalid user identifier")
+
+    return update_user_info(clean_phone, info)
+
+
 @router.put("/api/user/info/{phone}")
 def update_user_info(phone: str, info: UserInfoUpdate):
     """Оновлення профілю. phone у path може бути google_*/fb_* для соц. юзерів."""
