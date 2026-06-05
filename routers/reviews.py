@@ -88,13 +88,27 @@ async def create_review(review: ReviewCreate):
 
 
 @router.delete("/api/reviews/{id}")
-async def delete_review(id: int):
-    """Delete a review."""
+async def delete_review(id: int, phone: str = Depends(get_current_user_phone)):
+    """Delete own review only."""
+    clean_phone = normalize_phone(phone)
+    if not clean_phone:
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+
     conn = get_db_connection()
-    conn.execute("DELETE FROM reviews WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-    return {"status": "ok"}
+    try:
+        row = conn.execute("SELECT user_phone FROM reviews WHERE id=?", (id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Review not found")
+
+        owner_phone = normalize_phone(dict(row).get("user_phone") or "")
+        if owner_phone != clean_phone:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        conn.execute("DELETE FROM reviews WHERE id=?", (id,))
+        conn.commit()
+        return {"status": "ok"}
+    finally:
+        conn.close()
 
 
 
