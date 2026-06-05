@@ -117,11 +117,18 @@ async def delete_review(id: int, phone: str = Depends(get_current_user_phone)):
 @router.get("/api/user/reviews/me")
 def get_current_user_reviews(phone: str = Depends(get_current_user_phone)):
     clean_phone = normalize_phone(phone)
-    return get_user_reviews(clean_phone)
+    return _get_user_reviews_by_phone(clean_phone)
 
 
 @router.get("/api/user/reviews/{phone}")
-def get_user_reviews(phone: str):
+def get_user_reviews_legacy(phone: str):
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy user reviews endpoint is disabled. Use /api/user/reviews/me with authorization."
+    )
+
+
+def _get_user_reviews_by_phone(phone: str):
     """Return all reviews by user phone."""
     clean_phone = normalize_phone(phone)
     conn = get_db_connection()
