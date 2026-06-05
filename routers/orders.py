@@ -61,8 +61,9 @@ def get_order_by_id(order_id: int):
         d["items"] = []
     return d
 
-@router.post("/create_order")
+@router.post("/legacy/create_order_disabled")
 async def create_order(order: OrderRequest, background_tasks: BackgroundTasks):
+    raise HTTPException(status_code=410, detail="Legacy checkout is disabled. Use secure SMS checkout.")
     conn = None
     """
     Создание нового заказа:
