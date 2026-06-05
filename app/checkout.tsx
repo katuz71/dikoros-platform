@@ -291,7 +291,10 @@ export default function CheckoutScreen() {
 
       const response = await fetch(`${API_URL}/create_order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify(orderData),
       });
 
