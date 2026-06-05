@@ -535,7 +535,8 @@ def save_current_user_push_token(
 
 
 @router.post("/api/user/push-token")
-def save_push_token(body: PushTokenRequest, background_tasks: BackgroundTasks):
-    """Legacy push-token endpoint. Prefer /api/user/push-token/me for authenticated app users."""
-    auth_id = normalize_phone((body.auth_id or "").strip())
-    return _save_push_token_for_user(auth_id, body, background_tasks)
+def save_push_token_legacy(body: PushTokenRequest, background_tasks: BackgroundTasks):
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy push-token endpoint is disabled. Use /api/user/push-token/me with authorization."
+    )
