@@ -159,16 +159,25 @@ export default function ProfileScreen() {
   const fetchData = async (phoneNumber: string) => {
     setLoading(true);
     try {
-      const canonPhone = canonicalizePhone(phoneNumber);
-      const resUser = await fetch(`${API_URL}/user/${canonPhone}`);
+      const accessToken = await AsyncStorage.getItem('accessToken');
+
+      if (!accessToken) {
+        setProfile(null);
+        setOrders([]);
+        return;
+      }
+
+      const resUser = await fetch(`${API_URL}/api/user/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (resUser.ok) setProfile(await resUser.json());
 
-      // Sanitized phone for orders
-      const cleanPhone = canonicalizePhone(phoneNumber);
-      const resOrders = await fetch(`${API_URL}/api/client/orders/${cleanPhone}`);
+      const resOrders = await fetch(`${API_URL}/api/client/orders/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (resOrders.ok) setOrders(await resOrders.json());
-      
-      // Load reviews
+
+      const cleanPhone = canonicalizePhone(phoneNumber);
       fetchUserReviews(cleanPhone);
     } catch (e) {
       console.error(e);
