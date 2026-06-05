@@ -6,7 +6,7 @@ import requests
 
 ALPHASMS_API_URL = os.getenv("ALPHASMS_API_URL", "https://alphasms.ua/api/json.php")
 ALPHASMS_API_KEY = os.getenv("ALPHASMS_API_KEY", "")
-ALPHASMS_SENDER = os.getenv("ALPHASMS_SENDER", "AlphaSMS")
+ALPHASMS_SENDER = os.getenv("ALPHASMS_SENDER", "Dikoros")
 
 
 def send_sms_code(phone: str, code: str) -> dict:
