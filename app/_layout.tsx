@@ -55,12 +55,15 @@ async function registerForPushNotificationsAsync() {
     const token = tokenData.data;
     await AsyncStorage.setItem('expoPushToken', token);
 
-    const userPhone = await AsyncStorage.getItem('userPhone');
-    if (userPhone) {
-      await fetch(`${API_URL}/api/user/push-token`, {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    if (accessToken) {
+      await fetch(`${API_URL}/api/user/push-token/me`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth_id: userPhone, token }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token }),
       });
     }
 
