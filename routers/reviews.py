@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from db import get_db_connection
 from models.schemas import ReviewCreate
 from services.users import normalize_phone
+from services.auth import get_current_user_phone
 
 
 router = APIRouter()
@@ -94,6 +95,13 @@ async def delete_review(id: int):
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+
+
+@router.get("/api/user/reviews/me")
+def get_current_user_reviews(phone: str = Depends(get_current_user_phone)):
+    clean_phone = normalize_phone(phone)
+    return get_user_reviews(clean_phone)
 
 
 @router.get("/api/user/reviews/{phone}")
