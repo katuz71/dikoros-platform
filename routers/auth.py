@@ -33,91 +33,18 @@ def _normalize_email(email: str) -> str:
 
 @router.post("/api/auth/email/register")
 def auth_email_register(body: EmailRegisterRequest):
-    email = _normalize_email(body.email)
-    password = body.password or ""
-    name = (body.name or "").strip() or None
-
-    if not email or "@" not in email or "." not in email:
-        raise HTTPException(status_code=400, detail="Invalid email")
-
-    try:
-        password_hash = hash_password(password)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    auth_id = f"email_{email}"
-
-    conn = get_db_connection()
-    try:
-        existing = conn.execute(
-            "SELECT * FROM users WHERE email = %s OR phone = %s",
-            (email, auth_id),
-        ).fetchone()
-
-        if existing:
-            raise HTTPException(status_code=409, detail="Email already registered")
-
-        logger.info("New email user registration: email=%s bonus=%s", email, 150)
-
-        conn.execute(
-            """INSERT INTO users (
-                phone, name, email, password_hash, email_verified,
-                bonus_balance, total_spent, cashback_percent, created_at, is_bonus_claimed
-            ) VALUES (%s, %s, %s, %s, TRUE, 150, 0, 0, %s, TRUE)""",
-            (auth_id, name, email, password_hash, datetime.now().isoformat()),
-        )
-        conn.commit()
-
-        user = conn.execute("SELECT * FROM users WHERE phone = %s", (auth_id,)).fetchone()
-        if not user:
-            raise HTTPException(status_code=500, detail="Failed to create user")
-
-        out = dict(user)
-        out.pop("password_hash", None)
-        out["access_token"] = create_access_token(auth_id)
-        out["is_new_user"] = True
-        out["phone"] = None
-        out["needs_phone"] = True
-        out["auth_id"] = auth_id
-        return out
-    finally:
-        conn.close()
+    raise HTTPException(
+        status_code=410,
+        detail="Email registration is disabled. Use SMS registration.",
+    )
 
 
 @router.post("/api/auth/email/login")
 def auth_email_login(body: EmailLoginRequest):
-    email = _normalize_email(body.email)
-    password = body.password or ""
-
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Invalid email or password")
-
-    conn = get_db_connection()
-    try:
-        user = conn.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
-
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        user_dict = dict(user)
-        if not verify_password(password, user_dict.get("password_hash") or ""):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        auth_id = user_dict.get("phone") or f"email_{email}"
-
-        out = dict(user_dict)
-        out.pop("password_hash", None)
-        out["access_token"] = create_access_token(auth_id)
-        out["is_new_user"] = False
-
-        if str(auth_id).startswith("email_"):
-            out["phone"] = None
-            out["needs_phone"] = True
-            out["auth_id"] = auth_id
-
-        return out
-    finally:
-        conn.close()
+    raise HTTPException(
+        status_code=410,
+        detail="Email login is disabled. Use SMS or Google login.",
+    )
 
 
 @router.post("/api/auth/sms/start")
@@ -381,37 +308,10 @@ def auth_social_login(body: SocialAuthRequest):
                 return out
 
     conn.close()
-    conn = get_db_connection()
 
-    # 3) Новий юзер: створюємо з бонусом 150 і is_bonus_claimed = True
-    # Телефон не заповнюємо реальним номером (Google/FB його не дають) — зберігаємо технічний ідентифікатор для JWT/пошуку.
-    # city, warehouse залишаємо порожніми (без дефолтів типу «м. Львів» / «Відділення №1»).
-    bonus = 150
-    conn.execute(
-        """INSERT INTO users (
-            phone, name, bonus_balance, total_spent, cashback_percent, created_at, email,
-            google_id, facebook_id, is_bonus_claimed
-        ) VALUES (%s, %s, %s, 0, 0, %s, %s, %s, %s, TRUE)""",
-        (
-            phone_key,
-            name_from_token,
-            bonus,
-            datetime.now().isoformat(),
-            email or None,
-            social_id if provider == "google" else None,
-            social_id if provider == "facebook" else None,
-        ),
+    # Social login is allowed only for existing/linked accounts.
+    # Registration must be completed via SMS first, so every real user has a verified phone.
+    raise HTTPException(
+        status_code=409,
+        detail="Use SMS login or registration first. Then Google can be linked to the account.",
     )
-    conn.commit()
-    user = conn.execute("SELECT * FROM users WHERE phone = %s", (phone_key,)).fetchone()
-    conn.close()
-    if not user:
-        raise HTTPException(status_code=500, detail="Failed to create user")
-    out = dict(user)
-    out["access_token"] = create_access_token(phone_key)
-    out["is_new_user"] = True
-    # Новий соц. юзер — телефон не заповнювали; клієнт має запросити номер при першому вході.
-    out["phone"] = None
-    out["needs_phone"] = True
-    out["auth_id"] = phone_key
-    return out
