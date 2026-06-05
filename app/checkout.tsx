@@ -103,8 +103,12 @@ export default function CheckoutScreen() {
 
   const fetchUserData = async (phoneNumber: string) => {
     try {
-      const canon = canonicalizePhone(phoneNumber);
-      const res = await fetch(`${API_URL}/user/${canon}`);
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+
+      const res = await fetch(`${API_URL}/api/user/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setBonusBalance(data.bonus_balance || 0);
@@ -333,9 +337,12 @@ export default function CheckoutScreen() {
 
           // Ensure server-side profile is saved too (so "Інформація" fills immediately)
           try {
-            await fetch(`${API_URL}/api/user/info/${phoneForAccount}`, {
+            await fetch(`${API_URL}/api/user/info/me`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
               body: JSON.stringify({
                 name,
                 email,
