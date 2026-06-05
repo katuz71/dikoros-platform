@@ -60,7 +60,7 @@ export default function CheckoutScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('cash');
   const [bonusBalance, setBonusBalance] = useState(0);
   const [useBonuses, setUseBonuses] = useState(false);
   const [saveUserData, setSaveUserData] = useState(false);
