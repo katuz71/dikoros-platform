@@ -89,6 +89,50 @@ def get_api_user_me(phone: str = Depends(get_current_user_phone)):
     """Текущий пользователь по JWT (Bearer). Возвращает 401 если токен отсутствует или протух."""
     return get_user_profile(phone)
 
+
+@router.delete("/api/user/me")
+def delete_api_user_me(phone: str = Depends(get_current_user_phone)):
+    """Delete current user account. Orders are anonymized, user profile and reviews are removed."""
+    clean_phone = normalize_phone(phone)
+    if not clean_phone:
+        raise HTTPException(status_code=400, detail="Invalid user identifier")
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        user = cur.execute("SELECT phone FROM users WHERE phone = ?", (clean_phone,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        cur.execute(
+            """
+            UPDATE orders
+            SET
+                name = ?,
+                phone = NULL,
+                user_phone = NULL,
+                email = '',
+                contact_preference = 'call',
+                city = NULL,
+                city_ref = NULL,
+                warehouse = NULL,
+                warehouse_ref = NULL,
+                user_ukrposhta = NULL,
+                push_token = NULL
+            WHERE user_phone = ? OR phone = ?
+            """,
+            ("Користувач видалений", clean_phone, clean_phone),
+        )
+        cur.execute("DELETE FROM reviews WHERE user_phone = ?", (clean_phone,))
+        cur.execute("DELETE FROM app_users WHERE phone = ?", (clean_phone,))
+        cur.execute("DELETE FROM users WHERE phone = ?", (clean_phone,))
+
+        conn.commit()
+        return {"status": "ok", "message": "Account deleted"}
+    finally:
+        conn.close()
+
+
 @router.post("/api/recalculate-cashback")
 def recalculate_cashback():
     """Recalculate cashback_percent for all users based on total_spent."""

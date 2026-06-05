@@ -438,6 +438,65 @@ export default function ProfileScreen() {
     }
   };
 
+
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Видалити акаунт?',
+      'Профіль, бонуси, прив’язки входу та ваші відгуки буде видалено. Історія замовлень буде знеособлена.',
+      [
+        { text: 'Скасувати', style: 'cancel' },
+        {
+          text: 'Видалити',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const accessToken = await AsyncStorage.getItem('accessToken');
+
+              if (!accessToken) {
+                Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб видалити акаунт.');
+                return;
+              }
+
+              const res = await fetch(`${API_URL}/api/user/me`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+
+              const result = await res.json().catch(() => null);
+
+              if (!res.ok) {
+                Alert.alert('Помилка', result?.detail || 'Не вдалося видалити акаунт');
+                return;
+              }
+
+              await AsyncStorage.multiRemove([
+                'accessToken',
+                'userPhone',
+                'userName',
+                'savedCheckoutInfo',
+              ]);
+
+              setProfile(null);
+              setPhone('');
+              setInputPhone('');
+              setSmsCode('');
+              setSmsSent(false);
+              setGoogleAuthMode('login');
+              setShowLoginModal(false);
+
+              Alert.alert('Акаунт видалено', 'Ваш акаунт успішно видалено.');
+            } catch (error) {
+              console.error(error);
+              Alert.alert('Помилка', 'Немає з’єднання');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     Alert.alert('Вихід', 'Ви впевнені?', [
       { text: 'Ні', style: 'cancel' },
@@ -536,10 +595,10 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  const MenuItem = ({ label, isLast = false, onPress }: any) => (
+  const MenuItem = ({ label, isLast = false, onPress, color = '#333' }: any) => (
     <View>
       <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-        <Text style={styles.menuItemText}>{label}</Text>
+        <Text style={[styles.menuItemText, { color }]}>{label}</Text>
         <Ionicons name="chevron-forward" size={20} color="#CCC" />
       </TouchableOpacity>
       {!isLast && <View style={styles.divider} />}
@@ -583,7 +642,8 @@ export default function ProfileScreen() {
       <MenuSection title="Налаштування">
         <MenuItem label="Налаштування сповіщень" onPress={() => Alert.alert('Налаштування сповіщень', 'Поки немає додаткових налаштувань')} />
         <MenuItem label="Прив’язати Google" onPress={handleGoogleLinkStart} />
-        <MenuItem label="Керування пристроями" isLast onPress={() => Alert.alert('Керування пристроями', 'Поточний пристрій активний')} />
+        <MenuItem label="Керування пристроями" onPress={() => Alert.alert('Керування пристроями', 'Поточний пристрій активний')} />
+        <MenuItem label="Видалити акаунт" color="#D32F2F" isLast onPress={handleDeleteAccount} />
       </MenuSection>
 
             <MenuSection title="Інформація">
