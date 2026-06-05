@@ -44,8 +44,7 @@ ALLOWED_USER_SORT_FIELDS = {
 
 
 
-@router.get("/user/{phone}", response_model=UserResponse)
-def get_user_profile(phone: str):
+def _get_user_profile_by_identifier(phone: str):
     # Для соц. входу (google_*, fb_*, tg_*) не очищаем; для телефону — лише цифри
     raw = str(phone).strip()
     if raw.startswith("google_") or raw.startswith("fb_") or raw.startswith("tg_"):
@@ -84,10 +83,18 @@ def get_user_profile(phone: str):
     raise HTTPException(status_code=404, detail="User not found")
 
 
+@router.get("/user/{phone}")
+def get_user_profile_legacy(phone: str):
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy user profile endpoint is disabled. Use /api/user/me with authorization."
+    )
+
+
 @router.get("/api/user/me", response_model=UserResponse)
 def get_api_user_me(phone: str = Depends(get_current_user_phone)):
     """Текущий пользователь по JWT (Bearer). Возвращает 401 если токен отсутствует или протух."""
-    return get_user_profile(phone)
+    return _get_user_profile_by_identifier(phone)
 
 
 @router.delete("/api/user/me")
