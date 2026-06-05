@@ -16,6 +16,7 @@ from google.auth.transport import requests as google_requests
 from db import get_db_connection
 from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest, EmailRegisterRequest, EmailLoginRequest
 from services.auth import create_access_token, hash_password, verify_password
+from services.alphasms import send_sms_code
 
 
 router = APIRouter()
@@ -137,12 +138,18 @@ def auth_sms_start(body: SmsAuthStartRequest):
         "attempts": 0,
     }
 
-    logger.warning("[SMS AUTH DEV] phone=%s code=%s", clean_phone, code)
+    try:
+        sms_result = send_sms_code(clean_phone, code)
+        logger.info("[SMS AUTH] code sent via AlphaSMS phone=%s result=%s", clean_phone, sms_result)
+    except Exception as e:
+        SMS_AUTH_CODES.pop(clean_phone, None)
+        logger.exception("[SMS AUTH] AlphaSMS send failed")
+        raise HTTPException(status_code=502, detail="SMS provider error")
 
     return {
         "status": "ok",
-        "message": "SMS code generated",
-        "dev_mode": True,
+        "message": "SMS code sent",
+        "dev_mode": False,
     }
 
 
