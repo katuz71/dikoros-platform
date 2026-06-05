@@ -92,7 +92,7 @@
       const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       window.currentSessionId = sessionId;
       const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Мухомори"];
-      const CHAT_WIDGET_VERSION = '20260605_contacts_v3';
+      const CHAT_WIDGET_VERSION = '20260605_contacts_v4';
       try {
         if (localStorage.getItem('shopbot_widget_version') !== CHAT_WIDGET_VERSION) {
           localStorage.removeItem('shopbot_history');
@@ -167,6 +167,10 @@
 
         escaped = escaped.replace(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi, function (email) {
           return '<a href="mailto:' + email + '" class="text-emerald-700 underline">' + email + '</a>';
+        });
+
+        escaped = escaped.replace(/📞\s*Телефон:\s*\(063\)\s*25\s*26\s*8\s*24/g, function () {
+          return '📞 Телефон:<br><a href="tel:+380632526824" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top: 4px; margin-bottom: 4px; background-color: #059669; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">📞 Подзвонити</a>';
         });
 
         escaped = escaped.replace(/\(063\)\s*25\s*26\s*8\s*24/g, function (phone) {
