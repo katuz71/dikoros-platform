@@ -20,6 +20,7 @@ from routers import (
     delivery,
     health,
     orders,
+    orders_secure,
     posts,
     products,
     promo_codes,
@@ -56,6 +57,7 @@ app.include_router(reviews.router)
 app.include_router(promo_codes.router)
 app.include_router(chat.router)
 app.include_router(posts.router)
+app.include_router(orders_secure.router)
 app.include_router(orders.router)
 app.include_router(products.router)
 app.include_router(users.router)
