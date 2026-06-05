@@ -233,7 +233,9 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (smsCode.trim().length < 4) {
+    const cleanSmsCode = smsCode.replace(/\D/g, '');
+
+    if (cleanSmsCode.length !== 6) {
       Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434');
       return;
     }
@@ -244,7 +246,7 @@ export default function ProfileScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: canon,
-          code: smsCode.trim()
+          code: cleanSmsCode
         })
       });
 
@@ -722,7 +724,7 @@ export default function ProfileScreen() {
             {smsSent && (
               <TextInput
                 style={styles.input}
-                placeholder="SMS-\u043a\u043e\u0434"
+                placeholder={'SMS-\u043a\u043e\u0434'}
                 value={smsCode}
                 onChangeText={setSmsCode}
                 keyboardType="number-pad"

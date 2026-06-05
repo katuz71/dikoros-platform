@@ -87,7 +87,7 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
     New users receive 150 bonus only once at account creation.
     """
     clean_phone = "".join(filter(str.isdigit, str(body.phone)))
-    code = (body.code or "").strip()
+    code = "".join(filter(str.isdigit, str(body.code or "")))
 
     if not clean_phone or not code:
         raise HTTPException(status_code=400, detail="Invalid phone or code")
