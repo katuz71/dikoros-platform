@@ -558,9 +558,19 @@ export default function ProfileScreen() {
 
   const saveUserInfo = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/user/info/${phone}`, {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+
+      if (!accessToken) {
+        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб зберегти дані.');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/user/info/me`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
             name: infoName,
             city: infoCity,
