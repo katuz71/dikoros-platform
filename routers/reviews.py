@@ -42,24 +42,26 @@ def get_product_reviews(product_id: int):
 
 
 @router.post("/api/reviews")
-async def create_review(review: ReviewCreate):
-    """Create a review."""
+async def create_review(review: ReviewCreate, phone: str = Depends(get_current_user_phone)):
+    """Create a review for authenticated user only."""
+    clean_phone = normalize_phone(phone)
+    if not clean_phone:
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+
     conn = get_db_connection()
     cur = conn.cursor()
 
-    if review.user_phone:
-        clean_phone = normalize_phone(review.user_phone)
-        existing = cur.execute(
-            """
-            SELECT id FROM reviews
-            WHERE product_id=? AND user_phone=?
-            """,
-            (review.product_id, clean_phone),
-        ).fetchone()
+    existing = cur.execute(
+        """
+        SELECT id FROM reviews
+        WHERE product_id=? AND user_phone=?
+        """,
+        (review.product_id, clean_phone),
+    ).fetchone()
 
-        if existing:
-            conn.close()
-            raise HTTPException(status_code=400, detail="Ви вже залишили відгук на цей товар")
+    if existing:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Ви вже залишили відгук на цей товар")
 
     row = cur.execute(
         """
@@ -70,7 +72,7 @@ async def create_review(review: ReviewCreate):
         (
             review.product_id,
             review.user_name,
-            normalize_phone(review.user_phone) if review.user_phone else None,
+            clean_phone,
             review.rating,
             review.comment,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
