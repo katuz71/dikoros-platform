@@ -147,7 +147,16 @@ export default function ProfileScreen() {
           { text: 'Ні', style: 'cancel' },
           { text: 'Так', style: 'destructive', onPress: async () => {
               try {
-                  const res = await fetch(`${API_URL}/api/reviews/${id}`, { method: 'DELETE' });
+                  const accessToken = await AsyncStorage.getItem('accessToken');
+                  if (!accessToken) {
+                    Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб видалити відгук.');
+                    return;
+                  }
+
+                  const res = await fetch(`${API_URL}/api/reviews/${id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                  });
                   if (res.ok) {
                       setUserReviews(prev => prev.filter(r => r.id !== id));
                       Alert.alert('Успіх', 'Відгук видалено');
