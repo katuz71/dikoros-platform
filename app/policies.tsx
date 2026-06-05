@@ -2,7 +2,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type PolicySection = { h: string; p: string[] };
 type PolicyPage = { title: string; sections: PolicySection[] };
@@ -291,12 +292,14 @@ const PAGES: Record<string, PolicyPage> = {
 
 export default function PoliciesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const headerTopInset = Math.max(insets.top, 18);
   const params = useLocalSearchParams<{ page?: string }>();
   const page = PAGES[String(params.page || 'privacy')] || PAGES.privacy;
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
+      <View style={[styles.header, { height: 62 + headerTopInset, paddingTop: headerTopInset }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={26} color="#111" />
         </TouchableOpacity>
@@ -314,9 +317,6 @@ export default function PoliciesScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.siteBtn} onPress={() => Linking.openURL('https://dikoros-ua.com/')}>
-          <Text style={styles.siteBtnText}>{t('\u0412\u0456\u0434\u043a\u0440\u0438\u0442\u0438 \u0441\u0430\u0439\u0442 DikorosUA')}</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -340,6 +340,4 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 12 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111', marginBottom: 10 },
   paragraph: { fontSize: 15, lineHeight: 22, color: '#333', marginBottom: 8 },
-  siteBtn: { backgroundColor: '#111', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  siteBtnText: { color: '#FFF', fontWeight: '800', fontSize: 15 },
 });

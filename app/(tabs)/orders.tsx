@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/config/api';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -48,6 +49,8 @@ const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const headerTopInset = Math.max(insets.top, 18);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,7 +142,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: headerTopInset + 16 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -182,7 +185,7 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   header: {
-    backgroundColor: '#FFF', padding: 20, paddingTop: 60, 
+    backgroundColor: '#FFF', paddingHorizontal: 20, paddingBottom: 16, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: '#EEE'
   },
