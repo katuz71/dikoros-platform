@@ -265,8 +265,17 @@ def auth_social_login(body: SocialAuthRequest):
 
         if user:
             user_dict = dict(user)
+            linked_phone = "".join(filter(str.isdigit, str(user_dict.get("phone") or "")))
+
+            if not linked_phone or not user_dict.get("phone_verified"):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Use SMS login or registration first. Then Google can be linked to the account.",
+                )
+
             out = dict(user_dict)
-            out["access_token"] = create_access_token(user_dict["phone"])
+            out["phone"] = linked_phone
+            out["access_token"] = create_access_token(linked_phone)
             out["is_new_user"] = False
             return out
 
