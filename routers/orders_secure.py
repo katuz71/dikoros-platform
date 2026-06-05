@@ -49,51 +49,47 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
         available_bonus_balance = int((user_dict or {}).get("bonus_balance") or 0)
         is_verified_user = bool(user_dict and user_dict.get("phone_verified"))
 
-        if not user_dict:
-            logger.info("Guest checkout without user creation: phone=%s", user_phone)
+        if not is_verified_user:
+            raise HTTPException(status_code=401, detail="SMS login is required before checkout")
 
         if order.use_bonuses and order.bonus_used > available_bonus_balance:
             raise HTTPException(status_code=400, detail="Not enough bonus balance")
 
-        if order.use_bonuses and order.bonus_used > 0 and not is_verified_user:
-            raise HTTPException(status_code=401, detail="SMS login is required to use bonuses")
+        update_fields = []
+        update_values = []
 
-        if user_dict:
-            update_fields = []
-            update_values = []
+        if order.name:
+            update_fields.append("name = ?")
+            update_values.append(order.name)
 
-            if order.name:
-                update_fields.append("name = ?")
-                update_values.append(order.name)
+        if order.city:
+            update_fields.append("city = ?")
+            update_values.append(order.city)
 
-            if order.city:
-                update_fields.append("city = ?")
-                update_values.append(order.city)
+        is_ukrposhta = (order.delivery_method or "").strip().lower() == "ukrposhta"
+        if is_ukrposhta and order.warehouse:
+            cleaned_ukr = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
+            update_fields.append("user_ukrposhta = ?")
+            update_values.append(cleaned_ukr)
+        elif order.warehouse:
+            cleaned_wh = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
+            update_fields.append("warehouse = ?")
+            update_values.append(cleaned_wh)
 
-            is_ukrposhta = (order.delivery_method or "").strip().lower() == "ukrposhta"
-            if is_ukrposhta and order.warehouse:
-                cleaned_ukr = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
-                update_fields.append("user_ukrposhta = ?")
-                update_values.append(cleaned_ukr)
-            elif order.warehouse:
-                cleaned_wh = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
-                update_fields.append("warehouse = ?")
-                update_values.append(cleaned_wh)
+        if order.email:
+            update_fields.append("email = ?")
+            update_values.append(order.email)
 
-            if order.email:
-                update_fields.append("email = ?")
-                update_values.append(order.email)
+        if order.contact_preference:
+            update_fields.append("contact_preference = ?")
+            update_values.append(order.contact_preference)
 
-            if order.contact_preference:
-                update_fields.append("contact_preference = ?")
-                update_values.append(order.contact_preference)
-
-            if update_fields:
-                update_values.append(user_phone)
-                cur.execute(
-                    f"UPDATE users SET {', '.join(update_fields)} WHERE phone = ?",
-                    tuple(update_values),
-                )
+        if update_fields:
+            update_values.append(user_phone)
+            cur.execute(
+                f"UPDATE users SET {', '.join(update_fields)} WHERE phone = ?",
+                tuple(update_values),
+            )
 
         items_json = json.dumps([
             {
@@ -149,7 +145,7 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
         order_id = (row or {}).get("id")
         conn.commit()
 
-        if user_dict and order.use_bonuses and order.bonus_used > 0 and order.payment_method == "cash":
+        if order.use_bonuses and order.bonus_used > 0 and order.payment_method == "cash":
             cur.execute(
                 "UPDATE users SET bonus_balance = GREATEST(bonus_balance - ?, 0) WHERE phone = ?",
                 (order.bonus_used, user_phone),
@@ -160,7 +156,7 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
         conn = None
 
         _push_token = (push_token or "").strip()
-        if not _push_token and user_dict and user_phone:
+        if not _push_token and user_phone:
             conn_reopen = get_db_connection()
             user_row = conn_reopen.execute("SELECT push_token FROM users WHERE phone = ?", (user_phone,)).fetchone()
             conn_reopen.close()
@@ -174,7 +170,7 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
             "order_id": order_id,
             "name": order.name,
             "phone": clean_phone,
-            "user_phone": user_phone if user_dict else "",
+            "user_phone": user_phone,
             "email": order.email or "",
             "contact_preference": order.contact_preference or "call",
             "city": order.city,
@@ -215,7 +211,7 @@ async def create_order_secure(order: OrderRequest, background_tasks: BackgroundT
             "order_id": order_id,
             "message": "Заказ успешно создан",
             "account_created": False,
-            "guest_checkout": not bool(user_dict),
+            "guest_checkout": False,
         }
 
         if order.payment_method == "card" and float(order.totalPrice or 0) > 0:
