@@ -625,11 +625,18 @@ def export_orders():
 @router.get("/api/client/orders/me")
 def get_current_client_orders(phone: str = Depends(get_current_user_phone)):
     clean_phone = normalize_phone(phone)
-    return get_client_orders(clean_phone)
+    return _get_client_orders_by_phone(clean_phone)
 
 
 @router.get("/api/client/orders/{phone}")
-def get_client_orders(phone: str):
+def get_client_orders_legacy(phone: str):
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy client orders endpoint is disabled. Use /api/client/orders/me with authorization."
+    )
+
+
+def _get_client_orders_by_phone(phone: str):
     clean_phone = normalize_phone(phone)
     logger.info("Searching client orders: phone=%s", clean_phone)
     conn = get_db_connection()
