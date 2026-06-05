@@ -470,7 +470,6 @@ export default function ProductScreen() {
         product_id: productId,
         rating: newReview.rating || 5,
         user_name: newReview.user_name,
-        user_phone: (newReview.user_phone || '').replace(/\D/g, ''),
         comment: newReview.comment,
       };
 
