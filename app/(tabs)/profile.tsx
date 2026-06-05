@@ -128,10 +128,14 @@ export default function ProfileScreen() {
     }
   };
 
-  const fetchUserReviews = async (phoneNumber: string) => {
+  const fetchUserReviews = async () => {
     try {
-        const cleanPhone = phoneNumber.replace(/\D/g, '');
-        const res = await fetch(`${API_URL}/api/user/reviews/${cleanPhone}`);
+        const accessToken = await AsyncStorage.getItem('accessToken');
+        if (!accessToken) return;
+
+        const res = await fetch(`${API_URL}/api/user/reviews/me`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (res.ok) {
             setUserReviews(await res.json());
         }
@@ -177,8 +181,7 @@ export default function ProfileScreen() {
       });
       if (resOrders.ok) setOrders(await resOrders.json());
 
-      const cleanPhone = canonicalizePhone(phoneNumber);
-      fetchUserReviews(cleanPhone);
+      fetchUserReviews();
     } catch (e) {
       console.error(e);
     } finally {
