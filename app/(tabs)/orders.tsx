@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,7 +8,7 @@ import { API_URL } from '@/config/api';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
+const OrderItem = ({ order, onPress, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={styles.cardHeader}>
       <Text style={styles.orderId}>Замовлення #{order.id}</Text>
@@ -84,46 +84,6 @@ export default function OrdersScreen() {
     }
   };
 
-  const deleteOrder = async (id: number) => {
-    Alert.alert('Видалити замовлення?', 'Цю дію неможливо скасувати', [
-      { text: 'Скасувати', style: 'cancel' },
-      {
-        text: 'Видалити',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await fetch(`${API_URL}/api/client/orders/${id}`, { method: 'DELETE' });
-            setOrders(prev => prev.filter((o: any) => o.id !== id));
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      }
-    ]);
-  };
-
-  const clearAllOrders = async () => {
-    const phone = await AsyncStorage.getItem('userPhone');
-    if (!phone) return;
-
-    Alert.alert('Очистити історію?', 'Всі замовлення будуть видалені з історії.', [
-      { text: 'Скасувати', style: 'cancel' },
-      {
-        text: 'Очистити',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const cleanPhone = phone.replace(/\D/g, '');
-            await fetch(`${API_URL}/api/client/orders/clear/${cleanPhone}`, { method: 'DELETE' });
-            setOrders([]);
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      }
-    ]);
-  };
-
   useFocusEffect(
     useCallback(() => {
         fetchOrders();
@@ -147,9 +107,7 @@ export default function OrdersScreen() {
             <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Мої замовлення</Text>
-        <TouchableOpacity onPress={clearAllOrders} style={styles.clearBtn}>
-             <Ionicons name="trash-bin-outline" size={24} color="#FF5252" />
-        </TouchableOpacity>
+        <View style={{ width: 34 }} />
       </View>
 
       <FlatList
@@ -159,7 +117,6 @@ export default function OrdersScreen() {
             <OrderItem 
                 order={item} 
                 onPress={() => {}} 
-                onDelete={() => deleteOrder(item.id)}
                 formatPrice={formatPrice}
             />
         )}
