@@ -142,25 +142,13 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
 @router.post("/api/auth")
 def auth_user(ua: UserAuth):
     """
-    Вход или Регистрация по номеру телефона.
-    Если юзера нет - создаем и даем 150 грн бонусов.
+    Legacy phone-only auth is intentionally disabled.
+    Registration/login must go through /api/auth/sms/start + /api/auth/sms/verify.
     """
-    clean_phone = "".join(filter(str.isdigit, str(ua.phone)))
-    if not clean_phone:
-        raise HTTPException(status_code=400, detail="Invalid phone")
-
-    conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
-    
-    if not user:
-        # Pегистрация с бонусом 150 грн
-        logger.info("New user registration: phone=%s bonus=%s", clean_phone, 150)
-        conn.execute("INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at) VALUES (?, 150, 0, 0, ?)", (clean_phone, datetime.now().isoformat()))
-        conn.commit()
-        user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
-    
-    conn.close()
-    return dict(user)
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy phone auth is disabled. Use SMS authentication.",
+    )
 
 
 @router.get("/user/{identifier}")
