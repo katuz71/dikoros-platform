@@ -74,6 +74,7 @@ export default function ProfileScreen() {
   // Reviews State
   const [userReviews, setUserReviews] = useState<any[]>([]);
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
+  const [googleAuthMode, setGoogleAuthMode] = useState<'login' | 'link'>('login');
 
   const [, googleResponse, promptGoogleLogin] = Google.useIdTokenAuthRequest({
     clientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
@@ -99,9 +100,13 @@ export default function ProfileScreen() {
       : null;
 
     if (idToken) {
-      handleGoogleSocialLogin(idToken);
+      if (googleAuthMode === 'link') {
+        handleGoogleSocialLink(idToken);
+      } else {
+        handleGoogleSocialLogin(idToken);
+      }
     }
-  }, [googleResponse]);
+  }, [googleResponse, googleAuthMode]);
 
   const canonicalizePhone = (value: string) => {
     const digits = (value || '').replace(/\D/g, '');
@@ -351,6 +356,7 @@ export default function ProfileScreen() {
       }
 
       setProfile(user);
+      setGoogleAuthMode('login');
       setShowLoginModal(false);
       setSmsSent(false);
       setSmsCode('');
@@ -361,6 +367,74 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
+    }
+  };
+
+
+  const handleGoogleLinkStart = async () => {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    const storedPhone = await AsyncStorage.getItem('userPhone');
+
+    if (!accessToken || !storedPhone) {
+      Alert.alert(
+        'Потрібен SMS-вхід',
+        'Спочатку увійдіть за номером телефону через SMS, потім прив’яжіть Google.'
+      );
+      setShowLoginModal(true);
+      return;
+    }
+
+    setGoogleAuthMode('link');
+    promptGoogleLogin();
+  };
+
+  const handleGoogleSocialLink = async (idToken: string) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+
+      if (!accessToken) {
+        setGoogleAuthMode('login');
+        Alert.alert('Потрібен SMS-вхід', 'Увійдіть через SMS перед прив’язкою Google.');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/auth/social-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          provider: 'google',
+          token: idToken,
+        }),
+      });
+
+      const result = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        Alert.alert('Помилка', result?.detail || 'Не вдалося прив’язати Google');
+        return;
+      }
+
+      const authId = result.auth_id || result.phone || phone;
+      if (authId) {
+        await AsyncStorage.setItem('userPhone', authId);
+        setPhone(authId);
+        fetchData(authId);
+      }
+
+      if (result.access_token) {
+        await AsyncStorage.setItem('accessToken', result.access_token);
+      }
+
+      setProfile(result);
+      Alert.alert('Готово', 'Google успішно прив’язано до вашого акаунта.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Помилка', 'Немає з’єднання');
+    } finally {
+      setGoogleAuthMode('login');
     }
   };
 
@@ -508,6 +582,7 @@ export default function ProfileScreen() {
 
       <MenuSection title="Налаштування">
         <MenuItem label="Налаштування сповіщень" onPress={() => Alert.alert('Налаштування сповіщень', 'Поки немає додаткових налаштувань')} />
+        <MenuItem label="Прив’язати Google" onPress={handleGoogleLinkStart} />
         <MenuItem label="Керування пристроями" isLast onPress={() => Alert.alert('Керування пристроями', 'Поточний пристрій активний')} />
       </MenuSection>
 
@@ -767,7 +842,10 @@ export default function ProfileScreen() {
 
                 <TouchableOpacity
                   style={[styles.loginButton, {backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginBottom: 10}]}
-                  onPress={() => promptGoogleLogin()}
+                  onPress={() => {
+                    setGoogleAuthMode('login');
+                    promptGoogleLogin();
+                  }}
                 >
                   <Text style={[styles.loginButtonText, {color: '#333'}]}>
                     {'\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google'}
