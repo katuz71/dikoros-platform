@@ -460,6 +460,12 @@ export default function ProductScreen() {
     }
 
     try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) {
+        showToast('Увійдіть у профіль, щоб залишити відгук');
+        return;
+      }
+
       const payload = {
         product_id: productId,
         rating: newReview.rating || 5,
@@ -470,7 +476,10 @@ export default function ProductScreen() {
 
       const res = await fetch(`${API_URL}/api/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify(payload)
       });
 
