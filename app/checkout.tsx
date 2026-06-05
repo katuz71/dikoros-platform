@@ -232,9 +232,20 @@ export default function CheckoutScreen() {
       return;
     }
 
+    const storedPhone = await AsyncStorage.getItem('userPhone');
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    if (!storedPhone || !accessToken) {
+      Alert.alert(
+        'Потрібен SMS-вхід',
+        'Перед оформленням замовлення увійдіть або зареєструйтесь за номером телефону через SMS.',
+        [{ text: 'Увійти', onPress: () => router.replace('/(tabs)/profile') }]
+      );
+      return;
+    }
+
     setLoading(true);
 
-    const phoneForAccount = canonicalizePhone(accountPhone || phone);
+    const phoneForAccount = canonicalizePhone(storedPhone);
 
     if (shouldSaveUserData) {
       await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, email, city, warehouse }));
@@ -296,25 +307,20 @@ export default function CheckoutScreen() {
       }
 
       if (response.ok) {
-        // Always persist account phone so user can see orders in profile
-        if (phoneForAccount) {
-          await AsyncStorage.setItem('userPhone', phoneForAccount);
-
-          try {
-            const expoPushToken = await AsyncStorage.getItem('expoPushToken');
-            if (expoPushToken) {
-              await fetch(`${API_URL}/api/user/push-token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  auth_id: phoneForAccount,
-                  token: expoPushToken,
-                }),
-              });
-            }
-          } catch (e) {
-            console.warn('Save push token after checkout failed:', e);
+        try {
+          const expoPushToken = await AsyncStorage.getItem('expoPushToken');
+          if (expoPushToken) {
+            await fetch(`${API_URL}/api/user/push-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                auth_id: phoneForAccount,
+                token: expoPushToken,
+              }),
+            });
           }
+        } catch (e) {
+          console.warn('Save push token after checkout failed:', e);
         }
 
         if (shouldSaveUserData) {
@@ -382,6 +388,12 @@ export default function CheckoutScreen() {
           `Замовлення #${result.order_id} прийнято! 🎉`,
           `Дякуємо!\nМи зв'яжемося з Вами для підтвердження.`,
           [{ text: 'Чудово!', onPress: () => router.replace('/(tabs)/profile') }]
+        );
+      } else if (response.status === 401) {
+        Alert.alert(
+          'Потрібен SMS-вхід',
+          result?.detail || 'Перед оформленням замовлення увійдіть через SMS.',
+          [{ text: 'Увійти', onPress: () => router.replace('/(tabs)/profile') }]
         );
       } else {
         Alert.alert('Помилка сервера', result.detail || result.error || 'Щось пішло не так');
