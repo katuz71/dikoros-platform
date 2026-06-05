@@ -121,6 +121,22 @@ const parseMaybeJsonArray = (value: any) => {
   return [];
 };
 
+const getRootCategoryName = (value: any) => {
+  const raw = String(value ?? '').trim().replace(/\s+/g, ' ');
+  if (!raw) return '';
+
+  const separators = ['/', '>', '›', '»', '→'];
+  let root = raw;
+
+  separators.forEach((separator) => {
+    if (root.includes(separator)) {
+      root = root.split(separator)[0].trim();
+    }
+  });
+
+  return root.replace(/\s+/g, ' ');
+};
+
 const normalizeSelectOption = (option: any) => {
   if (option === undefined || option === null) return { label: '—', value: '—' };
   if (typeof option === 'string' || typeof option === 'number') {
@@ -1152,12 +1168,13 @@ export default function Index() {
     return safeProductsRaw.filter((product: any) => !variantChildIds.has(Number(product?.id)));
   }, [safeProductsRaw, variantChildIds]);
 
-  // Derive categories from products
+  // Derive only root categories from products for the home screen
   const derivedCategories = useMemo(() => {
     const categorySet = new Set<string>();
     safeProducts.forEach(p => {
-      if (p?.category) {
-        categorySet.add(p.category);
+      const rootCategory = getRootCategoryName(p?.category);
+      if (rootCategory) {
+        categorySet.add(rootCategory);
       }
     });
     return ['Всі', ...Array.from(categorySet)];
@@ -1169,9 +1186,9 @@ export default function Index() {
       p?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Filter by category
+    // Filter by root category so parent category includes child-category products
     if (selectedCategory !== 'Всі') {
-      result = result.filter(p => p?.category === selectedCategory);
+      result = result.filter(p => getRootCategoryName(p?.category) === selectedCategory);
     }
 
     if (sortType === 'asc') {
