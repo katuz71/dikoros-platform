@@ -63,14 +63,15 @@ export default function OrdersScreen() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const phone = await AsyncStorage.getItem('userPhone');
-      if (!phone) {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) {
         setLoading(false);
         return;
       }
-      
-      const cleanPhone = phone.replace(/\D/g, '');
-      const response = await fetch(`${API_URL}/api/client/orders/${cleanPhone}`);
+
+      const response = await fetch(`${API_URL}/api/client/orders/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       
       if (response.ok) {
         const data = await response.json();
