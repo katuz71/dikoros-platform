@@ -200,15 +200,19 @@ export default function ProfileScreen() {
   };
 
   // 3. Логика входа / выхода
-  const attachPushToken = async (authId: string) => {
+  const attachPushToken = async () => {
     try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
       const expoPushToken = await AsyncStorage.getItem('expoPushToken');
-      if (expoPushToken) {
-        await fetch(`${API_URL}/api/user/push-token`, {
+
+      if (accessToken && expoPushToken) {
+        await fetch(`${API_URL}/api/user/push-token/me`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({
-            auth_id: authId,
             token: expoPushToken,
           }),
         });
@@ -284,7 +288,7 @@ export default function ProfileScreen() {
           await AsyncStorage.setItem('accessToken', user.access_token);
         }
 
-        await attachPushToken(canon);
+        await attachPushToken();
 
         if (user.is_new_user) {
           trackEvent('CompleteRegistration', {
@@ -352,13 +356,14 @@ export default function ProfileScreen() {
 
       if (authId) {
         await AsyncStorage.setItem('userPhone', authId);
-        await attachPushToken(authId);
         setPhone(authId);
       }
 
       if (user.access_token) {
         await AsyncStorage.setItem('accessToken', user.access_token);
       }
+
+      await attachPushToken();
 
       if (user.name) {
         await AsyncStorage.setItem('userName', user.name);
