@@ -53,4 +53,11 @@ def send_sms_code(phone: str, code: str) -> dict:
     if response.status_code >= 400:
         raise RuntimeError(f"AlphaSMS HTTP error {response.status_code}: {data}")
 
+    if not data.get("success"):
+        raise RuntimeError(f"AlphaSMS API error: {data}")
+
+    for item in data.get("data") or []:
+        if isinstance(item, dict) and not item.get("success", False):
+            raise RuntimeError(f"AlphaSMS message error: {item}")
+
     return data

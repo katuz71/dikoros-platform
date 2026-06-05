@@ -190,11 +190,17 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
             is_new_user = True
             logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
             conn.execute(
-                "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at) VALUES (?, 150, 0, 0, ?)",
+                "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at, phone_verified) VALUES (?, 150, 0, 0, ?, TRUE)",
                 (clean_phone, datetime.now().isoformat()),
             )
-            conn.commit()
-            user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+        else:
+            conn.execute(
+                "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
+                (clean_phone,),
+            )
+
+        conn.commit()
+        user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
 
         SMS_AUTH_CODES.pop(clean_phone, None)
 
