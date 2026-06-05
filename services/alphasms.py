@@ -30,9 +30,10 @@ def send_sms_code(phone: str, code: str) -> dict:
         "data": [
             {
                 "type": "sms",
-                "sender": ALPHASMS_SENDER,
-                "phone": clean_phone,
-                "text": text,
+                "id": int(__import__("time").time()),
+                "phone": int(clean_phone),
+                "sms_signature": ALPHASMS_SENDER,
+                "sms_message": text,
             }
         ],
     }
