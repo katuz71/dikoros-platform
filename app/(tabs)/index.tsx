@@ -1231,23 +1231,22 @@ export default function Index() {
   const submitReview = async () => {
     if (!selectedProduct) return;
 
-    // Получаем телефон пользователя
-    const userPhone = await AsyncStorage.getItem('userPhone');
+    const accessToken = await AsyncStorage.getItem('accessToken');
     let userName = await AsyncStorage.getItem('userName');
 
-    if (!userPhone) {
+    if (!accessToken) {
       Alert.alert('Увага', 'Для написання відгуку потрібно увійти в систему');
       return;
     }
 
-    // Если имени нет в AsyncStorage, пробуем получить из API
     if (!userName) {
       try {
-        const response = await fetch(`${API_URL}/user/${userPhone}`);
+        const response = await fetch(`${API_URL}/api/user/me`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (response.ok) {
           const userData = await response.json();
           userName = userData.name || 'Користувач';
-          // Сохраняем для будущего использования
           if (userName) {
             await AsyncStorage.setItem('userName', userName);
           }
@@ -1268,11 +1267,13 @@ export default function Index() {
     try {
       const response = await fetch(`${API_URL}/api/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           product_id: selectedProduct.id,
           user_name: userName || 'Користувач',
-          user_phone: userPhone,
           rating: reviewRating,
           comment: reviewComment
         })
@@ -1988,5 +1989,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-
