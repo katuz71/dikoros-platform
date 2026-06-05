@@ -254,7 +254,12 @@ def _chat_info_fallback_answer(user_message: str) -> str:
         return CHAT_KNOWLEDGE.get("returns") or "Питання повернення або обміну можна узгодити з менеджером згідно з умовами магазину."
 
     if any(x in t for x in ["контакт", "телефон", "менеджер", "зв'яз", "связ"]):
-        return CHAT_KNOWLEDGE.get("legal_and_contacts") or "Для зв’язку з менеджером скористайтесь контактами на сайті."
+        return (
+            "Для зв’язку з менеджером напишіть або зателефонуйте:\n\n"
+            "📞 Телефон: (063) 25 26 8 24\n"
+            "✉️ Email: dikorosua@gmail.com\n"
+            "💬 Також можна написати через месенджери на сайті."
+        )
 
     return (
         "Можу підказати по доставці, оплаті, поверненню або контактам. "
@@ -865,6 +870,41 @@ async def chat_endpoint(request: ChatRequest):
                 session_id=session_id,
             )
 
+        contact_raw = (user_message or "").lower()
+        contact_norm = _chat_normalize_text(user_message or "")
+        if (
+            "менеджер" in contact_norm
+            or "контакт" in contact_norm
+            or "телефон" in contact_norm
+            or "зв'яз" in contact_raw
+            or "зв’яз" in contact_raw
+            or "звʼяз" in contact_raw
+            or "связ" in contact_norm
+        ):
+            text = (
+                "Зв’язатися з менеджером можна так:\n\n"
+                "📞 Телефон: (063) 25 26 8 24\n"
+                "📲 Viber: viber://chat?number=%2B380632526824\n"
+                "✈️ Telegram: https://t.me/Dikorosua\n"
+                "✉️ Email: dikorosua@gmail.com\n"
+                "📍 Адреса: Чернігівська область, Чернігівський район, село Жавинка, вулиця Іллінська 2а\n\n"
+                "Також можете написати повідомлення прямо в цьому чаті — менеджер отримає його та зможе відповісти."
+            )
+            quick = ["Доставка", "Оплата", "Повернення", "Мухомори", "Мікси", "Для старту"]
+            await _send_telegram_manager_message(
+                "💬 Клієнт просить зв’язатися з менеджером\n"
+                f"Session: {session_id}\n\n"
+                f"👤 Клієнт: {user_message}"
+            )
+            return ChatResponse(
+                message=text,
+                reply=text,
+                products=[],
+                items=[],
+                quick_replies=quick,
+                session_id=session_id,
+            )
+
         user_message_lower = user_message.lower()
         normalized_message = _chat_normalize_text(user_message)
         intents = _chat_detect_intents(normalized_message)
@@ -999,29 +1039,40 @@ async def chat_endpoint(request: ChatRequest):
         def _exact_quick_reply_products(normalized_text: str) -> list[dict]:
             t = (normalized_text or "").strip()
 
-            if t in {"чага", "chaga"}:
+            if "чага" in t or "chaga" in t:
                 return _topic_products_by_needles(["чаг", "chaga"], 3)
 
-            if t in {"кордицепс", "cordyceps"}:
+            if "кордицеп" in t or "cordyceps" in t:
                 return _topic_products_by_needles(
                     ["кордицеп", "cordyceps"],
                     3,
                     ["мухомор", "amanita", "mix", "мікс", "микс"]
                 )
 
-            if t in {"іжовик гребінчастий", "їжовик гребінчастий", "ижовик гребинчастий", "ежовик гребинчастый"}:
+            if (
+                "іжовик" in t
+                or "їжовик" in t
+                or "ижовик" in t
+                or "ежовик" in t
+                or "hericium" in t
+                or "lion" in t
+                or "mane" in t
+            ):
                 return _topic_products_by_needles(
                     ["іжовик", "їжовик", "ижовик", "ежовик", "hericium", "lion", "mane"],
                     3,
                     ["мухомор", "amanita", "mix", "мікс", "микс"]
                 )
 
-            if t in {"мухомори", "мухоморы", "мухомор"}:
+            if "мухомор" in t or "amanita" in t:
                 return _topic_products_by_needles(
                     ["мухомор", "amanita"],
                     3,
                     ["mix", "мікс", "микс", "кордицеп", "cordyceps", "їжовик", "іжовик", "ежовик", "hericium"]
                 )
+
+            if "лисич" in t or "cantharellus" in t:
+                return _topic_products_by_needles(["лисич", "cantharellus"], 3)
 
             return []
 
@@ -1055,6 +1106,9 @@ async def chat_endpoint(request: ChatRequest):
             direct_ids = _chat_direct_product_ids_by_sku_or_alias(user_message, all_products)
             if direct_ids:
                 found_products = get_products_by_ids(direct_ids)
+
+        if not is_info_question and not found_products and ("лисич" in normalized_message or "cantharellus" in normalized_message):
+            found_products = _topic_products_by_needles(["лисич", "cantharellus"], 3)
 
         if words and not found_products:
             import re
