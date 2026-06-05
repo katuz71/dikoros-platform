@@ -218,40 +218,47 @@ async def create_order_secure(
         response_data = {
             "status": "ok",
             "order_id": order_id,
-            "message": "Заказ успешно создан",
+            "message": "Замовлення успішно створено",
             "account_created": False,
             "guest_checkout": False,
         }
 
         if order.payment_method == "card" and float(order.totalPrice or 0) > 0:
             token = os.getenv("MONOBANK_API_TOKEN")
-            if token:
-                payload = {
-                    "amount": int(float(order.totalPrice) * 100),
-                    "ccy": 980,
-                    "merchantPaymInfo": {
-                        "reference": str(order_id),
-                        "destination": f"Оплата замовлення №{order_id}",
-                    },
-                    "webHookUrl": "https://app.dikoros.ua/api/payment/callback",
-                    "redirectUrl": order.return_url or "https://dikoros.ua",
-                }
-                try:
-                    async with httpx.AsyncClient() as client:
-                        mono_resp = await client.post(
-                            "https://api.monobank.ua/api/merchant/invoice/create",
-                            headers={"X-Token": token},
-                            json=payload,
-                            timeout=15.0,
-                        )
-                        mono_resp.raise_for_status()
-                        page_url = mono_resp.json().get("pageUrl")
-                        if page_url:
-                            response_data["pageUrl"] = page_url
-                except Exception as mono_err:
-                    logger.warning("Monobank request failed: %s", mono_err)
-            else:
-                logger.warning("MONOBANK_API_TOKEN is not set, payment URL was not created")
+            if not token:
+                logger.error("MONOBANK_API_TOKEN is not set, card order cannot be paid")
+                raise HTTPException(status_code=503, detail="Card payment is temporarily unavailable")
+
+            payload = {
+                "amount": int(float(order.totalPrice) * 100),
+                "ccy": 980,
+                "merchantPaymInfo": {
+                    "reference": str(order_id),
+                    "destination": f"Оплата замовлення №{order_id}",
+                },
+                "webHookUrl": "https://app.dikoros.ua/api/payment/callback",
+                "redirectUrl": order.return_url or "https://dikoros.ua",
+            }
+
+            try:
+                async with httpx.AsyncClient() as client:
+                    mono_resp = await client.post(
+                        "https://api.monobank.ua/api/merchant/invoice/create",
+                        headers={"X-Token": token},
+                        json=payload,
+                        timeout=15.0,
+                    )
+                    mono_resp.raise_for_status()
+                    page_url = mono_resp.json().get("pageUrl")
+            except Exception as mono_err:
+                logger.warning("Monobank request failed: %s", mono_err)
+                raise HTTPException(status_code=502, detail="Failed to create card payment invoice")
+
+            if not page_url:
+                logger.warning("Monobank response did not include pageUrl for order_id=%s", order_id)
+                raise HTTPException(status_code=502, detail="Card payment invoice was not created")
+
+            response_data["pageUrl"] = page_url
 
         if order.payment_method == "cash":
             try:
