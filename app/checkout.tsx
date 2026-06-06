@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Image,
     Linking,
     KeyboardAvoidingView,
     Modal,
@@ -52,6 +53,8 @@ export default function CheckoutScreen() {
   const [lastName, setLastName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [doNotCall, setDoNotCall] = useState(false);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); // ✅ NEW: Optional Email
   const [accountPhone, setAccountPhone] = useState('');
@@ -100,6 +103,8 @@ export default function CheckoutScreen() {
         if (parsed.lastName) setLastName(parsed.lastName);
         if (parsed.middleName) setMiddleName(parsed.middleName);
         if (parsed.recipientName) setRecipientName(parsed.recipientName);
+        if (parsed.recipientPhone) setRecipientPhone(parsed.recipientPhone);
+        if (parsed.doNotCall) setDoNotCall(Boolean(parsed.doNotCall));
         if (parsed.email) setEmail(parsed.email); // Load saved email
         if (parsed.city) setCity(parsed.city);
         if (parsed.warehouse) setWarehouse(parsed.warehouse);
@@ -246,7 +251,7 @@ export default function CheckoutScreen() {
     const phoneForAccount = canonicalizePhone(storedPhone);
 
     if (shouldSaveUserData) {
-      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, lastName, middleName, recipientName, email, city, warehouse }));
+      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, lastName, middleName, recipientName, recipientPhone, doNotCall, email, city, warehouse }));
     } else {
       await AsyncStorage.removeItem('savedCheckoutInfo');
     }
@@ -268,6 +273,7 @@ export default function CheckoutScreen() {
 
       const clientFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
       const finalRecipientName = recipientName.trim() || clientFullName || name;
+      const finalRecipientPhone = canonicalizePhone(recipientPhone || phone);
 
       const orderData = {
         name,
@@ -275,6 +281,8 @@ export default function CheckoutScreen() {
         middle_name: middleName.trim(),
         client_full_name: clientFullName || name,
         recipient_name: finalRecipientName,
+        recipient_phone: finalRecipientPhone,
+        do_not_call: doNotCall,
         user_phone: phoneForAccount,
         phone: canonicalizePhone(phone),
         email: email || '', // ✅ Include Email
@@ -440,6 +448,13 @@ export default function CheckoutScreen() {
             <Text style={styles.sectionTitle}>Ваше замовлення</Text>
             {items.map((item: any, index: number) => (
               <View key={`${item.id}_${index}`} style={styles.orderItemRow}>
+                {!!item.image && (
+                  <Image
+                    source={{ uri: item.image }}
+                    style={{ width: 54, height: 54, borderRadius: 10, marginRight: 10, backgroundColor: '#F0F0F0' }}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.itemVariant}>
@@ -460,6 +475,11 @@ export default function CheckoutScreen() {
             <TextInput style={styles.input} placeholder="Прізвище (не обов’язково)" value={lastName} onChangeText={setLastName} />
             <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
             <TextInput style={styles.input} placeholder="Отримувач (якщо інша людина)" value={recipientName} onChangeText={setRecipientName} />
+            <TextInput style={styles.input} placeholder="Телефон отримувача (якщо інший)" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <Text style={{ fontSize: 15, color: "#333", flex: 1 }}>Не перезванивати, тільки повідомлення</Text>
+              <Switch value={doNotCall} onValueChange={setDoNotCall} />
+            </View>
             <TextInput style={styles.input} placeholder="Телефон (для доставки)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
             
             {/* ✅ 2. EMAIL (OPTIONAL) */}

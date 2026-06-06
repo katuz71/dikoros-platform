@@ -132,7 +132,12 @@ async def create_onebox_order(order_data: dict) -> dict:
         if not client_full_name:
             client_full_name = " ".join([x for x in [last_name, name, middle_name] if x]).strip() or name
         recipient_name = str(order_data.get("recipient_name") or "").strip() or client_full_name or name
+        recipient_phone = str(order_data.get("recipient_phone") or "").strip()
         phone = str(order_data.get("phone") or "").strip()
+        if not recipient_phone:
+            recipient_phone = phone
+        do_not_call = bool(order_data.get("do_not_call"))
+        do_not_call_text = "\u0434\u0430" if do_not_call else "\u043d\u0435\u0442"
         user_phone = str(order_data.get("user_phone") or "").strip()
         email = str(order_data.get("email") or "").strip()
         contact_preference = str(order_data.get("contact_preference") or "").strip()
@@ -236,6 +241,8 @@ async def create_onebox_order(order_data: dict) -> dict:
             f"\u0418\u043c\u044f: {name}",
             f"\u0424\u0418\u041e \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_full_name}",
             f"\u041f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044c: {recipient_name}",
+            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044f: {recipient_phone}",
+            f"\u041d\u0435 \u043f\u0435\u0440\u0435\u0437\u0432\u0430\u043d\u0438\u0432\u0430\u0442\u044c: {do_not_call_text}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438: {phone}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: {user_phone}",
             f"Email: {email}",
@@ -274,6 +281,13 @@ async def create_onebox_order(order_data: dict) -> dict:
             "recipient_name": recipient_name,
             "delivery_recipient": recipient_name,
             "customorder_recipient_name": recipient_name,
+            "recipientphone": recipient_phone,
+            "recipient_phone": recipient_phone,
+            "delivery_recipient_phone": recipient_phone,
+            "customorder_recipient_phone": recipient_phone,
+            "do_not_call": "1" if do_not_call else "0",
+            "donotcall": "1" if do_not_call else "0",
+            "customorder_do_not_call": "1" if do_not_call else "0",
             "clientphone": phone,
             "phone": phone,
             "clientemail": email,
