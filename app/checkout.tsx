@@ -49,6 +49,9 @@ export default function CheckoutScreen() {
 
   // Поля формы
   const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [recipientName, setRecipientName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); // ✅ NEW: Optional Email
   const [accountPhone, setAccountPhone] = useState('');
@@ -94,6 +97,9 @@ export default function CheckoutScreen() {
       if (savedInfo) {
         const parsed = JSON.parse(savedInfo);
         if (parsed.name) setName(parsed.name);
+        if (parsed.lastName) setLastName(parsed.lastName);
+        if (parsed.middleName) setMiddleName(parsed.middleName);
+        if (parsed.recipientName) setRecipientName(parsed.recipientName);
         if (parsed.email) setEmail(parsed.email); // Load saved email
         if (parsed.city) setCity(parsed.city);
         if (parsed.warehouse) setWarehouse(parsed.warehouse);
@@ -240,7 +246,7 @@ export default function CheckoutScreen() {
     const phoneForAccount = canonicalizePhone(storedPhone);
 
     if (shouldSaveUserData) {
-      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, email, city, warehouse }));
+      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, lastName, middleName, recipientName, email, city, warehouse }));
     } else {
       await AsyncStorage.removeItem('savedCheckoutInfo');
     }
@@ -260,8 +266,15 @@ export default function CheckoutScreen() {
       const bonusesToUse = useBonuses ? Math.min(bonusBalance, finalPrice) : 0;
       const finalPriceWithBonuses = Math.max(0, finalPrice - bonusesToUse);
 
+      const clientFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
+      const finalRecipientName = recipientName.trim() || clientFullName || name;
+
       const orderData = {
         name,
+        last_name: lastName.trim(),
+        middle_name: middleName.trim(),
+        client_full_name: clientFullName || name,
+        recipient_name: finalRecipientName,
         user_phone: phoneForAccount,
         phone: canonicalizePhone(phone),
         email: email || '', // ✅ Include Email
@@ -444,6 +457,9 @@ export default function CheckoutScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Контакти</Text>
             <TextInput style={styles.input} placeholder="Ваше Ім’я" value={name} onChangeText={setName} />
+            <TextInput style={styles.input} placeholder="Прізвище (не обов’язково)" value={lastName} onChangeText={setLastName} />
+            <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
+            <TextInput style={styles.input} placeholder="Отримувач (якщо інша людина)" value={recipientName} onChangeText={setRecipientName} />
             <TextInput style={styles.input} placeholder="Телефон (для доставки)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
             
             {/* ✅ 2. EMAIL (OPTIONAL) */}

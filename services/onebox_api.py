@@ -126,6 +126,12 @@ async def create_onebox_order(order_data: dict) -> dict:
         raw_items = order_data.get("items") or order_data.get("products") or []
 
         name = str(order_data.get("name") or "").strip()
+        last_name = str(order_data.get("last_name") or "").strip()
+        middle_name = str(order_data.get("middle_name") or "").strip()
+        client_full_name = str(order_data.get("client_full_name") or "").strip()
+        if not client_full_name:
+            client_full_name = " ".join([x for x in [last_name, name, middle_name] if x]).strip() or name
+        recipient_name = str(order_data.get("recipient_name") or "").strip() or client_full_name or name
         phone = str(order_data.get("phone") or "").strip()
         user_phone = str(order_data.get("user_phone") or "").strip()
         email = str(order_data.get("email") or "").strip()
@@ -228,6 +234,8 @@ async def create_onebox_order(order_data: dict) -> dict:
         desc_lines = [
             "\U0001F6D2 \u0417\u0410\u041a\u0410\u0417 \u0417 \u041f\u0420\u0418\u041b\u041e\u0416\u0415\u041d\u0418\u042f DIKOROSUA",
             f"\u0418\u043c\u044f: {name}",
+            f"\u0424\u0418\u041e \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_full_name}",
+            f"\u041f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044c: {recipient_name}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438: {phone}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: {user_phone}",
             f"Email: {email}",
@@ -260,14 +268,18 @@ async def create_onebox_order(order_data: dict) -> dict:
             "paymentid": payment_id,
             "deliveryid": delivery_id,
 
-            "clientfio": name,
-            "clientname": name,
+            "clientfio": client_full_name,
+            "clientname": client_full_name,
+            "recipientname": recipient_name,
+            "recipient_name": recipient_name,
+            "delivery_recipient": recipient_name,
+            "customorder_recipient_name": recipient_name,
             "clientphone": phone,
             "phone": phone,
             "clientemail": email,
             "email": email,
 
-            "name": f"\u0417\u0430\u043a\u0430\u0437 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u043e\u0442 {name}",
+            "name": f"\u0417\u0430\u043a\u0430\u0437 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u043e\u0442 {client_full_name or name}",
             "description": full_description,
             "comments": full_description,
             "order_content": full_description,
