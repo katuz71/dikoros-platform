@@ -169,6 +169,12 @@ class OrderItem(BaseModel):
 
 class OrderRequest(BaseModel):
     name: str
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    client_full_name: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    do_not_call: bool = False
     phone: str
     email: Optional[str] = None
     contact_preference: Optional[str] = "call"
