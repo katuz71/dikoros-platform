@@ -15,7 +15,7 @@
     "android": {
       "package": "com.dikorosua.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 28,
+      "versionCode": 29,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "INTERNET",
