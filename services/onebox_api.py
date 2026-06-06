@@ -285,13 +285,20 @@ async def create_onebox_order(order_data: dict) -> dict:
             "externalid": externalid,
         }
 
-        custom_source_key = _env_or_default("ONEBOX_FIELD_SOURCE", "customorder_istochnikDP")
-        custom_payment_key = _env_or_default("ONEBOX_FIELD_PAYMENT_METHOD", "customorder_Sposoboplatidp")
-        custom_delivery_key = _env_or_default("ONEBOX_FIELD_DELIVERY_METHOD", "customorder_sposobdostavkidp")
+        custom_source_key = _env_or_default("ONEBOX_FIELD_SOURCE", "istochnikDP")
+        custom_payment_key = _env_or_default("ONEBOX_FIELD_PAYMENT_METHOD", "Sposoboplatidp")
+        custom_delivery_key = _env_or_default("ONEBOX_FIELD_DELIVERY_METHOD", "sposobdostavkidp")
 
-        _set_if_key(order_obj, custom_source_key, "Mobile App")
-        _set_if_key(order_obj, custom_payment_key, payment_method)
-        _set_if_key(order_obj, custom_delivery_key, delivery_method)
+        customfields = {}
+        _set_if_key(customfields, custom_source_key, "Mobile App")
+        _set_if_key(customfields, custom_payment_key, payment_method)
+        _set_if_key(customfields, custom_delivery_key, delivery_method)
+        order_obj["customfields"] = customfields
+
+        # Keep legacy flat keys as harmless fallback for older OneBox mappings.
+        _set_if_key(order_obj, "customorder_istochnikDP", "Mobile App")
+        _set_if_key(order_obj, "customorder_Sposoboplatidp", payment_method)
+        _set_if_key(order_obj, "customorder_sposobdostavkidp", delivery_method)
 
         payload = [order_obj]
 
