@@ -27,6 +27,7 @@
       }
     },
     "production": {
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://app.dikoros.ua",
         "EXPO_PUBLIC_ENVIRONMENT": "production",
