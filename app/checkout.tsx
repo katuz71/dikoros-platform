@@ -24,6 +24,8 @@ import {
 import { API_URL } from '../config/api';
 import { useCart } from '../context/CartContext';
 
+const POPULAR_CITIES = ['Київ', 'Львів', 'Одеса', 'Дніпро', 'Харків', 'Івано-Франківськ'];
+
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -590,13 +592,27 @@ export default function CheckoutScreen() {
           </View>
 
           {modalVisible === 'city' && (
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Введіть назву міста (напр. Київ)"
-              value={searchQuery}
-              onChangeText={searchCity}
-              autoFocus
-            />
+            <>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Введіть назву міста (напр. Київ)"
+                value={searchQuery}
+                onChangeText={searchCity}
+                autoFocus
+              />
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 15, marginBottom: 10, gap: 8 }}>
+                {POPULAR_CITIES.map((cityName) => (
+                  <TouchableOpacity
+                    key={cityName}
+                    style={{ backgroundColor: '#E8F5E9', borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 }}
+                    onPress={() => searchCity(cityName)}
+                  >
+                    <Text style={{ color: '#2E7D32', fontWeight: '600' }}>{cityName}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
           )}
 
           {loadingSearch ? (
