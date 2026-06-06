@@ -132,6 +132,9 @@ async def create_onebox_order(order_data: dict) -> dict:
         if not client_full_name:
             client_full_name = " ".join([x for x in [last_name, name, middle_name] if x]).strip() or name
         recipient_name = str(order_data.get("recipient_name") or "").strip() or client_full_name or name
+        recipient_parts = recipient_name.split()
+        recipient_first_name = recipient_parts[0] if recipient_parts else recipient_name
+        recipient_last_name = " ".join(recipient_parts[1:]) if len(recipient_parts) > 1 else ""
         recipient_phone = str(order_data.get("recipient_phone") or "").strip()
         phone = str(order_data.get("phone") or "").strip()
         if not recipient_phone:
@@ -281,10 +284,20 @@ async def create_onebox_order(order_data: dict) -> dict:
             "recipient_name": recipient_name,
             "delivery_recipient": recipient_name,
             "customorder_recipient_name": recipient_name,
+
+            # Real OneBox recipient fields from order UI.
+            "order_clientname": recipient_name,
+            "order_clientphone": recipient_phone,
+
             "recipientphone": recipient_phone,
             "recipient_phone": recipient_phone,
             "delivery_recipient_phone": recipient_phone,
             "customorder_recipient_phone": recipient_phone,
+
+            # Real OneBox no-call checkbox from order UI.
+            "customorder_Neperezvanivat": "1" if do_not_call else "0",
+            "customorder_Otrimuvachmya": recipient_first_name,
+            "customorder_OtrimuvachPrizvsche": recipient_last_name,
             "do_not_call": "1" if do_not_call else "0",
             "donotcall": "1" if do_not_call else "0",
             "customorder_do_not_call": "1" if do_not_call else "0",
