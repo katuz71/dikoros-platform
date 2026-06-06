@@ -179,11 +179,20 @@ async def create_onebox_order(order_data: dict) -> dict:
                 item_unit = str(item_dict.get("unit") or "").strip()
                 item_pack_size = str(item_dict.get("packSize") or item_dict.get("pack_size") or "").strip()
 
-                product_name = (
-                    f"{base_name} - {variant_label}"
-                    if variant_label and variant_label not in base_name
-                    else base_name
-                )
+                product_name = base_name
+                if variant_label:
+                    base_norm = base_name.strip().lower()
+                    variant_norm = variant_label.strip().lower()
+                    base_words = set(base_norm.split())
+                    variant_words = set(variant_norm.split())
+                    shared_words = len(base_words & variant_words)
+
+                    if variant_norm == base_norm or base_norm in variant_norm:
+                        product_name = base_name
+                    elif len(variant_label) > 25 and shared_words >= 3:
+                        product_name = variant_label
+                    else:
+                        product_name = f"{base_name} - {variant_label}"
 
                 item_lines.append(
                     f"- {product_name}: {amount_int} x {price_val} \u0433\u0440\u043d"
@@ -242,7 +251,15 @@ async def create_onebox_order(order_data: dict) -> dict:
         ]
         full_description = "\n".join(desc_lines)
 
+        source_id = int(os.getenv("ONEBOX_SOURCE_ID", "1"))
+        payment_id = int(os.getenv("ONEBOX_PAYMENT_ID_CARD" if payment_method == "card" else "ONEBOX_PAYMENT_ID_CASH", "5" if payment_method == "card" else "10"))
+        delivery_id = int(os.getenv("ONEBOX_DELIVERY_ID_UKRPOSHTA" if delivery_method == "ukrposhta" else "ONEBOX_DELIVERY_ID_NOVA_POSHTA", "2" if delivery_method == "ukrposhta" else "1"))
+
         order_obj = {
+            "sourceid": source_id,
+            "paymentid": payment_id,
+            "deliveryid": delivery_id,
+
             "clientfio": name,
             "clientname": name,
             "clientphone": phone,
