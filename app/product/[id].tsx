@@ -466,10 +466,13 @@ export default function ProductScreen() {
         return;
       }
 
+      const storedPhone = await AsyncStorage.getItem('userPhone');
+
       const payload = {
         product_id: productId,
         rating: newReview.rating || 5,
         user_name: newReview.user_name,
+        user_phone: storedPhone || '',
         comment: newReview.comment,
       };
 

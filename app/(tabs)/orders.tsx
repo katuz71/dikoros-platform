@@ -8,7 +8,7 @@ import { API_URL } from '@/config/api';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const OrderItem = ({ order, onPress, formatPrice }: any) => (
+const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={styles.cardHeader}>
       <Text style={styles.orderId}>Замовлення #{order.id}</Text>

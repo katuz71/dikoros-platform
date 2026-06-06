@@ -27,6 +27,17 @@ _cached_token = ""
 _token_timestamp = 0.0
 TOKEN_TTL = 3000
 
+
+def _env_or_default(name: str, default: str) -> str:
+    return (os.getenv(name) or default).strip()
+
+
+def _set_if_key(target: dict, key: str, value):
+    key = (key or "").strip()
+    if key:
+        target[key] = value
+
+
 async def get_onebox_token() -> str:
     global _cached_token, _token_timestamp
     if _cached_token and (time.time() - _token_timestamp < TOKEN_TTL):
@@ -273,6 +284,14 @@ async def create_onebox_order(order_data: dict) -> dict:
             "statusid": ONEBOX_STATUS_ID,
             "externalid": externalid,
         }
+
+        custom_source_key = _env_or_default("ONEBOX_FIELD_SOURCE", "customorder_istochnikDP")
+        custom_payment_key = _env_or_default("ONEBOX_FIELD_PAYMENT_METHOD", "customorder_Sposoboplatidp")
+        custom_delivery_key = _env_or_default("ONEBOX_FIELD_DELIVERY_METHOD", "customorder_sposobdostavkidp")
+
+        _set_if_key(order_obj, custom_source_key, "Mobile App")
+        _set_if_key(order_obj, custom_payment_key, payment_method)
+        _set_if_key(order_obj, custom_delivery_key, delivery_method)
 
         payload = [order_obj]
 

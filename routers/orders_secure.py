@@ -213,6 +213,27 @@ async def create_order_secure(
             "status": "Pending",
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
+        safe_order_data = {
+            "id": order_data.get("id"),
+            "order_id": order_data.get("order_id"),
+            "name_present": bool(order_data.get("name")),
+            "phone_present": bool(order_data.get("phone")),
+            "user_phone_present": bool(order_data.get("user_phone")),
+            "email_present": bool(order_data.get("email")),
+            "contact_preference": order_data.get("contact_preference"),
+            "city": order_data.get("city"),
+            "city_ref_present": bool(order_data.get("city_ref") or order_data.get("cityRef")),
+            "warehouse": order_data.get("warehouse"),
+            "warehouse_ref_present": bool(order_data.get("warehouse_ref") or order_data.get("warehouseRef")),
+            "delivery_method": order_data.get("delivery_method"),
+            "payment_method": order_data.get("payment_method"),
+            "bonus_used": order_data.get("bonus_used"),
+            "bonus_balance_present": order_data.get("bonus_balance") is not None,
+            "items_count": len(order_data.get("items") or []),
+            "totalPrice": order_data.get("totalPrice"),
+        }
+        logger.info("[Order] OneBox sanitized order_data: %s", json.dumps(safe_order_data, ensure_ascii=False))
+
         background_tasks.add_task(create_onebox_order, order_data)
 
         response_data = {
