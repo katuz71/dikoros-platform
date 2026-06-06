@@ -24,7 +24,6 @@ import {
 import { API_URL } from '../config/api';
 import { useCart } from '../context/CartContext';
 
-const NP_API_KEY = String(process.env.EXPO_PUBLIC_NP_API_KEY || '').trim();
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -145,65 +144,52 @@ export default function CheckoutScreen() {
   const searchCity = async (text: string) => {
     setSearchQuery(text);
     if (text.length < 2) return;
-    if (!NP_API_KEY) {
-      Alert.alert('Налаштування', 'Не налаштований ключ Нової Пошти (EXPO_PUBLIC_NP_API_KEY).');
-      return;
-    }
+
     setLoadingSearch(true);
 
     try {
-      const response = await fetch('https://api.novaposhta.ua/v2.0/json/', {
-        method: 'POST',
-        body: JSON.stringify({
-          apiKey: NP_API_KEY,
-          modelName: "Address",
-          calledMethod: "searchSettlements",
-          methodProperties: { CityName: text, Limit: "50" }
-        })
-      });
+      const response = await fetch(`${API_URL}/api/delivery/cities?q=${encodeURIComponent(text)}`);
       const data = await response.json();
 
-      if (data.success && data.data && data.data[0] && data.data[0].Addresses) {
-        const cities = data.data[0].Addresses.map((item: any) => ({
-          ref: item.DeliveryCity,
-          name: item.Present
-        }));
-        setSearchResults(cities);
+      if (Array.isArray(data)) {
+        setSearchResults(data.map((item: any) => ({
+          ref: item.ref,
+          name: item.name
+        })));
       } else {
         setSearchResults([]);
       }
-    } catch (e) { setSearchResults([]); } finally { setLoadingSearch(false); }
+    } catch (e) {
+      setSearchResults([]);
+    } finally {
+      setLoadingSearch(false);
+    }
   };
 
   const loadWarehouses = async () => {
     if (!city.ref) return;
-    if (!NP_API_KEY) {
-      Alert.alert('Налаштування', 'Не налаштований ключ Нової Пошти (EXPO_PUBLIC_NP_API_KEY).');
-      return;
-    }
+
     setLoadingSearch(true);
     setSearchResults([]);
 
     try {
-      const response = await fetch('https://api.novaposhta.ua/v2.0/json/', {
-        method: 'POST',
-        body: JSON.stringify({
-          apiKey: NP_API_KEY,
-          modelName: "Address",
-          calledMethod: "getWarehouses",
-          methodProperties: { CityRef: city.ref }
-        })
-      });
+      const response = await fetch(`${API_URL}/api/delivery/warehouses?city_ref=${encodeURIComponent(city.ref)}`);
       const data = await response.json();
 
-      if (data.success && data.data && Array.isArray(data.data)) {
-        const warehouses = data.data.map((item: any) => ({
-          ref: item.Ref,
-          name: item.Description
-        }));
-        setSearchResults(warehouses);
+      if (Array.isArray(data)) {
+        setSearchResults(data.map((item: any) => ({
+          ref: item.ref,
+          name: item.name
+        })));
+      } else {
+        setSearchResults([]);
       }
-    } catch (e) { console.log(e); } finally { setLoadingSearch(false); }
+    } catch (e) {
+      console.log(e);
+      setSearchResults([]);
+    } finally {
+      setLoadingSearch(false);
+    }
   };
 
   const openModal = (type: 'city' | 'warehouse') => {
