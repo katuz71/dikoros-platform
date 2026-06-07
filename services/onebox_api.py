@@ -37,6 +37,14 @@ def _set_if_key(target: dict, key: str, value):
     if key:
         target[key] = value
 
+def _onebox_phone(phone: str) -> str:
+    digits = "".join(ch for ch in str(phone or "") if ch.isdigit())
+    if digits.startswith("0") and len(digits) == 10:
+        return "38" + digits
+    return digits
+
+
+
 
 async def get_onebox_token() -> str:
     global _cached_token, _token_timestamp
@@ -240,13 +248,13 @@ async def create_onebox_order(order_data: dict) -> dict:
         sum_str = "{:.4f}".format(total_sum)
 
         desc_lines = [
-            "\U0001F6D2 \u0417\u0410\u041a\u0410\u0417 \u0417 \u041f\u0420\u0418\u041b\u041e\u0416\u0415\u041d\u0418\u042f DIKOROSUA",
+            "\u0417\u0410\u041a\u0410\u0417 \u0417 \u041f\u0420\u0418\u041b\u041e\u0416\u0415\u041d\u0418\u042f DIKOROSUA",
             f"\u0418\u043c\u044f: {name}",
             f"\u0424\u0418\u041e \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_full_name}",
             f"\u041f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044c: {recipient_name}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044f: {recipient_phone}",
             f"\u041d\u0435 \u043f\u0435\u0440\u0435\u0437\u0432\u0430\u043d\u0438\u0432\u0430\u0442\u044c: {do_not_call_text}",
-            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438: {phone}",
+            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {phone}",
             f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: {user_phone}",
             f"Email: {email}",
             f"\u041f\u0440\u0435\u0434\u043f\u043e\u0447\u0442\u0435\u043d\u0438\u0435 \u0441\u0432\u044f\u0437\u0438: {contact_preference}",
@@ -273,104 +281,79 @@ async def create_onebox_order(order_data: dict) -> dict:
         payment_id = int(os.getenv("ONEBOX_PAYMENT_ID_CARD" if payment_method == "card" else "ONEBOX_PAYMENT_ID_CASH", "5" if payment_method == "card" else "10"))
         delivery_id = int(os.getenv("ONEBOX_DELIVERY_ID_UKRPOSHTA" if delivery_method == "ukrposhta" else "ONEBOX_DELIVERY_ID_NOVA_POSHTA", "2" if delivery_method == "ukrposhta" else "1"))
 
-        order_obj = {
-            "sourceid": source_id,
-            "paymentid": payment_id,
-            "deliveryid": delivery_id,
+        recipient_phone_onebox = _onebox_phone(recipient_phone)
+        client_phone_onebox = _onebox_phone(phone)
 
-            "clientfio": client_full_name,
-            "clientname": client_full_name,
-            "recipientname": recipient_name,
-            "recipient_name": recipient_name,
-            "delivery_recipient": recipient_name,
-            "customorder_recipient_name": recipient_name,
+        recipient_first_for_onebox = recipient_first_name or recipient_name or name
+        recipient_last_for_onebox = recipient_last_name or ""
 
-            # Real OneBox recipient fields from order UI.
-            "order_clientname": recipient_name,
-            "order_clientphone": recipient_phone,
-
-            "recipientphone": recipient_phone,
-            "recipient_phone": recipient_phone,
-            "delivery_recipient_phone": recipient_phone,
-            "customorder_recipient_phone": recipient_phone,
-
-            # Real OneBox no-call checkbox from order UI.
-            "customorder_Neperezvanivat": "1" if do_not_call else "0",
-            "customorder_Otrimuvachmya": recipient_first_name,
-            "customorder_OtrimuvachPrizvsche": recipient_last_name,
-            "do_not_call": "1" if do_not_call else "0",
-            "donotcall": "1" if do_not_call else "0",
-            "customorder_do_not_call": "1" if do_not_call else "0",
-            "clientphone": phone,
-            "phone": phone,
-            "clientemail": email,
-            "email": email,
-
-            "name": f"\u0417\u0430\u043a\u0430\u0437 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u043e\u0442 {client_full_name or name}",
-            "description": full_description,
-            "comments": full_description,
-            "order_content": full_description,
-
-            "delivery_address": full_address,
+        # Official OneBox order creation endpoint.
+        # OneBox standard customer block is used for shipment recipient.
+        # Real app buyer data stays in comments/custom fields to avoid mixing buyer and recipient.
+        params = {
+            "login": ONEBOX_LOGIN,
+            "password": ONEBOX_API_PASSWORD,
+            "ordercode": externalid or f"app-{int(time.time())}",
+            "workflowid": str(ONEBOX_WORKFLOW_ID),
+            "statusid": str(ONEBOX_STATUS_ID),
+            "name": f"Заказ из приложения от {client_full_name or name}",
+            "clientnamefirst": recipient_first_for_onebox,
+            "clientnamelast": recipient_last_for_onebox,
+            "clientphone": recipient_phone_onebox,
             "clientaddress": full_address,
-            "address": full_address,
-            "order_clientaddress": full_address,
-            "city": city,
-            "warehouse": warehouse,
-            "city_ref": city_ref,
-            "warehouse_ref": warehouse_ref,
-
+            "source": "Mobile App",
+            "sourceid": str(source_id),
+            "paymentid": str(payment_id),
+            "deliveryid": str(delivery_id),
             "sum": sum_str,
-            "order_sum": sum_str,
+            "comments": full_description,
+            "customorder_Komentarzsaitu": full_description,
 
+            "customorder_Neperezvanivat": "1" if do_not_call else "0",
+            "customorder_Otrimuvachmya": recipient_first_for_onebox,
+            "customorder_OtrimuvachPrizvsche": recipient_last_for_onebox,
             "customorder_istochnikDP": "Mobile App",
             "customorder_Sposoboplatidp": payment_method,
             "customorder_sposobdostavkidp": delivery_method,
             "customorder_email": email,
-            "customorder_contact_preference": contact_preference,
-            "customorder_user_phone": user_phone,
+            "customorder_user_phone": phone,
             "customorder_city_ref": city_ref,
             "customorder_warehouse_ref": warehouse_ref,
             "customorder_bonus_used": bonus_used,
             "customorder_bonus_balance": bonus_balance,
-
-            "products": product_array,
-
-            "workflowid": ONEBOX_WORKFLOW_ID,
-            "statusid": ONEBOX_STATUS_ID,
-            "externalid": externalid,
         }
 
-        custom_source_key = _env_or_default("ONEBOX_FIELD_SOURCE", "istochnikDP")
-        custom_payment_key = _env_or_default("ONEBOX_FIELD_PAYMENT_METHOD", "Sposoboplatidp")
-        custom_delivery_key = _env_or_default("ONEBOX_FIELD_DELIVERY_METHOD", "sposobdostavkidp")
+        # Only attach buyer email to OneBox customer card when buyer and recipient phones match.
+        # Otherwise email remains in comments/custom fields to avoid creating a mixed recipient contact.
+        if client_phone_onebox and client_phone_onebox == recipient_phone_onebox and email:
+            params["clientemail"] = email
 
-        customfields = {}
-        _set_if_key(customfields, custom_source_key, "Mobile App")
-        _set_if_key(customfields, custom_payment_key, payment_method)
-        _set_if_key(customfields, custom_delivery_key, delivery_method)
-        order_obj["customfields"] = customfields
+        for idx, product in enumerate(product_array):
+            prefix = f"productArray[{idx}]"
+            params[f"{prefix}[name]"] = str(product.get("name") or "")
+            params[f"{prefix}[price]"] = str(product.get("price") or "0")
+            params[f"{prefix}[count]"] = str(product.get("amount") or product.get("count") or "1")
+            if product.get("articul"):
+                params[f"{prefix}[articul]"] = str(product.get("articul"))
+            if product.get("productid"):
+                params[f"{prefix}[productid]"] = str(product.get("productid"))
 
-        # Keep legacy flat keys as harmless fallback for older OneBox mappings.
-        _set_if_key(order_obj, "customorder_istochnikDP", "Mobile App")
-        _set_if_key(order_obj, "customorder_Sposoboplatidp", payment_method)
-        _set_if_key(order_obj, "customorder_sposobdostavkidp", delivery_method)
-
-        payload = [order_obj]
-
-        logger.info("[OneBox] Final Payload (JSON):")
-        logger.info(json.dumps(payload, ensure_ascii=False, indent=2))
+        logger.info("[OneBox] Official /api/orders/add params:")
+        safe_params = {k: v for k, v in params.items() if k not in {"password"}}
+        logger.info(json.dumps(safe_params, ensure_ascii=False, indent=2))
 
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{ONEBOX_URL}/api/v2/order/set/",
-                json=payload,
-                headers=headers,
+            resp = await client.get(
+                f"{ONEBOX_URL}/api/orders/add/",
+                params=params,
                 timeout=30.0,
             )
 
         logger.info(f"[OneBox] Response: {resp.text}")
-        return resp.json()
+        data = resp.json()
+        if data.get("result") == "ok" and data.get("orderId"):
+            return {"status": 1, "dataArray": [data.get("orderId")], "raw": data}
+        return data
 
     except Exception as exc:
         logger.error(f"[OneBox] Error: {exc}", exc_info=True)
