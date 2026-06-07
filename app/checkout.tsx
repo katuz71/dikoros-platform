@@ -230,8 +230,8 @@ export default function CheckoutScreen() {
 
   const handleSubmit = async () => {
     const shouldSaveUserData = saveUserDataRef.current;
-    if (!name || !phone || !city.name || !warehouse.name) {
-      Alert.alert('Увага', 'Будь ласка, заповніть всі поля:\n• Ім\'я\n• Телефон\n• Місто та Відділення');
+    if (!lastName.trim() || !name.trim() || !phone.trim() || !city.name || !warehouse.name) {
+      Alert.alert('Увага', 'Будь ласка, заповніть всі поля:\n• Прізвище\n• Ім\'я\n• Телефон покупця\n• Місто та Відділення');
       return;
     }
 
@@ -470,22 +470,16 @@ export default function CheckoutScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Контакти</Text>
-            <TextInput style={styles.input} placeholder="Ваше Ім’я" value={name} onChangeText={setName} />
-            <TextInput style={styles.input} placeholder="Прізвище (не обов’язково)" value={lastName} onChangeText={setLastName} />
+            <Text style={styles.sectionTitle}>Контакти покупця</Text>
+            <TextInput style={styles.input} placeholder="Прізвище" value={lastName} onChangeText={setLastName} />
+            <TextInput style={styles.input} placeholder="Ім’я" value={name} onChangeText={setName} />
             <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
-            <TextInput style={styles.input} placeholder="Отримувач (якщо інша людина)" value={recipientName} onChangeText={setRecipientName} />
-            <TextInput style={styles.input} placeholder="Телефон отримувача (якщо інший)" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <Text style={{ fontSize: 15, color: "#333", flex: 1 }}>Не перезванивати, тільки повідомлення</Text>
-              <Switch value={doNotCall} onValueChange={setDoNotCall} />
-            </View>
-            <TextInput style={styles.input} placeholder="Телефон (для доставки)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <TextInput style={styles.input} placeholder="Телефон покупця" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
             
             {/* ✅ 2. EMAIL (OPTIONAL) */}
             <TextInput
                 style={styles.input}
-                placeholder="Email (не обов’язково)"
+                placeholder="Email покупця (не обов’язково)"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -516,6 +510,15 @@ export default function CheckoutScreen() {
                     <Text style={[styles.methodText, contactMethod === 'viber' && styles.methodTextActive]}>💬 Viber</Text>
                 </TouchableOpacity>
             </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <Text style={{ fontSize: 15, color: "#333", flex: 1 }}>Не перезванивати, тільки повідомлення</Text>
+              <Switch value={doNotCall} onValueChange={setDoNotCall} />
+            </View>
+
+            <Text style={styles.subLabel}>Отримувач</Text>
+            <TextInput style={styles.input} placeholder="ПІБ отримувача (якщо інша людина)" value={recipientName} onChangeText={setRecipientName} />
+            <TextInput style={styles.input} placeholder="Телефон отримувача (якщо інший)" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
           </View>
 
           <View style={styles.card}>
