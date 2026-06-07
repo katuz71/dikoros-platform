@@ -284,8 +284,11 @@ async def create_onebox_order(order_data: dict) -> dict:
         recipient_phone_onebox = _onebox_phone(recipient_phone)
         client_phone_onebox = _onebox_phone(phone)
 
-        recipient_first_for_onebox = recipient_first_name or recipient_name or name
-        recipient_last_for_onebox = recipient_last_name or ""
+        # OneBox displays customer full name as: last name + first name + middle name.
+        # The app sends recipient_name as an already human-readable full name,
+        # so map the first word to last name and the rest to first name to preserve visible order.
+        recipient_last_for_onebox = recipient_parts[0] if recipient_parts else (recipient_name or name)
+        recipient_first_for_onebox = " ".join(recipient_parts[1:]) if len(recipient_parts) > 1 else ""
 
         # Official OneBox order creation endpoint.
         # OneBox standard customer block is used for shipment recipient.
