@@ -198,6 +198,45 @@ class OneBoxDbSession:
     async def get(self, model, pk):
         return await asyncio.to_thread(self._sync_get_product, pk)
 
+async def _onebox_update_recipient_phone(order_id: str | int, recipient_phone: str) -> dict:
+    """
+    Best-effort second update for OneBox UI recipient phone field.
+
+    /api/orders/add accepts order_clientphone, but OneBox UI may still show
+    the customer phone. The browser form activates the recipient phone field
+    with setorderclientphone=phone_active_0 and phone_active_0=1. The same
+    field combination works through official /api/v2/order/set/.
+    """
+    order_id_str = str(order_id or "").strip()
+    recipient_phone_onebox = _onebox_phone(recipient_phone)
+
+    if not order_id_str or not recipient_phone_onebox:
+        return {"status": 0, "skipped": True, "reason": "missing_order_id_or_recipient_phone"}
+
+    token = await get_onebox_token()
+    payload = [{
+        "id": order_id_str,
+        "orderid": order_id_str,
+        "setorderclientphone": "phone_active_0",
+        "phone_active_0": "1",
+        "order_clientphone": recipient_phone_onebox,
+    }]
+
+    logger.info("[OneBox] Updating recipient phone via /api/v2/order/set/:")
+    logger.info(json.dumps(payload, ensure_ascii=False, indent=2))
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{ONEBOX_URL}/api/v2/order/set/",
+            json=payload,
+            headers={"Token": token, "Content-Type": "application/json"},
+            timeout=30.0,
+        )
+
+    logger.info(f"[OneBox] Recipient phone update response: {resp.text}")
+    return resp.json()
+
+
 async def create_onebox_order(order_data: dict) -> dict:
     try:
         token = await get_onebox_token()
@@ -411,7 +450,18 @@ async def create_onebox_order(order_data: dict) -> dict:
         logger.info(f"[OneBox] Response: {resp.text}")
         data = resp.json()
         if data.get("result") == "ok" and data.get("orderId"):
-            return {"status": 1, "dataArray": [data.get("orderId")], "raw": data}
+            order_id = data.get("orderId")
+            try:
+                recipient_phone_update = await _onebox_update_recipient_phone(order_id, recipient_phone_onebox)
+            except Exception as update_exc:
+                logger.error(f"[OneBox] Recipient phone update failed: {update_exc}", exc_info=True)
+                recipient_phone_update = {"status": 0, "error": str(update_exc)}
+            return {
+                "status": 1,
+                "dataArray": [order_id],
+                "raw": data,
+                "recipient_phone_update": recipient_phone_update,
+            }
 
         if _onebox_duplicate_phone_error(data):
             retry_params = dict(params)
@@ -449,11 +499,18 @@ async def create_onebox_order(order_data: dict) -> dict:
             logger.info(f"[OneBox] Retry Response: {retry_resp.text}")
             retry_data = retry_resp.json()
             if retry_data.get("result") == "ok" and retry_data.get("orderId"):
+                retry_order_id = retry_data.get("orderId")
+                try:
+                    recipient_phone_update = await _onebox_update_recipient_phone(retry_order_id, recipient_phone_onebox)
+                except Exception as update_exc:
+                    logger.error(f"[OneBox] Recipient phone update failed after retry: {update_exc}", exc_info=True)
+                    recipient_phone_update = {"status": 0, "error": str(update_exc)}
                 return {
                     "status": 1,
-                    "dataArray": [retry_data.get("orderId")],
+                    "dataArray": [retry_order_id],
                     "raw": retry_data,
                     "onebox_retry": "duplicate_phone_without_customer_phone_fields",
+                    "recipient_phone_update": recipient_phone_update,
                 }
             return retry_data
 
