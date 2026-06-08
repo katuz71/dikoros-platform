@@ -93,7 +93,7 @@ export default function ProductScreen() {
       } else if (Array.isArray(product.variants)) {
         rawVariants = product.variants;
       }
-    } catch { console.warn("Parse variants error", e); }
+    } catch (e) { console.warn("Parse variants error", e); }
 
     // 2. Get option headers or infer them from variant names
     let oKeys = clean(product.option_names).split('|').map(clean).filter(Boolean);
@@ -323,7 +323,7 @@ export default function ProductScreen() {
                     ...recentArray.filter((item: any) => item?.id !== found?.id)
                   ].slice(0, 12);
                   await AsyncStorage.setItem('recentProducts', JSON.stringify(nextRecent));
-                } catch {
+                } catch (e) {
                   console.warn('Save recent product error:', e);
                 }
 
@@ -388,7 +388,7 @@ export default function ProductScreen() {
               ...recentArray.filter((item: any) => item?.id !== enrichedProduct?.id)
             ].slice(0, 12);
             await AsyncStorage.setItem('recentProducts', JSON.stringify(nextRecent));
-          } catch {
+          } catch (e) {
             console.warn('Save recent product error:', e);
           }
           
@@ -406,7 +406,7 @@ export default function ProductScreen() {
         } else {
           setError(`Error loading product: ${res.status}`);
         }
-      } catch {
+      } catch (e) {
         setError(String(e));
       } finally {
         setLoading(false);
@@ -525,7 +525,7 @@ export default function ProductScreen() {
         const serverReviews = Array.isArray(refreshData) ? refreshData : (refreshData.reviews || []);
         setReviews(mergeReviews(serverReviews));
       }
-    } catch {
+    } catch (e) {
       console.warn('Submit review exception:', e);
       showToast('Помилка відправки відгуку');
     }

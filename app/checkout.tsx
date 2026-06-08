@@ -30,37 +30,29 @@ const POPULAR_CITIES = ['Київ', 'Львів', 'Одеса', 'Дніпро', 
 type DeliveryMethod =
   | 'ukrposhta_branch'
   | 'nova_poshta'
-  | 'nova_poshta_international'
-  | 'meest'
-  | 'pickup_chernihiv';
+  | 'nova_poshta_international';
 
 type PaymentMethod =
   | 'postpaid'
   | 'bank_transfer'
-  | 'paypal_request'
-  | 'pickup_cash';
+  | 'paypal_request';
 
 const DELIVERY_OPTIONS: { id: DeliveryMethod; label: string; hint?: string }[] = [
   { id: 'ukrposhta_branch', label: 'Укрпошта до відділення (Безкоштовно від 1000 грн)' },
   { id: 'nova_poshta', label: 'Новою поштою (Безкоштовно від 1500грн)' },
   { id: 'nova_poshta_international', label: 'Нова пошта, закордонна доставка' },
-  { id: 'meest', label: 'Meest Пошта (Безкоштовно від 500грн)' },
-  { id: 'pickup_chernihiv', label: 'Самовивіз м. Чернігів' },
 ];
 
 const PAYMENT_OPTIONS: { id: PaymentMethod; label: string }[] = [
   { id: 'postpaid', label: 'Післяплата на пошті' },
   { id: 'bank_transfer', label: 'Оплата на карту/рахунок' },
   { id: 'paypal_request', label: 'PayPal по запиту' },
-  { id: 'pickup_cash', label: 'Готівкою при отриманні самовивозом' },
 ];
 
 const DELIVERY_PAYMENT_MAP: Record<DeliveryMethod, PaymentMethod[]> = {
   ukrposhta_branch: ['postpaid', 'bank_transfer', 'paypal_request'],
   nova_poshta: ['postpaid', 'bank_transfer', 'paypal_request'],
   nova_poshta_international: ['bank_transfer', 'paypal_request'],
-  meest: ['bank_transfer', 'paypal_request'],
-  pickup_chernihiv: ['pickup_cash', 'bank_transfer'],
 };
 
 const getAllowedPaymentOptions = (deliveryMethod: DeliveryMethod) =>
@@ -226,7 +218,11 @@ export default function CheckoutScreen() {
     setLoadingSearch(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/delivery/cities?q=${encodeURIComponent(text)}`);
+      const endpoint = deliveryMethod === 'ukrposhta_branch'
+        ? '/api/delivery/ukrposhta/cities'
+        : '/api/delivery/cities';
+
+      const response = await fetch(`${API_URL}${endpoint}?q=${encodeURIComponent(text)}`);
       const data = await response.json();
 
       if (Array.isArray(data)) {
@@ -251,7 +247,11 @@ export default function CheckoutScreen() {
     setSearchResults([]);
 
     try {
-      const response = await fetch(`${API_URL}/api/delivery/warehouses?city_ref=${encodeURIComponent(city.ref)}`);
+      const endpoint = deliveryMethod === 'ukrposhta_branch'
+        ? '/api/delivery/ukrposhta/warehouses'
+        : '/api/delivery/warehouses';
+
+      const response = await fetch(`${API_URL}${endpoint}?city_ref=${encodeURIComponent(city.ref)}`);
       const data = await response.json();
 
       if (Array.isArray(data)) {
@@ -303,7 +303,7 @@ export default function CheckoutScreen() {
 
   const handleSubmit = async () => {
     const shouldSaveUserData = saveUserDataRef.current;
-    const needsDeliveryAddress = deliveryMethod !== 'pickup_chernihiv';
+    const needsDeliveryAddress = true;
 
     if (!lastName.trim() || !name.trim() || !phone.trim() || (needsDeliveryAddress && (!city.name || !warehouse.name))) {
       Alert.alert('Увага', `Будь ласка, заповніть всі поля:
@@ -353,10 +353,10 @@ export default function CheckoutScreen() {
       const clientFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
       const finalRecipientName = recipientName.trim() || clientFullName || name;
       const finalRecipientPhone = canonicalizePhone(recipientPhone || phone);
-      const finalCityName = deliveryMethod === 'pickup_chernihiv' ? 'Чернігів' : city.name;
-      const finalWarehouseName = deliveryMethod === 'pickup_chernihiv' ? 'Самовивіз м. Чернігів' : warehouse.name;
-      const finalCityRef = deliveryMethod === 'nova_poshta' ? (city.ref || "") : "";
-      const finalWarehouseRef = deliveryMethod === 'nova_poshta' ? (warehouse.ref || "") : "";
+      const finalCityName = city.name;
+      const finalWarehouseName = warehouse.name;
+      const finalCityRef = ['nova_poshta', 'ukrposhta_branch'].includes(deliveryMethod) ? (city.ref || "") : "";
+      const finalWarehouseRef = ['nova_poshta', 'ukrposhta_branch'].includes(deliveryMethod) ? (warehouse.ref || "") : "";
 
       const orderData = {
         name,
@@ -629,7 +629,7 @@ export default function CheckoutScreen() {
 
                     {isActive && (
                       <View style={styles.deliveryDetails}>
-                        {option.id === 'nova_poshta' ? (
+                        {(option.id === 'nova_poshta' || option.id === 'ukrposhta_branch') ? (
                           <>
                             <TouchableOpacity style={styles.selectBtn} onPress={() => openModal('city')}>
                               <Text style={city.name ? styles.selectBtnTextActive : styles.selectBtnText}>
@@ -644,10 +644,7 @@ export default function CheckoutScreen() {
                               </Text>
                               <Ionicons name="chevron-forward" size={20} color="#666" />
                             </TouchableOpacity>
-                          </>
-                        ) : option.id === 'pickup_chernihiv' ? (
-                          <Text style={styles.deliveryNote}>Самовивіз м. Чернігів. Менеджер уточнить деталі після оформлення.</Text>
-                        ) : (
+                          </>) : (
                           <>
                             <TextInput
                               style={styles.input}
