@@ -315,9 +315,11 @@ async def create_onebox_order(order_data: dict) -> dict:
         recipient_phone_onebox = _onebox_phone(recipient_phone)
         client_phone_onebox = _onebox_phone(phone)
 
-        # OneBox displays customer full name as: last name + first name + middle name.
-        # The app sends recipient_name as an already human-readable full name,
-        # so map the first word to last name and the rest to first name to preserve visible order.
+        buyer_first_for_onebox = name
+        buyer_last_for_onebox = last_name
+        buyer_middle_for_onebox = middle_name
+
+        # The app sends recipient_name as a human-readable full name.
         recipient_last_for_onebox = recipient_parts[0] if recipient_parts else (recipient_name or name)
         recipient_first_for_onebox = " ".join(recipient_parts[1:]) if len(recipient_parts) > 1 else ""
 
@@ -339,10 +341,14 @@ async def create_onebox_order(order_data: dict) -> dict:
             "statusid": str(ONEBOX_STATUS_ID),
             "name": onebox_order_name,
             "externalid": app_order_number,
-            "clientnamefirst": recipient_first_for_onebox,
-            "clientnamelast": recipient_last_for_onebox,
-            "clientphone": recipient_phone_onebox,
+            "clientnamefirst": buyer_first_for_onebox,
+            "clientnamelast": buyer_last_for_onebox,
+            "clientnamemiddle": buyer_middle_for_onebox,
+            "clientphone": client_phone_onebox,
+            "clientemail": email,
             "clientaddress": full_address,
+            "setorderclientphone": "1",
+            "order_clientphone": recipient_phone,
             "source": "Mobile App",
             "sourceid": str(source_id),
             "paymentid": str(payment_id),
@@ -364,11 +370,6 @@ async def create_onebox_order(order_data: dict) -> dict:
             "customorder_bonus_used": bonus_used,
             "customorder_bonus_balance": bonus_balance,
         }
-
-        # Only attach buyer email to OneBox customer card when buyer and recipient phones match.
-        # Otherwise email remains in comments/custom fields to avoid creating a mixed recipient contact.
-        if client_phone_onebox and client_phone_onebox == recipient_phone_onebox and email:
-            params["clientemail"] = email
 
         for idx, product in enumerate(product_array):
             prefix = f"productArray[{idx}]"
