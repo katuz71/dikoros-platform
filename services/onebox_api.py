@@ -44,6 +44,61 @@ def _onebox_phone(phone: str) -> str:
     return digits
 
 
+def _onebox_env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)) or default)
+    except Exception:
+        return default
+
+
+def _onebox_delivery_label(delivery_method: str) -> str:
+    labels = {
+        "ukrposhta_branch": "\u0423\u043a\u0440\u043f\u043e\u0448\u0442\u0430 \u0434\u043e \u0432\u0456\u0434\u0434\u0456\u043b\u0435\u043d\u043d\u044f (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 1000 \u0433\u0440\u043d)",
+        "nova_poshta": "\u041d\u043e\u0432\u043e\u044e \u043f\u043e\u0448\u0442\u043e\u044e (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 1500\u0433\u0440\u043d)",
+        "nova_poshta_international": "\u041d\u043e\u0432\u0430 \u043f\u043e\u0448\u0442\u0430, \u0437\u0430\u043a\u043e\u0440\u0434\u043e\u043d\u043d\u0430 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0430",
+        "meest": "Meest \u041f\u043e\u0448\u0442\u0430 (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 500\u0433\u0440\u043d)",
+        "pickup_chernihiv": "\u0421\u0430\u043c\u043e\u0432\u0438\u0432\u0456\u0437 \u043c. \u0427\u0435\u0440\u043d\u0456\u0433\u0456\u0432",
+    }
+    return labels.get(delivery_method, delivery_method or "")
+
+
+def _onebox_payment_label(payment_method: str, delivery_method: str = "") -> str:
+    if payment_method == "postpaid" and delivery_method == "ukrposhta_branch":
+        return "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456 (\u041d\u0430\u043b\u043e\u0436\u0435\u043d\u0438\u0439 \u043f\u043b\u0430\u0442\u0456\u0436)"
+    if payment_method == "postpaid" and delivery_method == "nova_poshta":
+        return "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456 (\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c \u043e\u043f\u043b\u0430\u0442\u0438)"
+
+    labels = {
+        "postpaid": "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456",
+        "bank_transfer": "\u041e\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043a\u0430\u0440\u0442\u0443/\u0440\u0430\u0445\u0443\u043d\u043e\u043a",
+        "paypal_request": "PayPal \u043f\u043e \u0437\u0430\u043f\u0438\u0442\u0443",
+        "pickup_cash": "\u0413\u043e\u0442\u0456\u0432\u043a\u043e\u044e \u043f\u0440\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u0456 \u0441\u0430\u043c\u043e\u0432\u0438\u0432\u043e\u0437\u043e\u043c",
+    }
+    return labels.get(payment_method, payment_method or "")
+
+
+def _onebox_payment_id(payment_method: str) -> int:
+    if payment_method == "bank_transfer":
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_BANK_TRANSFER", _onebox_env_int("ONEBOX_PAYMENT_ID_CARD", 5))
+    if payment_method == "paypal_request":
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_PAYPAL", _onebox_env_int("ONEBOX_PAYMENT_ID_BANK_TRANSFER", 5))
+    if payment_method == "pickup_cash":
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_PICKUP_CASH", _onebox_env_int("ONEBOX_PAYMENT_ID_CASH", 10))
+    return _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID", _onebox_env_int("ONEBOX_PAYMENT_ID_CASH", 10))
+
+
+def _onebox_delivery_id(delivery_method: str) -> int:
+    if delivery_method == "ukrposhta_branch":
+        return _onebox_env_int("ONEBOX_DELIVERY_ID_UKRPOSHTA", 2)
+    if delivery_method == "nova_poshta_international":
+        return _onebox_env_int("ONEBOX_DELIVERY_ID_NOVA_POSHTA_INTERNATIONAL", _onebox_env_int("ONEBOX_DELIVERY_ID_NOVA_POSHTA", 1))
+    if delivery_method == "meest":
+        return _onebox_env_int("ONEBOX_DELIVERY_ID_MEEST", _onebox_env_int("ONEBOX_DELIVERY_ID_NOVA_POSHTA", 1))
+    if delivery_method == "pickup_chernihiv":
+        return _onebox_env_int("ONEBOX_DELIVERY_ID_PICKUP_CHERNIHIV", _onebox_env_int("ONEBOX_DELIVERY_ID_NOVA_POSHTA", 1))
+    return _onebox_env_int("ONEBOX_DELIVERY_ID_NOVA_POSHTA", 1)
+
+
 
 
 async def get_onebox_token() -> str:
@@ -247,39 +302,11 @@ async def create_onebox_order(order_data: dict) -> dict:
 
         sum_str = "{:.4f}".format(total_sum)
 
-        desc_lines = [
-            "\u0417\u0410\u041a\u0410\u0417 \u0417 \u041f\u0420\u0418\u041b\u041e\u0416\u0415\u041d\u0418\u042f DIKOROSUA",
-            f"\u0418\u043c\u044f: {name}",
-            f"\u0424\u0418\u041e \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_full_name}",
-            f"\u041f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044c: {recipient_name}",
-            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044f: {recipient_phone}",
-            f"\u041d\u0435 \u043f\u0435\u0440\u0435\u0437\u0432\u0430\u043d\u0438\u0432\u0430\u0442\u044c: {do_not_call_text}",
-            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {phone}",
-            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: {user_phone}",
-            f"Email: {email}",
-            f"\u041f\u0440\u0435\u0434\u043f\u043e\u0447\u0442\u0435\u043d\u0438\u0435 \u0441\u0432\u044f\u0437\u0438: {contact_preference}",
-            f"\u0421\u0443\u043c\u043c\u0430 \u0442\u043e\u0432\u0430\u0440\u043e\u0432: {sum_str} \u0433\u0440\u043d",
-            f"\u0411\u043e\u043d\u0443\u0441\u044b \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u043e: {bonus_used}",
-            f"\u0411\u043e\u043d\u0443\u0441\u043d\u044b\u0439 \u0431\u0430\u043b\u0430\u043d\u0441 \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {bonus_balance}",
-            f"\u041e\u043f\u043b\u0430\u0442\u0430: {payment_method}",
-            f"\u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0430: {delivery_method}",
-            f"\u0413\u043e\u0440\u043e\u0434: {city}",
-            f"CityRef: {city_ref}",
-            f"\u041e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u0435/\u0430\u0434\u0440\u0435\u0441: {warehouse}",
-            f"WarehouseRef: {warehouse_ref}",
-            f"\u041f\u043e\u043b\u043d\u044b\u0439 \u0430\u0434\u0440\u0435\u0441: {full_address}",
-            f"Return URL: {return_url}",
-            f"\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439 \u043a\u043b\u0438\u0435\u043d\u0442\u0430: {client_comment}",
-            f"External ID: {externalid}",
-            "",
-            "\u0422\u043e\u0432\u0430\u0440\u044b:",
-            *item_lines,
-        ]
-        full_description = "\n".join(desc_lines)
-
         source_id = int(os.getenv("ONEBOX_SOURCE_ID", "1"))
-        payment_id = int(os.getenv("ONEBOX_PAYMENT_ID_CARD" if payment_method == "card" else "ONEBOX_PAYMENT_ID_CASH", "5" if payment_method == "card" else "10"))
-        delivery_id = int(os.getenv("ONEBOX_DELIVERY_ID_UKRPOSHTA" if delivery_method == "ukrposhta" else "ONEBOX_DELIVERY_ID_NOVA_POSHTA", "2" if delivery_method == "ukrposhta" else "1"))
+        payment_label = _onebox_payment_label(payment_method, delivery_method)
+        delivery_label = _onebox_delivery_label(delivery_method)
+        payment_id = _onebox_payment_id(payment_method)
+        delivery_id = _onebox_delivery_id(delivery_method)
 
         recipient_phone_onebox = _onebox_phone(recipient_phone)
         client_phone_onebox = _onebox_phone(phone)
@@ -309,15 +336,15 @@ async def create_onebox_order(order_data: dict) -> dict:
             "paymentid": str(payment_id),
             "deliveryid": str(delivery_id),
             "sum": sum_str,
-            "comments": full_description,
-            "customorder_Komentarzsaitu": full_description,
+            "comments": client_comment,
+            "customorder_Komentarzsaitu": client_comment,
 
             "customorder_Neperezvanivat": "1" if do_not_call else "0",
             "customorder_Otrimuvachmya": recipient_first_for_onebox,
             "customorder_OtrimuvachPrizvsche": recipient_last_for_onebox,
             "customorder_istochnikDP": "Mobile App",
-            "customorder_Sposoboplatidp": payment_method,
-            "customorder_sposobdostavkidp": delivery_method,
+            "customorder_Sposoboplatidp": payment_label,
+            "customorder_sposobdostavkidp": delivery_label,
             "customorder_email": email,
             "customorder_user_phone": phone,
             "customorder_city_ref": city_ref,
