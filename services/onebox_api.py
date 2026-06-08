@@ -53,26 +53,26 @@ def _onebox_env_int(name: str, default: int) -> int:
 
 def _onebox_delivery_label(delivery_method: str) -> str:
     labels = {
-        "ukrposhta_branch": "\u0423\u043a\u0440\u043f\u043e\u0448\u0442\u0430 \u0434\u043e \u0432\u0456\u0434\u0434\u0456\u043b\u0435\u043d\u043d\u044f (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 1000 \u0433\u0440\u043d)",
-        "nova_poshta": "\u041d\u043e\u0432\u043e\u044e \u043f\u043e\u0448\u0442\u043e\u044e (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 1500\u0433\u0440\u043d)",
-        "nova_poshta_international": "\u041d\u043e\u0432\u0430 \u043f\u043e\u0448\u0442\u0430, \u0437\u0430\u043a\u043e\u0440\u0434\u043e\u043d\u043d\u0430 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0430",
-        "meest": "Meest \u041f\u043e\u0448\u0442\u0430 (\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e \u0432\u0456\u0434 500\u0433\u0440\u043d)",
-        "pickup_chernihiv": "\u0421\u0430\u043c\u043e\u0432\u0438\u0432\u0456\u0437 \u043c. \u0427\u0435\u0440\u043d\u0456\u0433\u0456\u0432",
+        "ukrposhta_branch": 'Укрпошта до відділення (Безкоштовно від 1000 грн)',
+        "nova_poshta": 'Новою поштою (Безкоштовно від 1500грн)',
+        "nova_poshta_international": 'Нова пошта, закордонна доставка',
+        "meest": 'Meest Пошта (Безкоштовно від 500грн)',
+        "pickup_chernihiv": 'Самовивіз м. Чернігів',
     }
     return labels.get(delivery_method, delivery_method or "")
 
 
 def _onebox_payment_label(payment_method: str, delivery_method: str = "") -> str:
     if payment_method == "postpaid" and delivery_method == "ukrposhta_branch":
-        return "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456 (\u041d\u0430\u043b\u043e\u0436\u0435\u043d\u0438\u0439 \u043f\u043b\u0430\u0442\u0456\u0436)"
+        return 'Післяплата на пошті (Наложений платіж)'
     if payment_method == "postpaid" and delivery_method == "nova_poshta":
-        return "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456 (\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c \u043e\u043f\u043b\u0430\u0442\u0438)"
+        return 'Післяплата на пошті (Контроль оплати )'
 
     labels = {
-        "postpaid": "\u041f\u0456\u0441\u043b\u044f\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043f\u043e\u0448\u0442\u0456",
-        "bank_transfer": "\u041e\u043f\u043b\u0430\u0442\u0430 \u043d\u0430 \u043a\u0430\u0440\u0442\u0443/\u0440\u0430\u0445\u0443\u043d\u043e\u043a",
-        "paypal_request": "PayPal \u043f\u043e \u0437\u0430\u043f\u0438\u0442\u0443",
-        "pickup_cash": "\u0413\u043e\u0442\u0456\u0432\u043a\u043e\u044e \u043f\u0440\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u0456 \u0441\u0430\u043c\u043e\u0432\u0438\u0432\u043e\u0437\u043e\u043c",
+        "postpaid": 'Післяплата на пошті (Наложений платіж)',
+        "bank_transfer": 'Оплата на карту/рахунок',
+        "paypal_request": 'PayPal по запиту',
+        "pickup_cash": 'Готівкою при отриманні самовивозом',
     }
     return labels.get(payment_method, payment_method or "")
 

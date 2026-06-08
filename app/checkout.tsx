@@ -41,10 +41,10 @@ type PaymentMethod =
   | 'pickup_cash';
 
 const DELIVERY_OPTIONS: { id: DeliveryMethod; label: string; hint?: string }[] = [
-  { id: 'ukrposhta_branch', label: 'Укрпошта до відділення', hint: 'Безкоштовно від 1000 грн' },
-  { id: 'nova_poshta', label: 'Нова Пошта', hint: 'Безкоштовно від 1500 грн' },
-  { id: 'nova_poshta_international', label: 'Нова Пошта, закордонна доставка' },
-  { id: 'meest', label: 'Meest Пошта', hint: 'Безкоштовно від 500 грн' },
+  { id: 'ukrposhta_branch', label: 'Укрпошта до відділення (Безкоштовно від 1000 грн)' },
+  { id: 'nova_poshta', label: 'Новою поштою (Безкоштовно від 1500грн)' },
+  { id: 'nova_poshta_international', label: 'Нова пошта, закордонна доставка' },
+  { id: 'meest', label: 'Meest Пошта (Безкоштовно від 500грн)' },
   { id: 'pickup_chernihiv', label: 'Самовивіз м. Чернігів' },
 ];
 
@@ -65,6 +65,16 @@ const DELIVERY_PAYMENT_MAP: Record<DeliveryMethod, PaymentMethod[]> = {
 
 const getAllowedPaymentOptions = (deliveryMethod: DeliveryMethod) =>
   PAYMENT_OPTIONS.filter(option => DELIVERY_PAYMENT_MAP[deliveryMethod].includes(option.id));
+
+const getPaymentOptionLabel = (option: { id: PaymentMethod; label: string }, deliveryMethod: DeliveryMethod) => {
+  if (option.id === 'postpaid' && deliveryMethod === 'ukrposhta_branch') {
+    return 'Післяплата на пошті (Наложений платіж)';
+  }
+  if (option.id === 'postpaid' && deliveryMethod === 'nova_poshta') {
+    return 'Післяплата на пошті (Контроль оплати )';
+  }
+  return option.label;
+};
 
 
 export default function CheckoutScreen() {
@@ -165,7 +175,7 @@ export default function CheckoutScreen() {
         if (parsed.orderComment) setOrderComment(parsed.orderComment);
         setSaveUserData(true);
       }
-    } catch { console.log(e); }
+    } catch (e) { console.log(e); }
   };
 
   const fetchUserData = async (phoneNumber: string) => {
@@ -205,7 +215,7 @@ export default function CheckoutScreen() {
           setContactMethod(data.contact_preference as 'call' | 'telegram' | 'viber');
         }
       }
-    } catch { console.log(e); }
+    } catch (e) { console.log(e); }
   };
 
   // --- НОВАЯ ПОЧТА ---
@@ -252,7 +262,7 @@ export default function CheckoutScreen() {
       } else {
         setSearchResults([]);
       }
-    } catch {
+    } catch (e) {
       console.log(e);
       setSearchResults([]);
     } finally {
@@ -418,7 +428,7 @@ export default function CheckoutScreen() {
               }),
             });
           }
-        } catch {
+        } catch (e) {
           console.warn('Save push token after checkout failed:', e);
         }
 
@@ -669,7 +679,7 @@ export default function CheckoutScreen() {
                   style={[styles.paymentOption, paymentMethod === option.id && styles.paymentOptionActive]}
                   onPress={() => setPaymentMethod(option.id)}
                 >
-                  <Text style={[styles.paymentText, paymentMethod === option.id && { color: '#FFF' }]}>{option.label}</Text>
+                  <Text style={[styles.paymentText, paymentMethod === option.id && { color: '#FFF' }]}>{getPaymentOptionLabel(option, deliveryMethod)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
