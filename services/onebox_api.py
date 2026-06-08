@@ -417,7 +417,6 @@ async def create_onebox_order(order_data: dict) -> dict:
             retry_params = dict(params)
             for key in (
                 "clientphone",
-                "clientemail",
                 "setorderclientphone",
                 "order_clientphone",
             ):
