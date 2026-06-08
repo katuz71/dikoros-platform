@@ -267,6 +267,8 @@ async def create_order(order: OrderRequest, background_tasks: BackgroundTasks):
             "warehouse": order_warehouse or order.warehouse or "",
             "user_ukrposhta": order_user_ukrposhta or None,
             "delivery_method": delivery_method,
+            "comment": order.comment or order.comments or order.note or "",
+            "comments": order.comment or order.comments or order.note or "",
             # Strict OneBox mapping: pass db session + Product marker + items with product_id
             "db": OneBoxDbSession(DATABASE_URL),
             "Product": Product,

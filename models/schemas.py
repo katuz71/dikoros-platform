@@ -193,6 +193,9 @@ class OrderRequest(BaseModel):
     total_spent: Optional[float] = None
     push_token: Optional[str] = None
     return_url: Optional[str] = None
+    comment: Optional[str] = None
+    comments: Optional[str] = None
+    note: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
 

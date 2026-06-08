@@ -199,6 +199,8 @@ async def create_order_secure(
             "bonus_used": order.bonus_used,
             "bonus_balance": available_bonus_balance,
             "return_url": order.return_url or "",
+            "comment": order.comment or order.comments or order.note or "",
+            "comments": order.comment or order.comments or order.note or "",
             "db": OneBoxDbSession(DATABASE_URL),
             "Product": Product,
             "items": [
@@ -233,6 +235,7 @@ async def create_order_secure(
             "warehouse_ref_present": bool(order_data.get("warehouse_ref") or order_data.get("warehouseRef")),
             "delivery_method": order_data.get("delivery_method"),
             "payment_method": order_data.get("payment_method"),
+            "comment_present": bool(order_data.get("comment") or order_data.get("comments")),
             "bonus_used": order_data.get("bonus_used"),
             "bonus_balance_present": order_data.get("bonus_balance") is not None,
             "items_count": len(order_data.get("items") or []),
