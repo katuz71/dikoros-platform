@@ -347,7 +347,7 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientphone": client_phone_onebox,
             "clientemail": email,
             "clientaddress": full_address,
-            "setorderclientphone": "0",
+            "setorderclientphone": "1",
             "order_clientname": recipient_name,
             "order_clientphone": recipient_phone_onebox,
             "source": "Mobile App",
