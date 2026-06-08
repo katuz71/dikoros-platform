@@ -382,6 +382,22 @@ async def create_onebox_order(order_data: dict) -> dict:
             else f"{client_full_name or name} / Mobile App"
         )
 
+        buyer_comment_lines = []
+        if client_comment:
+            buyer_comment_lines.extend([
+                "\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440 \u043f\u043e\u043a\u0443\u043f\u0446\u044f:",
+                client_comment,
+                "",
+            ])
+        buyer_comment_lines.extend([
+            "\u0414\u0430\u043d\u0456 \u043f\u043e\u043a\u0443\u043f\u0446\u044f \u0437 \u0434\u043e\u0434\u0430\u0442\u043a\u0443:",
+            f"\u041f\u043e\u043a\u0443\u043f\u0435\u0446\u044c: {client_full_name or name}",
+            f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043e\u043a\u0443\u043f\u0446\u044f: {client_phone_onebox}",
+        ])
+        if email:
+            buyer_comment_lines.append(f"Email \u043f\u043e\u043a\u0443\u043f\u0446\u044f: {email}")
+        onebox_order_comment = "\n".join(buyer_comment_lines)
+
         # Official OneBox order creation endpoint.
         # OneBox standard customer block is used for shipment recipient.
         # Real app buyer data stays in comments/custom fields to avoid mixing buyer and recipient.
@@ -408,18 +424,8 @@ async def create_onebox_order(order_data: dict) -> dict:
             "paymentid": str(payment_id),
             "deliveryid": str(delivery_id),
             "sum": sum_str,
-            "comments": "\n".join(line for line in [
-                client_comment,
-                f"App buyer/account name: {client_full_name or name}",
-                f"App buyer/account phone: {client_phone_onebox}",
-                f"App buyer email: {email}",
-            ] if line),
-            "customorder_Komentarzsaitu": "\n".join(line for line in [
-                client_comment,
-                f"App buyer/account name: {client_full_name or name}",
-                f"App buyer/account phone: {client_phone_onebox}",
-                f"App buyer email: {email}",
-            ] if line),
+            "comments": onebox_order_comment,
+            "customorder_Komentarzsaitu": onebox_order_comment,
 
             "customorder_Neperezvanivat": "1" if do_not_call else "0",
             "customorder_Otrimuvachmya": recipient_first_for_onebox,
