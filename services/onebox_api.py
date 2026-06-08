@@ -321,16 +321,24 @@ async def create_onebox_order(order_data: dict) -> dict:
         recipient_last_for_onebox = recipient_parts[0] if recipient_parts else (recipient_name or name)
         recipient_first_for_onebox = " ".join(recipient_parts[1:]) if len(recipient_parts) > 1 else ""
 
+        app_order_number = str(externalid or order_data.get("order_id") or order_data.get("id") or "").strip()
+        onebox_order_name = (
+            f"{app_order_number} / {client_full_name or name} / Mobile App"
+            if app_order_number
+            else f"{client_full_name or name} / Mobile App"
+        )
+
         # Official OneBox order creation endpoint.
         # OneBox standard customer block is used for shipment recipient.
         # Real app buyer data stays in comments/custom fields to avoid mixing buyer and recipient.
         params = {
             "login": ONEBOX_LOGIN,
             "password": ONEBOX_API_PASSWORD,
-            "ordercode": externalid or f"app-{int(time.time())}",
+            "ordercode": app_order_number or f"app-{int(time.time())}",
             "workflowid": str(ONEBOX_WORKFLOW_ID),
             "statusid": str(ONEBOX_STATUS_ID),
-            "name": f"Заказ из приложения от {client_full_name or name}",
+            "name": onebox_order_name,
+            "externalid": app_order_number,
             "clientnamefirst": recipient_first_for_onebox,
             "clientnamelast": recipient_last_for_onebox,
             "clientphone": recipient_phone_onebox,
