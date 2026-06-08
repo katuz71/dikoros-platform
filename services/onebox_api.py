@@ -77,13 +77,17 @@ def _onebox_payment_label(payment_method: str, delivery_method: str = "") -> str
     return labels.get(payment_method, payment_method or "")
 
 
-def _onebox_payment_id(payment_method: str) -> int:
+def _onebox_payment_id(payment_method: str, delivery_method: str = "") -> int:
+    if payment_method == "postpaid" and delivery_method == "ukrposhta_branch":
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID_UKRPOSHTA", _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID", 10))
+    if payment_method == "postpaid" and delivery_method == "nova_poshta":
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID_NOVA_POSHTA", _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID", 17))
     if payment_method == "bank_transfer":
         return _onebox_env_int("ONEBOX_PAYMENT_ID_BANK_TRANSFER", _onebox_env_int("ONEBOX_PAYMENT_ID_CARD", 5))
     if payment_method == "paypal_request":
-        return _onebox_env_int("ONEBOX_PAYMENT_ID_PAYPAL", _onebox_env_int("ONEBOX_PAYMENT_ID_BANK_TRANSFER", 5))
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_PAYPAL", _onebox_env_int("ONEBOX_PAYMENT_ID_BANK_TRANSFER", 18))
     if payment_method == "pickup_cash":
-        return _onebox_env_int("ONEBOX_PAYMENT_ID_PICKUP_CASH", _onebox_env_int("ONEBOX_PAYMENT_ID_CASH", 10))
+        return _onebox_env_int("ONEBOX_PAYMENT_ID_PICKUP_CASH", _onebox_env_int("ONEBOX_PAYMENT_ID_CASH", 12))
     return _onebox_env_int("ONEBOX_PAYMENT_ID_POSTPAID", _onebox_env_int("ONEBOX_PAYMENT_ID_CASH", 10))
 
 
@@ -305,7 +309,7 @@ async def create_onebox_order(order_data: dict) -> dict:
         source_id = int(os.getenv("ONEBOX_SOURCE_ID", "1"))
         payment_label = _onebox_payment_label(payment_method, delivery_method)
         delivery_label = _onebox_delivery_label(delivery_method)
-        payment_id = _onebox_payment_id(payment_method)
+        payment_id = _onebox_payment_id(payment_method, delivery_method)
         delivery_id = _onebox_delivery_id(delivery_method)
 
         recipient_phone_onebox = _onebox_phone(recipient_phone)
