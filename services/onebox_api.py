@@ -44,6 +44,19 @@ def _onebox_phone(phone: str) -> str:
     return digits
 
 
+def _onebox_duplicate_phone_error(data: dict) -> bool:
+    if not isinstance(data, dict):
+        return False
+    errors = data.get("errors") or data.get("error") or data.get("message") or ""
+    if isinstance(errors, list):
+        err_text = " ".join(str(x) for x in errors)
+    elif isinstance(errors, dict):
+        err_text = json.dumps(errors, ensure_ascii=False)
+    else:
+        err_text = str(errors)
+    return "#12903" in err_text
+
+
 def _onebox_env_int(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, str(default)) or default)
@@ -386,9 +399,11 @@ async def create_onebox_order(order_data: dict) -> dict:
         safe_params = {k: v for k, v in params.items() if k not in {"password"}}
         logger.info(json.dumps(safe_params, ensure_ascii=False, indent=2))
 
+        order_add_url = f"{ONEBOX_URL}/api/orders/add/"
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{ONEBOX_URL}/api/orders/add/",
+                order_add_url,
                 params=params,
                 timeout=30.0,
             )
@@ -397,6 +412,52 @@ async def create_onebox_order(order_data: dict) -> dict:
         data = resp.json()
         if data.get("result") == "ok" and data.get("orderId"):
             return {"status": 1, "dataArray": [data.get("orderId")], "raw": data}
+
+        if _onebox_duplicate_phone_error(data):
+            retry_params = dict(params)
+            for key in (
+                "clientphone",
+                "clientemail",
+                "setorderclientphone",
+                "order_clientphone",
+            ):
+                retry_params.pop(key, None)
+
+            retry_comments = []
+            if client_comment:
+                retry_comments.append(client_comment)
+            retry_comments.extend([
+                "OneBox retry: duplicate phone #12903",
+                f"Client phone: {client_phone_onebox}",
+                f"Recipient: {recipient_name}",
+                f"Recipient phone: {recipient_phone_onebox}",
+            ])
+            retry_params["comments"] = "\n".join(line for line in retry_comments if line)
+            retry_params["customorder_Komentarzsaitu"] = retry_params["comments"]
+
+            logger.warning("[OneBox] Duplicate phone #12903; retrying without customer phone fields")
+            safe_retry_params = {k: v for k, v in retry_params.items() if k not in {"password"}}
+            logger.info("[OneBox] Retry /api/orders/add params:")
+            logger.info(json.dumps(safe_retry_params, ensure_ascii=False, indent=2))
+
+            async with httpx.AsyncClient() as client:
+                retry_resp = await client.get(
+                    order_add_url,
+                    params=retry_params,
+                    timeout=30.0,
+                )
+
+            logger.info(f"[OneBox] Retry Response: {retry_resp.text}")
+            retry_data = retry_resp.json()
+            if retry_data.get("result") == "ok" and retry_data.get("orderId"):
+                return {
+                    "status": 1,
+                    "dataArray": [retry_data.get("orderId")],
+                    "raw": retry_data,
+                    "onebox_retry": "duplicate_phone_without_customer_phone_fields",
+                }
+            return retry_data
+
         return data
 
     except Exception as exc:
