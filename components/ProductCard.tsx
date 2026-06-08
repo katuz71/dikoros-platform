@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Dimensions, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import ProductImage from './ProductImage';
-
-const { width: screenWidth } = Dimensions.get('window');
 // Используем flex вместо фиксированной ширины для идеальной симметрии
 
 interface ProductCardProps {

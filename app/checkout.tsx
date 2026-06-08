@@ -96,7 +96,7 @@ export default function CheckoutScreen() {
   const [doNotCall, setDoNotCall] = useState(false);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); // ✅ NEW: Optional Email
-  const [accountPhone, setAccountPhone] = useState('');
+  const [, setAccountPhone] = useState('');
   const [contactMethod, setContactMethod] = useState<'call' | 'telegram' | 'viber'>('call'); // ✅ NEW: Contact Method
 
   const [city, setCity] = useState({ ref: '', name: '' });
@@ -165,7 +165,7 @@ export default function CheckoutScreen() {
         if (parsed.orderComment) setOrderComment(parsed.orderComment);
         setSaveUserData(true);
       }
-    } catch (e) { console.log(e); }
+    } catch { console.log(e); }
   };
 
   const fetchUserData = async (phoneNumber: string) => {
@@ -205,7 +205,7 @@ export default function CheckoutScreen() {
           setContactMethod(data.contact_preference as 'call' | 'telegram' | 'viber');
         }
       }
-    } catch (e) { console.log(e); }
+    } catch { console.log(e); }
   };
 
   // --- НОВАЯ ПОЧТА ---
@@ -227,7 +227,7 @@ export default function CheckoutScreen() {
       } else {
         setSearchResults([]);
       }
-    } catch (e) {
+    } catch {
       setSearchResults([]);
     } finally {
       setLoadingSearch(false);
@@ -252,7 +252,7 @@ export default function CheckoutScreen() {
       } else {
         setSearchResults([]);
       }
-    } catch (e) {
+    } catch {
       console.log(e);
       setSearchResults([]);
     } finally {
@@ -418,7 +418,7 @@ export default function CheckoutScreen() {
               }),
             });
           }
-        } catch (e) {
+        } catch {
           console.warn('Save push token after checkout failed:', e);
         }
 
@@ -443,7 +443,7 @@ export default function CheckoutScreen() {
                 contact_preference: contactMethod
               })
             });
-          } catch (e) {
+          } catch {
             // ignore - order is already created
           }
         }

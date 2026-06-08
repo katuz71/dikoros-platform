@@ -251,7 +251,7 @@ const findVariantByOptionNameSelections = (variants: any[], selections: any) => 
       if (index === null) return null;
       return { index, value: normalizeComparable(selections?.[key]) };
     })
-    .filter(Boolean) as Array<{ index: number; value: string }>;
+    .filter(Boolean) as { index: number; value: string }[];
 
   const exact = safeVariants.find((variant: any) => {
     const parts = getVariantOptionParts(variant);
@@ -895,7 +895,7 @@ export default function Index() {
 
   // Load banners on mount
   useEffect(() => {
-    console.log('� Component mounted - Using OrdersContext API only');
+    console.log('Component mounted - Using OrdersContext API only');
     loadBanners();
   }, []);
 

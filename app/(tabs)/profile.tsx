@@ -7,8 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
-import { useEffect } from 'react';
+import React, { useCallback, useState , useEffect } from 'react';
+
 import {
   Alert,
   Linking,
@@ -21,6 +21,8 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useRouter } from 'expo-router';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -44,8 +46,6 @@ interface Order {
   date: string;
   items: any[];
 }
-
-import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const router = useRouter();
