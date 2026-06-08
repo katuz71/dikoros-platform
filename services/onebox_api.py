@@ -393,11 +393,12 @@ async def create_onebox_order(order_data: dict) -> dict:
             "statusid": str(ONEBOX_STATUS_ID),
             "name": onebox_order_name,
             "externalid": app_order_number,
-            "clientnamefirst": buyer_first_for_onebox,
-            "clientnamelast": buyer_last_for_onebox,
-            "clientnamemiddle": buyer_middle_for_onebox,
-            "clientphone": client_phone_onebox,
-            "clientemail": email,
+            # In OneBox the standard client block must be the shipment recipient.
+            # Real app buyer/account data is preserved in comments and custom fields.
+            "clientnamefirst": recipient_first_name,
+            "clientnamelast": recipient_last_name,
+            "clientnamemiddle": "",
+            "clientphone": recipient_phone_onebox,
             "clientaddress": full_address,
             "setorderclientphone": "1",
             "order_clientname": recipient_name,
@@ -407,8 +408,18 @@ async def create_onebox_order(order_data: dict) -> dict:
             "paymentid": str(payment_id),
             "deliveryid": str(delivery_id),
             "sum": sum_str,
-            "comments": client_comment,
-            "customorder_Komentarzsaitu": client_comment,
+            "comments": "\n".join(line for line in [
+                client_comment,
+                f"App buyer/account name: {client_full_name or name}",
+                f"App buyer/account phone: {client_phone_onebox}",
+                f"App buyer email: {email}",
+            ] if line),
+            "customorder_Komentarzsaitu": "\n".join(line for line in [
+                client_comment,
+                f"App buyer/account name: {client_full_name or name}",
+                f"App buyer/account phone: {client_phone_onebox}",
+                f"App buyer email: {email}",
+            ] if line),
 
             "customorder_Neperezvanivat": "1" if do_not_call else "0",
             "customorder_Otrimuvachmya": recipient_first_for_onebox,
@@ -471,6 +482,11 @@ async def create_onebox_order(order_data: dict) -> dict:
                 "order_clientphone",
             ):
                 retry_params.pop(key, None)
+
+            retry_params["clientemail"] = (
+                email
+                or f"app-order-{app_order_number or int(time.time())}@dikoros.local"
+            )
 
             retry_comments = []
             if client_comment:
