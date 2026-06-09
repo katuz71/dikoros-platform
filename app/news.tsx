@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import {
 type NewsSection = {
   heading?: string;
   body?: string;
+  image_url?: string | null;
 };
 
 type NewsPage = {
@@ -89,6 +91,13 @@ export default function NewsScreen() {
 
           {(page?.sections || []).map((section, index) => (
             <View key={index} style={styles.card}>
+              {!!section.image_url && (
+                <Image
+                  source={{ uri: section.image_url }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+              )}
               {!!section.heading && (
                 <Text style={styles.cardTitle}>{section.heading}</Text>
               )}
@@ -152,6 +161,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  cardImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 14,
+    marginBottom: 14,
+    backgroundColor: '#EEF2EE',
   },
   cardTitle: {
     fontSize: 18,
