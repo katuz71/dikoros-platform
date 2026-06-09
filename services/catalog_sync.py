@@ -82,7 +82,7 @@ async def sync_catalog_from_horoshop() -> dict:
             count = 0
             group_order: dict[str, int] = {}
 
-            cur.execute("UPDATE products SET sort_order = NULL")
+            cur.execute("UPDATE products SET sort_order = NULL, is_hit = FALSE, is_new = FALSE, is_promotion = FALSE")
 
             for item in products_list:
                 sku = str(item.get("article") or item.get("parent_article") or "").strip()
@@ -138,7 +138,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 is_promotion = bool(
                     item.get("action") == 1
                     or (old_price > 0 and old_price > price)
-                    or any("акц" in t or "розпродаж" in t or "скидка" in t for t in icon_texts)
+                    or any("акц" in t or "розпродаж" in t or "распродаж" in t or "скидка" in t or "sale" in t for t in icon_texts)
                 )
 
                 cur.execute("SELECT id FROM products WHERE sku = ?", (sku,))
