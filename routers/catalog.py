@@ -104,6 +104,29 @@ def _fetch_banners():
         conn.close()
 
 
+def _fetch_home_promotions():
+    promotions = _fetch_home_promotions()
+
+    if promotions:
+        return promotions
+
+    return _fetch_products(
+        where_sql="""
+            AND (
+                COALESCE(is_promotion, FALSE) = TRUE
+                OR (
+                    old_price IS NOT NULL
+                    AND price IS NOT NULL
+                    AND old_price > price
+                )
+            )
+        """,
+        order_sql="ORDER BY COALESCE(sort_order, 2147483647), id ASC",
+        dedupe_by="sort_order",
+        limit=16,
+    )
+
+
 @router.get("/home")
 def get_catalog_home():
     hits = _fetch_products(
