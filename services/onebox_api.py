@@ -258,20 +258,7 @@ async def _onebox_update_recipient_order_fields(
         )
 
     logger.info(f"[OneBox] Recipient/bonus fields update response: {resp.text}")
-    official_result = resp.json()
-
-    browser_result = await _onebox_browser_save_order_fields(
-        order_id=order_id_str,
-        recipient_name=recipient_name,
-        recipient_phone=recipient_phone_onebox,
-        bonus_used=bonus_used_str,
-        client_comment=client_comment,
-    )
-
-    return {
-        "official_update": official_result,
-        "browser_fallback_update": browser_result,
-    }
+    return resp.json()
 
 
 async def _onebox_browser_save_order_fields(
@@ -569,13 +556,14 @@ async def create_onebox_order(order_data: dict) -> dict:
             "statusid": str(ONEBOX_STATUS_ID),
             "name": onebox_order_name,
             "externalid": app_order_number,
-            # Standard OneBox client block = real app buyer/account.
-            # Shipment recipient is stored in dedicated order_client* fields.
-            "clientnamefirst": buyer_first_for_onebox,
-            "clientnamelast": buyer_last_for_onebox,
-            "clientnamemiddle": buyer_middle_for_onebox,
-            "clientphone": client_phone_onebox,
-            "clientemail": email,
+            # OneBox treats order client phone as recipient phone in UI.
+            # Therefore OneBox client block must be the shipment recipient.
+            # Real app buyer/account data is stored in dedicated custom fields, not in comments.
+            "clientnamefirst": recipient_first_name,
+            "clientnamelast": recipient_last_name,
+            "clientnamemiddle": "",
+            "clientphone": recipient_phone_onebox,
+            "clientemail": email if recipient_phone_onebox == client_phone_onebox else "",
             "clientaddress": full_address,
             "setorderclientphone": "",
             "phone_active_0": "1",
@@ -599,6 +587,9 @@ async def create_onebox_order(order_data: dict) -> dict:
             "customorder_sposobdostavkidp": delivery_label,
             "customorder_email": email,
             "customorder_user_phone": phone,
+            "customorder_app_buyer_name": client_full_name or name,
+            "customorder_app_buyer_phone": client_phone_onebox,
+            "customorder_app_buyer_email": email,
             "customorder_city_ref": city_ref,
             "customorder_warehouse_ref": warehouse_ref,
         }
