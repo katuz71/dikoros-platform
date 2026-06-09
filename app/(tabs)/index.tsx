@@ -461,6 +461,7 @@ export default function Index() {
   const [homeHits, setHomeHits] = useState<Product[]>([]);
   const [homePromotions, setHomePromotions] = useState<Product[]>([]);
   const [homeNewProducts, setHomeNewProducts] = useState<Product[]>([]);
+  const [catalogHomeLoaded, setCatalogHomeLoaded] = useState(false);
 
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
@@ -940,6 +941,7 @@ export default function Index() {
     setHomeHits(nextHits);
     setHomePromotions(nextPromotions);
     setHomeNewProducts(nextNewProducts);
+    setCatalogHomeLoaded(true);
   }, []);
 
   const loadCatalogHome = useCallback(async () => {
@@ -1317,9 +1319,9 @@ export default function Index() {
     'home_new_order'
   ).slice(0, 16);
 
-  const hitProducts = homeHits.length > 0 ? homeHits : fallbackHitProducts;
-  const promoProducts = homePromotions.length > 0 ? homePromotions : fallbackPromoProducts;
-  const newProducts = homeNewProducts.length > 0 ? homeNewProducts : fallbackNewProducts;
+  const hitProducts = catalogHomeLoaded ? homeHits : fallbackHitProducts;
+  const promoProducts = catalogHomeLoaded ? homePromotions : fallbackPromoProducts;
+  const newProducts = catalogHomeLoaded ? homeNewProducts : fallbackNewProducts;
 
   // Removed fetchProducts useEffect as we use local DB now
 
