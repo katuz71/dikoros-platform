@@ -94,7 +94,6 @@ export default function Layout() {
             <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="checkout" options={{ headerShown: false }} />
             <Stack.Screen name="news" options={{ headerShown: false }} />
-            <Stack.Screen name="news-detail" options={{ headerShown: false }} />
           </Stack>
         </CartProvider>
       </OrdersProvider>

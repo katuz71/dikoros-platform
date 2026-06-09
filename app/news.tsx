@@ -1,5 +1,6 @@
 import { API_ENDPOINTS, API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -60,6 +61,16 @@ export default function NewsScreen() {
     loadPage();
   };
 
+  const openPromotion = async (section: NewsSection) => {
+    if (!section.source_url) return;
+
+    try {
+      await WebBrowser.openBrowserAsync(section.source_url);
+    } catch (err) {
+      console.warn('Promotion link open failed:', err);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -95,15 +106,8 @@ export default function NewsScreen() {
               key={index}
               style={styles.card}
               activeOpacity={0.88}
-              onPress={() => router.push({
-                pathname: '/news-detail',
-                params: {
-                  heading: section.heading || '',
-                  body: section.body || '',
-                  image_url: section.image_url || '',
-                  source_url: section.source_url || '',
-                },
-              })}
+              onPress={() => openPromotion(section)}
+              disabled={!section.source_url}
             >
               {!!section.image_url && (
                 <Image
