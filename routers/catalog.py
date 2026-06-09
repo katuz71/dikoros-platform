@@ -25,7 +25,7 @@ def _rows_to_products(rows):
     return [normalize_product_row(dict(row)) for row in rows]
 
 
-def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = "", limit: int = 16):
+def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = "", limit: int = 16, dedupe_by=None):
     conn = get_db_connection()
     try:
         sql = f"""
@@ -41,8 +41,31 @@ def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = ""
             {order_sql}
             LIMIT ?
         """
-        rows = conn.execute(sql, tuple(params) + (limit,)).fetchall()
-        return _rows_to_products(rows)
+        fetch_limit = limit
+        if dedupe_by:
+            fetch_limit = min(max(limit * 10, limit), 500)
+
+        rows = conn.execute(sql, tuple(params) + (fetch_limit,)).fetchall()
+        products = _rows_to_products(rows)
+
+        if not dedupe_by:
+            return products
+
+        seen = set()
+        deduped = []
+
+        for product in products:
+            key = product.get(dedupe_by)
+            if key is None or key in seen:
+                continue
+
+            seen.add(key)
+            deduped.append(product)
+
+            if len(deduped) >= limit:
+                break
+
+        return deduped
     finally:
         conn.close()
 
@@ -85,19 +108,22 @@ def _fetch_banners():
 def get_catalog_home():
     hits = _fetch_products(
         where_sql="AND home_hit_order IS NOT NULL",
-        order_sql="ORDER BY home_hit_order ASC, id DESC",
+        order_sql="ORDER BY home_hit_order ASC, COALESCE(sort_order, 2147483647), id ASC",
+        dedupe_by="home_hit_order",
         limit=16,
     )
 
     promotions = _fetch_products(
         where_sql="AND home_promotion_order IS NOT NULL",
-        order_sql="ORDER BY home_promotion_order ASC, id DESC",
+        order_sql="ORDER BY home_promotion_order ASC, COALESCE(sort_order, 2147483647), id ASC",
+        dedupe_by="home_promotion_order",
         limit=16,
     )
 
     new_products = _fetch_products(
         where_sql="AND home_new_order IS NOT NULL",
-        order_sql="ORDER BY home_new_order ASC, id DESC",
+        order_sql="ORDER BY home_new_order ASC, COALESCE(sort_order, 2147483647), id ASC",
+        dedupe_by="home_new_order",
         limit=16,
     )
 
