@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import requests
 
+from services.users import normalize_phone
+
 
 ALPHASMS_API_URL = os.getenv("ALPHASMS_API_URL", "https://alphasms.ua/api/json.php")
 ALPHASMS_API_KEY = os.getenv("ALPHASMS_API_KEY", "")
@@ -16,12 +18,9 @@ def send_sms_code(phone: str, code: str) -> dict:
     if not ALPHASMS_API_KEY:
         raise RuntimeError("ALPHASMS_API_KEY is not set")
 
-    clean_phone = "".join(filter(str.isdigit, str(phone)))
+    clean_phone = normalize_phone(phone)
     if not clean_phone:
         raise ValueError("Invalid phone")
-
-    if clean_phone.startswith("0") and len(clean_phone) == 10:
-        clean_phone = "38" + clean_phone
 
     text = f"DikorosUA code: {code}"
 

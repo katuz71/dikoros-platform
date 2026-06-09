@@ -110,19 +110,50 @@ export default function ProfileScreen() {
 
   const canonicalizePhone = (value: string) => {
     const digits = (value || '').replace(/\D/g, '');
-    if (digits.length === 12 && digits.startsWith('380')) {
-      return `0${digits.slice(3)}`;
+    if (digits.length >= 12 && digits.startsWith('380')) {
+      return digits.slice(0, 12);
     }
-    if (digits.length === 9) {
-      return `0${digits}`;
+    if (digits.length >= 11 && digits.startsWith('80')) {
+      return `3${digits.slice(0, 11)}`;
+    }
+    if (digits.length >= 10 && digits.startsWith('0')) {
+      return `38${digits.slice(0, 10)}`;
+    }
+    if (digits.length >= 9) {
+      return `380${digits.slice(0, 9)}`;
     }
     return digits;
+  };
+
+  const formatPhoneInput = (value: string) => {
+    const digits = (value || '').replace(/\D/g, '');
+    let local = digits;
+
+    if (digits.startsWith('380')) {
+      local = digits.slice(3);
+    } else if (digits.startsWith('80')) {
+      local = digits.slice(2);
+    } else if (digits.startsWith('0')) {
+      local = digits.slice(1);
+    }
+
+    local = local.slice(0, 9);
+    const parts = ['+380'];
+    if (local.length > 0) parts.push(local.slice(0, 2));
+    if (local.length > 2) parts.push(local.slice(2, 5));
+    if (local.length > 5) parts.push(local.slice(5, 7));
+    if (local.length > 7) parts.push(local.slice(7, 9));
+
+    return parts.join(' ');
   };
 
   const checkLogin = async () => {
     const storedPhone = await AsyncStorage.getItem('userPhone');
     if (storedPhone) {
       const canon = canonicalizePhone(storedPhone);
+      if (canon && canon !== storedPhone) {
+        await AsyncStorage.setItem('userPhone', canon);
+      }
       setPhone(canon);
       fetchData(canon);
     }
@@ -225,10 +256,11 @@ export default function ProfileScreen() {
   const handleSendSmsCode = async () => {
     const canon = canonicalizePhone(inputPhone);
 
-    if (canon.length < 10) {
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440 \u0028\u043d\u0430\u043f\u0440\u002e 0991234567\u0029');
+    if (canon.length !== 12 || !canon.startsWith('380')) {
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0443 \u0444\u043e\u0440\u043c\u0430\u0442\u0456 +380 XX XXX XX XX');
       return;
     }
+    setInputPhone(formatPhoneInput(canon));
 
     try {
       const res = await fetch(`${API_URL}/api/auth/sms/start`, {
@@ -253,8 +285,8 @@ export default function ProfileScreen() {
   const handleLogin = async () => {
     const canon = canonicalizePhone(inputPhone);
 
-    if (canon.length < 10) {
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440 \u0028\u043d\u0430\u043f\u0440\u002e 0991234567\u0029');
+    if (canon.length !== 12 || !canon.startsWith('380')) {
+      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0443 \u0444\u043e\u0440\u043c\u0430\u0442\u0456 +380 XX XXX XX XX');
       return;
     }
 
@@ -891,16 +923,17 @@ export default function ProfileScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="099 123 45 67"
+              placeholder="+380 99 123 45 67"
               value={inputPhone}
               onChangeText={(value) => {
-                setInputPhone(value);
+                setInputPhone(formatPhoneInput(value));
                 if (smsSent) {
                   setSmsSent(false);
                   setSmsCode('');
                 }
               }}
               keyboardType="phone-pad"
+              maxLength={17}
               editable={!smsSent}
               autoFocus
             />
@@ -991,7 +1024,7 @@ export default function ProfileScreen() {
             </View>
             
             <Text style={{marginBottom: 5, color: '#666'}}>Телефон</Text>
-            <TextInput style={[styles.input, {backgroundColor: '#f5f5f5', color: '#888'}]} value={phone} editable={false} />
+            <TextInput style={[styles.input, {backgroundColor: '#f5f5f5', color: '#888'}]} value={formatPhoneInput(phone)} editable={false} />
 
             <Text style={{marginBottom: 5, color: '#666'}}>Ім’я та Прізвище</Text>
             <TextInput style={styles.input} value={infoName} onChangeText={setInfoName} placeholder="Іван Іванов" />

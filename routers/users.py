@@ -24,7 +24,9 @@ from services.notifications import send_expo_push
 from services.users import (
     calculate_cashback_percent,
     clean_warehouse_value,
+    migrate_phone_references,
     normalize_phone,
+    phone_lookup_variants,
 )
 
 
@@ -50,15 +52,19 @@ def _get_user_profile_by_identifier(phone: str):
     if raw.startswith("google_") or raw.startswith("fb_") or raw.startswith("tg_"):
         lookup_phone = raw
     else:
-        lookup_phone = "".join(filter(str.isdigit, raw))
+        lookup_phone = normalize_phone(raw)
     conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE phone = ?", (lookup_phone,)).fetchone()
+    user = None
+    for candidate in phone_lookup_variants(lookup_phone):
+        user = conn.execute("SELECT * FROM users WHERE phone = ?", (candidate,)).fetchone()
+        if user:
+            break
     conn.close()
     if user:
         user_dict = dict(user)
         stored_phone = user_dict.get('phone') or lookup_phone
         # Для соц. входу (google_*, fb_*, tg_*) не повертаємо технічний ідентифікатор як телефон — клієнт має запросити номер.
-        display_phone = None if (stored_phone.startswith("google_") or stored_phone.startswith("fb_") or stored_phone.startswith("tg_")) else stored_phone
+        display_phone = None if (stored_phone.startswith("google_") or stored_phone.startswith("fb_") or stored_phone.startswith("tg_")) else normalize_phone(stored_phone)
         # При віддачі профілю видаляємо префікси з відділень (для старих записів у БД)
         warehouse_display = user_dict.get('warehouse')
         if warehouse_display and isinstance(warehouse_display, str):
@@ -304,7 +310,7 @@ def update_user(phone: str, u: AdminUserUpdate):
 
         new_phone = None
         if u.phone is not None and str(u.phone).strip():
-            new_phone = "".join(filter(str.isdigit, str(u.phone).strip()))
+            new_phone = normalize_phone(u.phone)
             if not new_phone:
                 raise HTTPException(status_code=400, detail="Invalid new phone number")
             if new_phone == clean_phone:
@@ -349,7 +355,7 @@ def update_user(phone: str, u: AdminUserUpdate):
             conn.commit()
 
         if new_phone:
-            cur.execute("UPDATE users SET phone = ? WHERE phone = ?", (new_phone, clean_phone))
+            migrate_phone_references(conn, clean_phone, new_phone)
             conn.commit()
 
         return {"status": "ok"}
@@ -434,14 +440,14 @@ def _update_user_info_by_identifier(phone: str, info: UserInfoUpdate):
             raise HTTPException(status_code=404, detail="User not found")
 
         if info.phone is not None and info.phone.strip():
-            new_phone = "".join(filter(str.isdigit, info.phone.strip()))
+            new_phone = normalize_phone(info.phone)
             if not new_phone:
                 raise HTTPException(status_code=400, detail="Invalid phone number")
 
             if new_phone != clean_phone and cur.execute("SELECT 1 FROM users WHERE phone = ?", (new_phone,)).fetchone():
                 raise HTTPException(status_code=409, detail="Phone already exists")
 
-            cur.execute("UPDATE users SET phone = ? WHERE phone = ?", (new_phone, clean_phone))
+            migrate_phone_references(conn, clean_phone, new_phone)
             conn.commit()
             clean_phone = new_phone
 

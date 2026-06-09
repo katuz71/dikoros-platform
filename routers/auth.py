@@ -17,6 +17,7 @@ from db import get_db_connection
 from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest, EmailRegisterRequest, EmailLoginRequest
 from services.auth import create_access_token, get_current_user_phone, hash_password, verify_password
 from services.alphasms import send_sms_code
+from services.users import migrate_phone_references, normalize_phone, phone_lookup_variants
 
 
 router = APIRouter()
@@ -113,8 +114,8 @@ def auth_sms_start(body: SmsAuthStartRequest):
     Dev mode: generates code and writes it to backend logs.
     Later this function will call the real SMS provider.
     """
-    clean_phone = "".join(filter(str.isdigit, str(body.phone)))
-    if not clean_phone:
+    clean_phone = normalize_phone(body.phone)
+    if not clean_phone or not clean_phone.startswith("380") or len(clean_phone) != 12:
         raise HTTPException(status_code=400, detail="Invalid phone")
 
     code = f"{random.randint(100000, 999999)}"
@@ -145,10 +146,10 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
     Verify SMS code and login/register user.
     New users receive 150 bonus only once at account creation.
     """
-    clean_phone = "".join(filter(str.isdigit, str(body.phone)))
+    clean_phone = normalize_phone(body.phone)
     code = "".join(filter(str.isdigit, str(body.code or "")))
 
-    if not clean_phone or not code:
+    if not clean_phone or not clean_phone.startswith("380") or len(clean_phone) != 12 or not code:
         raise HTTPException(status_code=400, detail="Invalid phone or code")
 
     record = SMS_AUTH_CODES.get(clean_phone)
@@ -173,12 +174,26 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
         is_new_user = False
 
         if not user:
-            is_new_user = True
-            logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
-            conn.execute(
-                "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at, phone_verified) VALUES (?, 150, 0, 0, ?, TRUE)",
-                (clean_phone, datetime.now().isoformat()),
-            )
+            legacy_user = None
+            for legacy_phone in phone_lookup_variants(clean_phone)[1:]:
+                legacy_user = conn.execute("SELECT * FROM users WHERE phone=?", (legacy_phone,)).fetchone()
+                if legacy_user:
+                    migrate_phone_references(conn, legacy_phone, clean_phone)
+                    logger.info("Migrated SMS user phone: %s -> %s", legacy_phone, clean_phone)
+                    break
+
+            if legacy_user:
+                conn.execute(
+                    "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
+                    (clean_phone,),
+                )
+            else:
+                is_new_user = True
+                logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
+                conn.execute(
+                    "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at, phone_verified) VALUES (?, 150, 0, 0, ?, TRUE)",
+                    (clean_phone, datetime.now().isoformat()),
+                )
         else:
             conn.execute(
                 "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
@@ -222,7 +237,7 @@ def get_user_by_phone(identifier: str):
     if not identifier:
         conn.close()
         raise HTTPException(status_code=400, detail="identifier is required")
-    clean_phone = "".join(filter(str.isdigit, identifier))
+    clean_phone = normalize_phone(identifier)
     if not clean_phone:
         conn.close()
         raise HTTPException(status_code=400, detail="Invalid phone")
@@ -265,7 +280,7 @@ def auth_social_login(body: SocialAuthRequest):
 
         if user:
             user_dict = dict(user)
-            linked_phone = "".join(filter(str.isdigit, str(user_dict.get("phone") or "")))
+            linked_phone = normalize_phone(str(user_dict.get("phone") or ""))
 
             if not linked_phone or not user_dict.get("phone_verified"):
                 raise HTTPException(
@@ -301,7 +316,7 @@ def auth_social_link(
     social = _verify_social_token(body.provider, body.token)
     provider = social["provider"]
     social_id = social["social_id"]
-    clean_phone = "".join(filter(str.isdigit, str(current_user_phone)))
+    clean_phone = normalize_phone(current_user_phone)
 
     if not clean_phone:
         raise HTTPException(status_code=401, detail="Invalid authenticated user")
