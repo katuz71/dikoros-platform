@@ -114,6 +114,7 @@ def init_db_schema() -> None:
             option_names TEXT,
             external_id TEXT UNIQUE,
             is_bestseller BOOLEAN DEFAULT FALSE,
+            is_hit BOOLEAN DEFAULT FALSE,
             is_promotion BOOLEAN DEFAULT FALSE,
             is_new BOOLEAN DEFAULT FALSE,
             sku TEXT,
