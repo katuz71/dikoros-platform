@@ -299,6 +299,25 @@ async def _onebox_browser_save_order_fields(
     if not browser_cookie:
         return {"status": 0, "skipped": True, "reason": "missing_ONEBOX_BROWSER_COOKIE"}
 
+    # OneBox UI session may rely on lastOpenIssue from Cookie.
+    # Keep auth cookies, but force lastOpenIssue to the order being updated.
+    cookie_parts = []
+    has_last_open_issue = False
+    for item in browser_cookie.split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        if item.startswith("lastOpenIssue="):
+            cookie_parts.append(f"lastOpenIssue={order_id_str}")
+            has_last_open_issue = True
+        else:
+            cookie_parts.append(item)
+
+    if not has_last_open_issue:
+        cookie_parts.append(f"lastOpenIssue={order_id_str}")
+
+    browser_cookie_for_order = "; ".join(cookie_parts)
+
     form_data = {
         f"oldorderstatusid_{order_id_str}": str(ONEBOX_STATUS_ID),
         "productid": "",
@@ -370,7 +389,7 @@ async def _onebox_browser_save_order_fields(
             f"{ONEBOX_URL}/ajax/admin/chat/get/order/",
             files=multipart_data,
             headers={
-                "Cookie": browser_cookie,
+                "Cookie": browser_cookie_for_order,
                 "Origin": ONEBOX_URL,
                 "Referer": f"{ONEBOX_URL}/{order_id_str}/",
                 "X-Requested-With": "XMLHttpRequest",
