@@ -354,16 +354,28 @@ async def _onebox_browser_save_order_fields(
     safe_form = dict(form_data)
     logger.info(json.dumps(safe_form, ensure_ascii=False, indent=2))
 
+    # Send exactly as browser does: multipart/form-data.
+    # httpx will generate boundary automatically.
+    multipart_data = [(key, (None, str(value))) for key, value in form_data.items()]
+
+    # Browser payload contains repeated oldclient keys; keep them repeated.
+    multipart_data.extend([
+        ("oldclient", (None, "1")),
+        ("oldclient", (None, "1")),
+        ("oldclient", (None, "1")),
+    ])
+
     async with httpx.AsyncClient(follow_redirects=False) as client:
         resp = await client.post(
             f"{ONEBOX_URL}/ajax/admin/chat/get/order/",
-            data=form_data,
+            files=multipart_data,
             headers={
                 "Cookie": browser_cookie,
                 "Origin": ONEBOX_URL,
                 "Referer": f"{ONEBOX_URL}/{order_id_str}/",
                 "X-Requested-With": "XMLHttpRequest",
-                "User-Agent": "Mozilla/5.0",
+                "Accept": "*/*",
+                "User-Agent": "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36",
             },
             timeout=30.0,
         )
