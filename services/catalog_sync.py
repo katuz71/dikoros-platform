@@ -76,14 +76,16 @@ class HomepageSectionsParser(HTMLParser):
         if tag == "div" and _class_contains(attrs, "catalogTabs-content") and _class_contains(attrs, "j-special-offers-content"):
             self.special_content_index += 1
             self._append_current_card()
-
+            
             if self.special_content_index == 1:
                 self.current_section = "hit"
             elif self.special_content_index == 2:
                 self.current_section = "new"
+            elif self.special_content_index == 3:
+                self.current_section = "promotion"
             else:
                 self.current_section = None
-
+                
             self.special_depth = 1
             return
 
@@ -113,20 +115,18 @@ class HomepageSectionsParser(HTMLParser):
                 self.special_depth = None
                 self.current_section = None
 
-    def handle_data(self, data: str) -> None:
-        return
-
     def _append_current_card(self) -> None:
         if not self.current_card:
             return
 
         key = (
-            self.current_card.section,
+            self.current_card.section or "",
             self.current_card.sku or "",
             self.current_card.external_id or "",
         )
         if key not in self.seen:
-            self.products[self.current_card.section].append(self.current_card)
+            if self.current_card.section:
+                self.products[self.current_card.section].append(self.current_card)
             self.seen.add(key)
 
         self.current_card = None
@@ -195,14 +195,15 @@ def _apply_home_section_order(
 ) -> int:
     column = HOME_SECTION_COLUMNS[section]
     updated = 0
+    seen_groups = set()
 
     for order, ref in enumerate(refs, start=1):
         row = None
         if ref.sku:
-            cur.execute("SELECT sku, parent_sku FROM products WHERE sku = ? LIMIT 1", (ref.sku,))
+            cur.execute("SELECT sku, parent_sku, old_price, price, is_new FROM products WHERE sku = ? LIMIT 1", (ref.sku,))
             row = cur.fetchone()
         if not row and ref.external_id:
-            cur.execute("SELECT sku, parent_sku FROM products WHERE external_id = ? LIMIT 1", (ref.external_id,))
+            cur.execute("SELECT sku, parent_sku, old_price, price, is_new FROM products WHERE external_id = ? LIMIT 1", (ref.external_id,))
             row = cur.fetchone()
         if not row:
             continue
@@ -210,8 +211,18 @@ def _apply_home_section_order(
         sku = str(_row_value(row, "sku") or "").strip()
         parent_sku = str(_row_value(row, "parent_sku") or "").strip()
         group_key = parent_sku or sku
-        if not group_key:
+        
+        if not group_key or group_key in seen_groups:
             continue
+
+        if section == "promotion":
+            old_price = float(_row_value(row, "old_price") or 0.0)
+            price = float(_row_value(row, "price") or 0.0)
+            is_new = bool(_row_value(row, "is_new"))
+            if not (old_price > 0 and old_price > price):
+                continue
+            if is_new:
+                continue
 
         cur.execute(
             f"""
@@ -221,6 +232,7 @@ def _apply_home_section_order(
             """,
             (order, group_key),
         )
+        seen_groups.add(group_key)
         updated += 1
 
     return updated
@@ -333,11 +345,8 @@ async def sync_catalog_from_horoshop() -> dict:
                     item.get("new") == 1
                     or any("новинка" in t or "new" in t for t in icon_texts)
                 )
-                is_promotion = bool(
-                    item.get("action") == 1
-                    or (old_price > 0 and old_price > price)
-                    or any("акц" in t or "розпродаж" in t or "распродаж" in t or "скидка" in t or "sale" in t for t in icon_texts)
-                )
+                
+                is_promotion = bool(old_price > 0 and old_price > price) and not is_new
 
                 cur.execute("SELECT id FROM products WHERE sku = ?", (sku,))
                 exists = cur.fetchone()
