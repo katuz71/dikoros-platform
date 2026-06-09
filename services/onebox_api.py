@@ -240,7 +240,7 @@ async def _onebox_update_recipient_order_fields(
         "client": {
             "findbyArray": ["phone"],
             "phones": [buyer_phone_onebox] if buyer_phone_onebox else [],
-            "addnewphone": True,
+            "addnewphone": False,
         },
 
         # Real OneBox site fields.
