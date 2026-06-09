@@ -14,11 +14,42 @@ from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
+EXPORT_PAGE_SIZE = 500
+MAX_EXPORT_PAGES = 100
+
 
 def _localized_value(value: object, default: str = "") -> str:
     if isinstance(value, dict):
         return str(value.get("ua") or value.get("ru") or value.get("en") or default)
     return str(value or default)
+
+
+async def _export_catalog_products(
+    client: httpx.AsyncClient,
+    domain: str,
+    token: str,
+) -> list[dict]:
+    products: list[dict] = []
+    offset = 0
+
+    for _ in range(MAX_EXPORT_PAGES):
+        export_response = await client.post(
+            f"https://{domain}/api/catalog/export/",
+            json={"token": token, "limit": EXPORT_PAGE_SIZE, "offset": offset},
+        )
+        export_data = export_response.json()
+
+        if export_data.get("status") != "OK":
+            raise HTTPException(status_code=400, detail=f"Horoshop export error: {export_data}")
+
+        page_products = export_data.get("response", {}).get("products", [])
+        products.extend(page_products)
+
+        if len(page_products) < EXPORT_PAGE_SIZE:
+            return products
+        offset += EXPORT_PAGE_SIZE
+
+    raise HTTPException(status_code=400, detail="Horoshop export pagination did not finish")
 
 
 async def sync_catalog_from_horoshop() -> dict:
@@ -44,21 +75,14 @@ async def sync_catalog_from_horoshop() -> dict:
             if not token:
                 raise HTTPException(status_code=400, detail=f"Horoshop auth error: {auth_data}")
 
-            export_response = await client.post(
-                f"https://{domain}/api/catalog/export/",
-                json={"token": token, "limit": 500},
-            )
-            export_data = export_response.json()
-
-            if export_data.get("status") != "OK":
-                raise HTTPException(status_code=400, detail=f"Horoshop export error: {export_data}")
-
-            products_list = export_data.get("response", {}).get("products", [])
+            products_list = await _export_catalog_products(client, domain, token)
             if not products_list:
                 raise HTTPException(status_code=400, detail="Horoshop returned an empty product list")
 
             count = 0
             group_order: dict[str, int] = {}
+
+            cur.execute("UPDATE products SET sort_order = NULL")
 
             for item in products_list:
                 sku = str(item.get("article") or item.get("parent_article") or "").strip()
