@@ -202,23 +202,25 @@ async def _onebox_update_recipient_order_fields(
     order_id: str | int,
     recipient_name: str,
     recipient_phone: str,
+    buyer_name: str = "",
+    buyer_phone: str = "",
     bonus_used: str = "",
     client_comment: str = "",
+    do_not_call: bool = False,
 ) -> dict:
     """
-    Best-effort second update for real OneBox order fields.
+    Official OneBox recipient update.
 
-    Browser payload confirmed these exact fields:
-    - order_clientname
-    - setorderclientphone=phone_active_0
-    - phone_active_0=1
-    - order_clientphone
-    - customorder_Znizhkanasaiti
-    - customorder_Vikoristanibonusinasaiti
+    Confirmed by OneBox support:
+    - client.phones = buyer/client phone in client card
+    - clientphone = shipment recipient phone
+    - clientname = shipment recipient name
+    - orderid = order id
     """
     order_id_str = str(order_id or "").strip()
     recipient_name = str(recipient_name or "").strip()
     recipient_phone_onebox = _onebox_phone(recipient_phone)
+    buyer_phone_onebox = _onebox_phone(buyer_phone)
     bonus_used_str = str(bonus_used or "").strip() or "0"
     client_comment = str(client_comment or "")
 
@@ -228,25 +230,28 @@ async def _onebox_update_recipient_order_fields(
     token = await get_onebox_token()
 
     payload_item = {
-        "id": order_id_str,
         "orderid": order_id_str,
 
-        # Real OneBox recipient fields from browser save payload.
-        "order_clientname": recipient_name,
-        "setorderclientphone": "",
-        "phone_active_0": "1",
-        "order_clientphone": recipient_phone_onebox,
+        # Recipient fields.
+        "clientname": recipient_name,
+        "clientphone": recipient_phone_onebox,
 
-        # Real OneBox site bonus fields from browser save payload.
+        # Buyer/client card phone.
+        "client": {
+            "findbyArray": ["phone"],
+            "phones": [buyer_phone_onebox] if buyer_phone_onebox else [],
+            "addnewphone": True,
+        },
+
+        # Real OneBox site fields.
         "customorder_Znizhkanasaiti": bonus_used_str,
         "customorder_Vikoristanibonusinasaiti": bonus_used_str,
-
-        # Website comment must stay clean.
-        "comments": client_comment,
         "customorder_Komentarzsaitu": client_comment,
+        "comments": client_comment,
+        "customorder_Neperezvanivat": "1" if do_not_call else "0",
     }
 
-    logger.info("[OneBox] Updating real recipient/bonus fields via /api/v2/order/set/:")
+    logger.info("[OneBox] Updating recipient via official order set payload:")
     logger.info(json.dumps([payload_item], ensure_ascii=False, indent=2))
 
     async with httpx.AsyncClient() as client:
@@ -257,22 +262,8 @@ async def _onebox_update_recipient_order_fields(
             timeout=30.0,
         )
 
-    logger.info(f"[OneBox] Recipient/bonus fields update response: {resp.text}")
-    official_result = resp.json()
-
-    browser_result = await _onebox_browser_save_order_fields(
-        order_id=order_id_str,
-        recipient_name=recipient_name,
-        recipient_phone=recipient_phone_onebox,
-        bonus_used=bonus_used_str,
-        client_comment=client_comment,
-        do_not_call=False,
-    )
-
-    return {
-        "official_update": official_result,
-        "browser_fallback_update": browser_result,
-    }
+    logger.info(f"[OneBox] Official recipient update response: {resp.text}")
+    return resp.json()
 
 
 
@@ -765,7 +756,7 @@ async def create_onebox_order(order_data: dict) -> dict:
         if data.get("result") == "ok" and data.get("orderId"):
             order_id = data.get("orderId")
             try:
-                recipient_phone_update = await _onebox_update_recipient_order_fields(order_id, recipient_name, recipient_phone_onebox, bonus_used, client_comment)
+                recipient_phone_update = await _onebox_update_recipient_order_fields(order_id, recipient_name, recipient_phone_onebox, client_full_name or name, client_phone_onebox, bonus_used, client_comment, do_not_call)
             except Exception as update_exc:
                 logger.error(f"[OneBox] Recipient phone update failed: {update_exc}", exc_info=True)
                 recipient_phone_update = {"status": 0, "error": str(update_exc)}
@@ -820,7 +811,7 @@ async def create_onebox_order(order_data: dict) -> dict:
             if retry_data.get("result") == "ok" and retry_data.get("orderId"):
                 retry_order_id = retry_data.get("orderId")
                 try:
-                    recipient_phone_update = await _onebox_update_recipient_order_fields(retry_order_id, recipient_name, recipient_phone_onebox, bonus_used, client_comment)
+                    recipient_phone_update = await _onebox_update_recipient_order_fields(retry_order_id, recipient_name, recipient_phone_onebox, client_full_name or name, client_phone_onebox, bonus_used, client_comment, do_not_call)
                 except Exception as update_exc:
                     logger.error(f"[OneBox] Recipient phone update failed after retry: {update_exc}", exc_info=True)
                     recipient_phone_update = {"status": 0, "error": str(update_exc)}
