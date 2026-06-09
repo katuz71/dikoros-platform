@@ -128,8 +128,11 @@ async def _resolve_ref_sku_from_href(
     if not ref.href:
         return None
 
-    response = await client.get(urljoin(f"https://{domain}/", ref.href))
-    return _extract_product_page_sku(response.text)
+    try:
+        response = await client.get(urljoin(f"https://{domain}/", ref.href), timeout=12.0)
+        return _extract_product_page_sku(response.text)
+    except httpx.HTTPError:
+        return None
 
 
 async def _fetch_products_by_home_refs(
