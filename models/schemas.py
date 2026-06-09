@@ -174,9 +174,6 @@ class OrderRequest(BaseModel):
     client_full_name: Optional[str] = None
     recipient_name: Optional[str] = None
     recipient_phone: Optional[str] = None
-    payer_name: Optional[str] = None
-    payer_phone: Optional[str] = None
-    is_different_payer: bool = False
     do_not_call: bool = False
     phone: str
     email: Optional[str] = None

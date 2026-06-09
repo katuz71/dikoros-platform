@@ -260,9 +260,6 @@ async def create_onebox_order(order_data: dict) -> dict:
             recipient_phone = phone
         do_not_call = bool(order_data.get("do_not_call"))
         do_not_call_text = "\u0434\u0430" if do_not_call else "\u043d\u0435\u0442"
-        payer_name = str(order_data.get("payer_name") or "").strip()
-        payer_phone = str(order_data.get("payer_phone") or "").strip()
-        is_different_payer = bool(order_data.get("is_different_payer"))
         user_phone = str(order_data.get("user_phone") or "").strip()
         email = str(order_data.get("email") or "").strip()
         contact_preference = str(order_data.get("contact_preference") or "").strip()
@@ -405,14 +402,6 @@ async def create_onebox_order(order_data: dict) -> dict:
         ])
         if email:
             buyer_comment_lines.append(f"Email \u043f\u043e\u043a\u0443\u043f\u0446\u044f: {email}")
-
-        if is_different_payer or payer_name or payer_phone:
-            buyer_comment_lines.extend([
-                "",
-                "\u0414\u0430\u043d\u0456 \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430:",
-                f"\u041f\u043b\u0430\u0442\u043d\u0438\u043a: {payer_name or client_full_name or name}",
-                f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430: {_onebox_phone(payer_phone or phone)}",
-            ])
 
         if bonus_used and bonus_used != "0":
             buyer_comment_lines.extend([
