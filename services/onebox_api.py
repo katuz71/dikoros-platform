@@ -233,7 +233,7 @@ async def _onebox_update_recipient_order_fields(
 
         # Real OneBox recipient fields from browser save payload.
         "order_clientname": recipient_name,
-        "setorderclientphone": "phone_active_0",
+        "setorderclientphone": "",
         "phone_active_0": "1",
         "order_clientphone": recipient_phone_onebox,
 
@@ -435,7 +435,7 @@ async def create_onebox_order(order_data: dict) -> dict:
             "clientphone": client_phone_onebox,
             "clientemail": email,
             "clientaddress": full_address,
-            "setorderclientphone": "phone_active_0",
+            "setorderclientphone": "",
             "phone_active_0": "1",
             "order_clientname": recipient_name,
             "order_clientphone": recipient_phone_onebox,
