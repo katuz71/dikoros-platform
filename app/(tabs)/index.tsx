@@ -98,6 +98,7 @@ type Product = {
   weight?: string;
   pack_sizes?: string[] | string;  // Changed to array to match backend, but might be string from DB
   old_price?: number | null;  // For discount logic
+  sort_order?: number | null;
   unit?: string;  // Measurement unit (e.g., "шт", "г", "мл")
   delivery_info?: string;
   return_info?: string;
@@ -119,6 +120,15 @@ const parseMaybeJsonArray = (value: any) => {
     }
   }
   return [];
+};
+
+const getHoroshopSortOrder = (product: any) => {
+  const value = Number(product?.sort_order);
+  return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+};
+
+const sortByHoroshopOrder = <T extends Product>(items: T[]) => {
+  return [...items].sort((a, b) => getHoroshopSortOrder(a) - getHoroshopSortOrder(b));
 };
 
 const getRootCategoryName = (value: any) => {
@@ -1214,8 +1224,11 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
-  const hitProducts = safeProducts.filter((p: any) => p?.is_hit === true).slice(0, 16);
-  const newProducts = safeProducts.filter((p: any) => p?.is_new === true).slice(0, 16);
+  const hitProducts = sortByHoroshopOrder(safeProducts.filter((p: any) => p?.is_hit === true)).slice(0, 16);
+  const promoProducts = sortByHoroshopOrder(
+    safeProducts.filter((p: any) => p?.is_promotion === true || (p?.old_price && Number(p.old_price) > Number(p.price)))
+  ).slice(0, 16);
+  const newProducts = sortByHoroshopOrder(safeProducts.filter((p: any) => p?.is_new === true)).slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
 
@@ -1568,6 +1581,34 @@ export default function Index() {
       <HomeProductCarousel
         title={'\u0425\u0456\u0442\u0438 \u043f\u0440\u043e\u0434\u0430\u0436\u0456\u0432'}
         products={hitProducts}
+        favorites={favorites}
+        onOpenProduct={(item) => openProductWithRecent(item as Product)}
+        onAddToCart={(item) => {
+          Vibration.vibrate(10);
+          const picked = _pickDefaultVariant(item);
+          addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
+          showToast('Товар додано в кошик');
+        }}
+        onToggleFavorite={(item) => {
+          Vibration.vibrate(10);
+          const isFav = favorites.some(fav => fav.id === item.id);
+          toggleFavorite({
+            id: item.id,
+            name: item.name || '',
+            price: item.price || 0,
+            image: item.image || item.picture || item.image_url || '',
+            category: item.category,
+            old_price: item.old_price,
+            badge: item.badge,
+            unit: item.unit
+          });
+          showToast(isFav ? 'Видалено з обраного' : 'Додано в обране');
+        }}
+      />
+
+      <HomeProductCarousel
+        title={'Товари зі знижкою'}
+        products={promoProducts}
         favorites={favorites}
         onOpenProduct={(item) => openProductWithRecent(item as Product)}
         onAddToCart={(item) => {
