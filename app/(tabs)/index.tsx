@@ -1214,10 +1214,8 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
-  const hitProducts = safeProducts.filter((p: any) => p?.is_hit || p?.is_bestseller).slice(0, 16);
-  const promoProducts = safeProducts.filter((p: any) => p?.is_promotion || (p?.old_price && Number(p.old_price) > Number(p.price))).slice(0, 16);
-  const markedNewProducts = safeProducts.filter((p: any) => p?.is_new || String(p?.badge || '').toLowerCase().includes('нов')).slice(0, 16);
-  const newProducts = markedNewProducts.length ? markedNewProducts : safeProducts.slice(0, 16);
+  const hitProducts = safeProducts.filter((p: any) => p?.is_hit === true).slice(0, 16);
+  const newProducts = safeProducts.filter((p: any) => p?.is_new === true).slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
 
@@ -1569,35 +1567,7 @@ export default function Index() {
 
       <HomeProductCarousel
         title={'\u0425\u0456\u0442\u0438 \u043f\u0440\u043e\u0434\u0430\u0436\u0456\u0432'}
-        products={hitProducts.length ? hitProducts : products.slice(0, 12)}
-        favorites={favorites}
-        onOpenProduct={(item) => openProductWithRecent(item as Product)}
-        onAddToCart={(item) => {
-          Vibration.vibrate(10);
-          const picked = _pickDefaultVariant(item);
-          addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
-          showToast('Товар додано в кошик');
-        }}
-        onToggleFavorite={(item) => {
-          Vibration.vibrate(10);
-          const isFav = favorites.some(fav => fav.id === item.id);
-          toggleFavorite({
-            id: item.id,
-            name: item.name || '',
-            price: item.price || 0,
-            image: item.image || item.picture || item.image_url || '',
-            category: item.category,
-            old_price: item.old_price,
-            badge: item.badge,
-            unit: item.unit
-          });
-          showToast(isFav ? 'Видалено з обраного' : 'Додано в обране');
-        }}
-      />
-
-      <HomeProductCarousel
-        title={'\u0410\u043a\u0446\u0456\u0457'}
-        products={promoProducts}
+        products={hitProducts}
         favorites={favorites}
         onOpenProduct={(item) => openProductWithRecent(item as Product)}
         onAddToCart={(item) => {
@@ -1650,28 +1620,6 @@ export default function Index() {
           showToast(isFav ? 'Видалено з обраного' : 'Додано в обране');
         }}
       />
-
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 12, textAlign: 'center' }}>
-          Акції
-        </Text>
-
-        <View style={{
-          backgroundColor: '#F7F7F7',
-          borderRadius: 16,
-          padding: 16,
-          borderWidth: 1,
-          borderColor: '#ECECEC',
-          marginHorizontal: 2
-        }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 6 }}>
-            Дико-Корисно
-          </Text>
-          <Text style={{ fontSize: 13, lineHeight: 19, color: '#666' }}>
-            Актуальна інформація зі сторінки акцій сайту.
-          </Text>
-        </View>
-      </View>
 
         </ScrollView>
       )}
