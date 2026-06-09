@@ -15,6 +15,7 @@ from routers import (
     analytics,
     auth,
     banners,
+    catalog,
     categories,
     chat,
     delivery,
@@ -56,6 +57,7 @@ app.include_router(uploads.router)
 app.include_router(analytics.router)
 app.include_router(categories.router)
 app.include_router(banners.router)
+app.include_router(catalog.router)
 app.include_router(reviews.router)
 app.include_router(promo_codes.router)
 app.include_router(chat.router)

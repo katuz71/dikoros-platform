@@ -457,6 +457,10 @@ export default function Index() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [banners, setBanners] = useState<any[]>([]);
+  const [homeCategories, setHomeCategories] = useState<any[]>([]);
+  const [homeHits, setHomeHits] = useState<Product[]>([]);
+  const [homePromotions, setHomePromotions] = useState<Product[]>([]);
+  const [homeNewProducts, setHomeNewProducts] = useState<Product[]>([]);
 
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
@@ -921,11 +925,75 @@ export default function Index() {
     }
   }, [API_URL]);
 
+  const applyCatalogHomeData = useCallback((data: any) => {
+    const nextBanners = Array.isArray(data?.banners) ? data.banners.slice(0, 3) : [];
+    const nextCategories = Array.isArray(data?.categories) ? data.categories : [];
+    const nextHits = Array.isArray(data?.hits) ? data.hits : [];
+    const nextPromotions = Array.isArray(data?.promotions) ? data.promotions : [];
+    const nextNewProducts = Array.isArray(data?.new_products) ? data.new_products : [];
+
+    if (nextBanners.length > 0) {
+      setBanners(nextBanners);
+    }
+
+    setHomeCategories(nextCategories);
+    setHomeHits(nextHits);
+    setHomePromotions(nextPromotions);
+    setHomeNewProducts(nextNewProducts);
+  }, []);
+
+  const loadCatalogHome = useCallback(async () => {
+    const CACHE_KEY = 'cached_catalog_home_v1';
+
+    try {
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        try {
+          applyCatalogHomeData(JSON.parse(cachedData));
+        } catch {
+          await AsyncStorage.removeItem(CACHE_KEY);
+        }
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`${API_URL}/api/catalog/home`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new Error(`catalog home HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      applyCatalogHomeData(data);
+
+      try {
+        const serialized = JSON.stringify(data);
+        if (serialized.length < 200000) {
+          await AsyncStorage.setItem(CACHE_KEY, serialized);
+        }
+      } catch (cacheError) {
+        console.error('Error saving catalog home cache:', cacheError);
+      }
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('❌ Catalog home fetch error:', error?.message || error);
+      }
+    }
+  }, [API_URL, applyCatalogHomeData]);
+
   // Load banners on mount
   useEffect(() => {
-    console.log('Component mounted - Using OrdersContext API only');
+    console.log('Component mounted - loading dynamic catalog home');
     loadBanners();
-  }, []);
+    loadCatalogHome();
+  }, [loadBanners, loadCatalogHome]);
 
   // Загрузка баннеров из кэша при монтировании (для быстрого старта)
   useEffect(() => {
@@ -1164,9 +1232,12 @@ export default function Index() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchProducts();
+    await Promise.all([
+      fetchProducts(),
+      loadCatalogHome(),
+    ]);
     setRefreshing(false);
-  }, [fetchProducts]);
+  }, [fetchProducts, loadCatalogHome]);
 
   // Safe products array
   const safeProductsRaw = Array.isArray(products) ? products : [];
@@ -1230,18 +1301,25 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
-  const hitProducts = sortByHomeSectionOrder(
+
+  const fallbackHitProducts = sortByHomeSectionOrder(
     safeProducts.filter((p: any) => p?.home_hit_order != null && Number.isFinite(Number(p.home_hit_order))),
     'home_hit_order'
   ).slice(0, 16);
-  const promoProducts = sortByHomeSectionOrder(
+
+  const fallbackPromoProducts = sortByHomeSectionOrder(
     safeProducts.filter((p: any) => p?.home_promotion_order != null && Number.isFinite(Number(p.home_promotion_order))),
     'home_promotion_order'
   ).slice(0, 16);
-  const newProducts = sortByHomeSectionOrder(
+
+  const fallbackNewProducts = sortByHomeSectionOrder(
     safeProducts.filter((p: any) => p?.home_new_order != null && Number.isFinite(Number(p.home_new_order))),
     'home_new_order'
   ).slice(0, 16);
+
+  const hitProducts = homeHits.length > 0 ? homeHits : fallbackHitProducts;
+  const promoProducts = homePromotions.length > 0 ? homePromotions : fallbackPromoProducts;
+  const newProducts = homeNewProducts.length > 0 ? homeNewProducts : fallbackNewProducts;
 
   // Removed fetchProducts useEffect as we use local DB now
 
