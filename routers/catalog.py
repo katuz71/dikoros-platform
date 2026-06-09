@@ -32,6 +32,11 @@ def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = ""
             SELECT {PRODUCT_COLUMNS}
             FROM products
             WHERE COALESCE(status, '') != 'out_of_stock'
+              AND name IS NOT NULL
+              AND TRIM(name) != ''
+              AND LOWER(TRIM(name)) != 'без назви'
+              AND price IS NOT NULL
+              AND price > 0
             {where_sql}
             {order_sql}
             LIMIT ?
