@@ -318,19 +318,16 @@ async def _onebox_browser_save_order_fields(
 
     browser_cookie_for_order = "; ".join(cookie_parts)
 
+    # Minimal browser-save payload.
+    # Do NOT send product/payment fields here: OneBox tries to reprocess products
+    # and can fail with "Shop-object by id not found" before saving recipient fields.
     form_data = {
         f"oldorderstatusid_{order_id_str}": str(ONEBOX_STATUS_ID),
-        "productid": "",
-        "category": "0",
-        "sortProducts": "",
-        "discount": "",
-        "ordercurrencyid": "1",
-        "postcomment[]": "",
-        "noAddIssueBySaveComment": "1",
-        "email-quotestart": "",
+
         "setorderclientphone": "",
         "phone_active_0": "1",
         "email_active_0": "1",
+
         "customorder_Neperezvanivat": "1" if do_not_call else "0",
 
         # Real recipient fields confirmed from DevTools browser payload.
@@ -341,23 +338,13 @@ async def _onebox_browser_save_order_fields(
         "customorder_Znizhkanasaiti": bonus_used_str,
         "customorder_Vikoristanibonusinasaiti": bonus_used_str,
 
+        # Website comment must stay clean.
+        "customorder_Komentarzsaitu": client_comment,
+        "comments": client_comment,
+
         "oldclient": "1",
-        "paymentaccountid": "1",
-        "amount": "",
-        "paymentdirection": "fromclient",
         "orderadd": order_id_str,
         "linkkeyorderadd": order_id_str,
-        "orderamountbase": "",
-        "client": "",
-        "clientidadd": "",
-        "comment": "",
-        "paymentcategoryid": "",
-        "date": "",
-        "bankdetail": "",
-        "paymentadd": "",
-        "weight": "0,5",
-        "volumeGeneral": "",
-        "customorder_Peredavativzvit": "1",
         "ok": "1",
         "ajax": "1",
         "orderid": order_id_str,
@@ -369,6 +356,7 @@ async def _onebox_browser_save_order_fields(
         "reloadMenu": "1",
     }
 
+
     logger.warning("[OneBox] Browser fallback update via /ajax/admin/chat/get/order/")
     safe_form = dict(form_data)
     logger.info(json.dumps(safe_form, ensure_ascii=False, indent=2))
@@ -376,13 +364,6 @@ async def _onebox_browser_save_order_fields(
     # Send exactly as browser does: multipart/form-data.
     # httpx will generate boundary automatically.
     multipart_data = [(key, (None, str(value))) for key, value in form_data.items()]
-
-    # Browser payload contains repeated oldclient keys; keep them repeated.
-    multipart_data.extend([
-        ("oldclient", (None, "1")),
-        ("oldclient", (None, "1")),
-        ("oldclient", (None, "1")),
-    ])
 
     async with httpx.AsyncClient(follow_redirects=False) as client:
         resp = await client.post(
