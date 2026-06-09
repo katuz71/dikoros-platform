@@ -14,6 +14,12 @@ TITLE_FALLBACK = "\u0410\u043a\u0446\u0456\u0457"
 INFO_HEADING = "\u0406\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f"
 UNAVAILABLE_TEXT = "\u0406\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f \u0442\u0438\u043c\u0447\u0430\u0441\u043e\u0432\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043e\u043d\u043e\u0432\u0438\u0442\u0438 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0443 \u043f\u0456\u0437\u043d\u0456\u0448\u0435."
 TITLE_PREFIX = "\u0410\u043a\u0446\u0456\u0457 \u043d\u0430 \u043f\u0440\u043e\u0434\u0443\u043a\u0446\u0456\u044e"
+MONTH_WORDS = [
+    "\u0441\u0456\u0447\u043d\u044f", "\u043b\u044e\u0442\u043e\u0433\u043e", "\u0431\u0435\u0440\u0435\u0437\u043d\u044f",
+    "\u043a\u0432\u0456\u0442\u043d\u044f", "\u0442\u0440\u0430\u0432\u043d\u044f", "\u0447\u0435\u0440\u0432\u043d\u044f",
+    "\u043b\u0438\u043f\u043d\u044f", "\u0441\u0435\u0440\u043f\u043d\u044f", "\u0432\u0435\u0440\u0435\u0441\u043d\u044f",
+    "\u0436\u043e\u0432\u0442\u043d\u044f", "\u043b\u0438\u0441\u0442\u043e\u043f\u0430\u0434\u0430", "\u0433\u0440\u0443\u0434\u043d\u044f",
+]
 
 
 def _normalize_text(value: str) -> str:
@@ -32,6 +38,13 @@ def _first_srcset_url(value: str) -> str:
 def _absolute_image_url(value: str) -> str | None:
     candidate = unescape(value).strip()
     if not candidate or candidate.startswith("data:"):
+        return None
+    return urljoin(NEWS_SOURCE_URL, candidate)
+
+
+def _absolute_page_url(value: str) -> str | None:
+    candidate = unescape(value).strip()
+    if not candidate or candidate.startswith(("#", "javascript:", "mailto:", "tel:")):
         return None
     return urljoin(NEWS_SOURCE_URL, candidate)
 
@@ -73,6 +86,146 @@ def _is_content_image(url: str) -> bool:
         "no_photo",
     )
     return not any(marker in filename for marker in ignored_markers)
+
+
+def _is_date_text(value: str) -> bool:
+    low = value.lower()
+    return any(month in low for month in MONTH_WORDS)
+
+
+class EntriesExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.skip_depth = 0
+        self.entry_depth = 0
+        self.current = None
+        self.text_parts = []
+        self.entries = []
+
+    def _flush_text(self):
+        if not self.current:
+            self.text_parts = []
+            return
+
+        text = _normalize_text("".join(self.text_parts))
+        self.text_parts = []
+
+        if text:
+            self.current["texts"].append(text)
+
+    def _start_entry(self):
+        self._flush_text()
+        self.current = {"texts": [], "image_url": None, "source_url": None}
+        self.entry_depth = 1
+
+    def _finish_entry(self):
+        self._flush_text()
+
+        if self.current:
+            texts = [
+                text for text in self.current["texts"]
+                if text.strip().lower() not in {"\u0430\u043a\u0446\u0456\u044f", "\u0430\u043a\u0446\u0438\u0438"}
+            ]
+            heading = next((text for text in texts if _is_date_text(text)), "")
+            body_candidates = [text for text in texts if text != heading]
+            body = body_candidates[-1] if body_candidates else ""
+
+            if heading and body:
+                self.entries.append({
+                    "heading": heading,
+                    "body": body,
+                    "image_url": self.current.get("image_url"),
+                    "source_url": self.current.get("source_url"),
+                })
+
+        self.current = None
+        self.entry_depth = 0
+
+    def _handle_image(self, attrs: list[tuple[str, str | None]]):
+        if not self.current:
+            return
+
+        image_url = _image_url_from_attrs(dict(attrs))
+        if image_url and _is_content_image(image_url) and not self.current.get("image_url"):
+            self.current["image_url"] = image_url
+
+    def handle_starttag(self, tag, attrs):
+        attr_map = dict(attrs)
+
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.skip_depth += 1
+            return
+
+        if self.skip_depth:
+            return
+
+        if self.current and tag in {"footer", "main", "section"}:
+            self._finish_entry()
+            return
+
+        class_name = attr_map.get("class", "")
+        class_parts = set(class_name.split())
+
+        if tag == "li" and "entries-i" in class_parts:
+            if self.current:
+                self._finish_entry()
+            self._start_entry()
+            return
+
+        if self.current:
+            self.entry_depth += 1
+
+            if tag in {"h1", "h2", "h3", "p", "li", "a", "div", "span"}:
+                self._flush_text()
+
+            if tag == "a" and not self.current.get("source_url"):
+                source_url = _absolute_page_url(attr_map.get("href", ""))
+                if source_url and urlparse(source_url).path != urlparse(NEWS_SOURCE_URL).path:
+                    self.current["source_url"] = source_url
+
+            if tag == "img":
+                self._flush_text()
+                self._handle_image(attrs)
+
+    def handle_startendtag(self, tag, attrs):
+        if self.skip_depth or not self.current:
+            return
+
+        if tag == "img":
+            self._flush_text()
+            self._handle_image(attrs)
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+
+        if self.skip_depth or not self.current:
+            return
+
+        if tag in {"ul", "ol", "main", "section", "footer"}:
+            self._finish_entry()
+            return
+
+        if tag in {"h1", "h2", "h3", "p", "li", "a", "div", "span"}:
+            self._flush_text()
+
+        self.entry_depth -= 1
+        if self.entry_depth <= 0:
+            self._finish_entry()
+
+    def handle_data(self, data):
+        if self.current and not self.skip_depth:
+            self.text_parts.append(data)
+
+
+def _extract_entries(html: str) -> list[dict[str, str | None]]:
+    parser = EntriesExtractor()
+    parser.feed(html)
+    parser.close()
+    if parser.current:
+        parser._finish_entry()
+    return parser.entries
 
 
 class PageExtractor(HTMLParser):
@@ -150,17 +303,6 @@ def _fetch_source_html() -> str:
     )
     with urlopen(request, timeout=8) as response:
         return response.read().decode("utf-8", errors="ignore")
-
-
-def _is_date_text(value: str) -> bool:
-    month_words = [
-        "\u0441\u0456\u0447\u043d\u044f", "\u043b\u044e\u0442\u043e\u0433\u043e", "\u0431\u0435\u0440\u0435\u0437\u043d\u044f",
-        "\u043a\u0432\u0456\u0442\u043d\u044f", "\u0442\u0440\u0430\u0432\u043d\u044f", "\u0447\u0435\u0440\u0432\u043d\u044f",
-        "\u043b\u0438\u043f\u043d\u044f", "\u0441\u0435\u0440\u043f\u043d\u044f", "\u0432\u0435\u0440\u0435\u0441\u043d\u044f",
-        "\u0436\u043e\u0432\u0442\u043d\u044f", "\u043b\u0438\u0441\u0442\u043e\u043f\u0430\u0434\u0430", "\u0433\u0440\u0443\u0434\u043d\u044f",
-    ]
-    low = value.lower()
-    return any(month in low for month in month_words)
 
 
 def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[str, str | None]]]:
@@ -292,10 +434,11 @@ def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[
                 "heading": heading,
                 "body": body,
                 "image_url": image_url,
+                "source_url": None,
             })
             continue
 
-        sections.append({"heading": INFO_HEADING, "body": line, "image_url": None})
+        sections.append({"heading": INFO_HEADING, "body": line, "image_url": None, "source_url": None})
         index += 1
 
     sections = [section for section in sections if section.get("body")]
@@ -306,7 +449,9 @@ def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[
 @router.get("/api/pages/news")
 def get_news_page():
     try:
-        title, sections = _extract_page_content(_extract_events(_fetch_source_html()))
+        html = _fetch_source_html()
+        title, fallback_sections = _extract_page_content(_extract_events(html))
+        sections = _extract_entries(html) or fallback_sections
     except Exception:
         title, sections = TITLE_FALLBACK, []
 
@@ -329,12 +474,13 @@ def get_news_page():
                 "heading": heading,
                 "body": body,
                 "image_url": section.get("image_url") or None,
+                "source_url": section.get("source_url") or None,
             })
 
     sections = cleaned_sections
 
     if not sections:
-        sections = [{"heading": INFO_HEADING, "body": UNAVAILABLE_TEXT, "image_url": None}]
+        sections = [{"heading": INFO_HEADING, "body": UNAVAILABLE_TEXT, "image_url": None, "source_url": None}]
 
     return {
         "title": title,

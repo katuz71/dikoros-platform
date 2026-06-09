@@ -17,6 +17,7 @@ type NewsSection = {
   heading?: string;
   body?: string;
   image_url?: string | null;
+  source_url?: string | null;
 };
 
 type NewsPage = {
@@ -90,7 +91,20 @@ export default function NewsScreen() {
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           {(page?.sections || []).map((section, index) => (
-            <View key={index} style={styles.card}>
+            <TouchableOpacity
+              key={index}
+              style={styles.card}
+              activeOpacity={0.88}
+              onPress={() => router.push({
+                pathname: '/news-detail',
+                params: {
+                  heading: section.heading || '',
+                  body: section.body || '',
+                  image_url: section.image_url || '',
+                  source_url: section.source_url || '',
+                },
+              })}
+            >
               {!!section.image_url && (
                 <Image
                   source={{ uri: section.image_url }}
@@ -104,7 +118,7 @@ export default function NewsScreen() {
               {!!section.body && (
                 <Text style={styles.cardText}>{section.body}</Text>
               )}
-            </View>
+            </TouchableOpacity>
           ))}
 
           {!error && (!page?.sections || page.sections.length === 0) && (
