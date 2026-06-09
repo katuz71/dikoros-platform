@@ -41,5 +41,6 @@ export const API_ENDPOINTS = {
   userOrders: '/orders/user',     // ИСПРАВЛЕНО (для истории заказов)
   upload: '/upload',              // Было верно
   health: '/health',              // ИСПРАВЛЕНО (было /)
+  newsPage: '/api/pages/news',
   admin: '/admin',                // Было верно
 };

@@ -1377,6 +1377,21 @@ export default function Index() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingRight: 20 }}
           >
+            <TouchableOpacity
+              key="news"
+              onPress={() => router.push('/news')}
+              style={[
+                styles.categoryItem,
+                { backgroundColor: '#E8F5E9', borderColor: '#2E7D32' }
+              ]}
+            >
+              <Text style={[
+                styles.categoryText,
+                { color: '#2E7D32', fontWeight: '800' }
+              ]}>
+                ??????
+              </Text>
+            </TouchableOpacity>
             {derivedCategories.map((cat, index) => (
               <TouchableOpacity
                 key={index}

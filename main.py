@@ -21,6 +21,7 @@ from routers import (
     health,
     orders,
     orders_secure,
+    pages,
     posts,
     products,
     promo_codes,
@@ -48,6 +49,7 @@ app = FastAPI()
 add_admin_guard_middleware(app)
 app.include_router(health.router)
 app.include_router(public_pages.router)
+app.include_router(pages.router)
 app.include_router(delivery.router)
 app.include_router(uploads.router)
 app.include_router(analytics.router)
