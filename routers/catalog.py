@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
+from html import unescape
+from urllib.parse import urljoin
 
 import httpx
 from fastapi import APIRouter
@@ -108,7 +111,33 @@ def _fetch_banners():
         conn.close()
 
 
-def _fetch_products_by_home_refs(refs: list[HomepageProductRef], limit: int = 50):
+def _extract_product_page_sku(html: str) -> str | None:
+    match = re.search(r"Артикул:\s*([^<]+)", html)
+    if not match:
+        return None
+
+    sku = unescape(match.group(1)).strip()
+    return sku or None
+
+
+async def _resolve_ref_sku_from_href(
+    client: httpx.AsyncClient,
+    domain: str,
+    ref: HomepageProductRef,
+) -> str | None:
+    if not ref.href:
+        return None
+
+    response = await client.get(urljoin(f"https://{domain}/", ref.href))
+    return _extract_product_page_sku(response.text)
+
+
+async def _fetch_products_by_home_refs(
+    refs: list[HomepageProductRef],
+    client: httpx.AsyncClient,
+    domain: str,
+    limit: int = 50,
+):
     conn = get_db_connection()
     try:
         products = []
@@ -125,6 +154,13 @@ def _fetch_products_by_home_refs(refs: list[HomepageProductRef], limit: int = 50
                     f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? LIMIT 1",
                     (ref.sku,),
                 ).fetchone()
+            if not row and ref.href:
+                resolved_sku = await _resolve_ref_sku_from_href(client, domain, ref)
+                if resolved_sku:
+                    row = conn.execute(
+                        f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? LIMIT 1",
+                        (resolved_sku,),
+                    ).fetchone()
             if not row:
                 continue
 
@@ -143,9 +179,9 @@ async def get_catalog_home():
     async with httpx.AsyncClient(timeout=60.0) as client:
         sections = await _fetch_homepage_sections(client, domain)
 
-    hits = _fetch_products_by_home_refs(sections.get("hit", []), limit=50)
-    promotions = _fetch_products_by_home_refs(sections.get("promotion", []), limit=50)
-    new_products = _fetch_products_by_home_refs(sections.get("new", []), limit=50)
+        hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=50)
+        promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=50)
+        new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=50)
 
     return {
         "banners": _fetch_banners(),

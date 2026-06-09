@@ -32,6 +32,7 @@ class HomepageProductRef:
     section: str
     sku: str | None = None
     external_id: str | None = None
+    href: str | None = None
 
 
 def _class_contains(attrs: dict[str, str], value: str) -> bool:
@@ -100,6 +101,10 @@ class HomepageSectionsParser(HTMLParser):
                 section=self.current_section,
                 external_id=attrs.get("data-id"),
             )
+            return
+
+        if tag == "a" and self.current_card and attrs.get("href"):
+            self.current_card.href = attrs.get("href")
             return
 
         if tag == "img" and self.current_card:

@@ -945,7 +945,7 @@ export default function Index() {
   }, []);
 
   const loadCatalogHome = useCallback(async () => {
-    const CACHE_KEY = 'cached_catalog_home_v1';
+    const CACHE_KEY = 'cached_catalog_home_v2';
 
     try {
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);

@@ -218,15 +218,14 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         list = p.images.split(',').map((u: string) => u.trim()).filter(Boolean);
       }
     }
-    
-    // Add main image if not already in list
     const main = p.image || p.picture || p.image_url;
-    const listFull = list
+    let listFull = list
       .map((u: any) => getImageUrl(String(u ?? '').trim()))
       .filter((u: string) => !!u && u !== 'null' && u !== 'undefined');
     const mainFull = main ? getImageUrl(String(main).trim()) : '';
-    if (mainFull && !listFull.includes(mainFull)) {
-      listFull.unshift(mainFull);
+
+    if (listFull.length === 0 && mainFull) {
+      listFull = [mainFull];
     }
 
     // Dedupe (preserve order)
@@ -240,9 +239,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       deduped.push(s);
     });
 
-    if (deduped.length > 0) return deduped;
-    if (listFull.length > 0) return listFull;
-    return mainFull ? [mainFull] : [];
+    return deduped;
   };
 
   const images = getAllImages(product);
