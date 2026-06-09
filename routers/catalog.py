@@ -84,29 +84,20 @@ def _fetch_banners():
 @router.get("/home")
 def get_catalog_home():
     hits = _fetch_products(
-        where_sql="AND COALESCE(is_hit, FALSE) = TRUE",
-        order_sql="ORDER BY COALESCE(home_hit_order, sort_order, 2147483647), id DESC",
+        where_sql="AND home_hit_order IS NOT NULL",
+        order_sql="ORDER BY home_hit_order ASC, id DESC",
         limit=16,
     )
 
     promotions = _fetch_products(
-        where_sql="""
-            AND (
-                COALESCE(is_promotion, FALSE) = TRUE
-                OR (
-                    old_price IS NOT NULL
-                    AND price IS NOT NULL
-                    AND old_price > price
-                )
-            )
-        """,
-        order_sql="ORDER BY COALESCE(home_promotion_order, sort_order, 2147483647), id DESC",
+        where_sql="AND home_promotion_order IS NOT NULL",
+        order_sql="ORDER BY home_promotion_order ASC, id DESC",
         limit=16,
     )
 
     new_products = _fetch_products(
-        where_sql="AND COALESCE(is_new, FALSE) = TRUE",
-        order_sql="ORDER BY COALESCE(home_new_order, sort_order, 2147483647), id DESC",
+        where_sql="AND home_new_order IS NOT NULL",
+        order_sql="ORDER BY home_new_order ASC, id DESC",
         limit=16,
     )
 
