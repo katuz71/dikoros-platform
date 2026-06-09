@@ -556,14 +556,13 @@ async def create_onebox_order(order_data: dict) -> dict:
             "statusid": str(ONEBOX_STATUS_ID),
             "name": onebox_order_name,
             "externalid": app_order_number,
-            # OneBox treats order client phone as recipient phone in UI.
-            # Therefore OneBox client block must be the shipment recipient.
-            # Real app buyer/account data is stored in dedicated custom fields, not in comments.
-            "clientnamefirst": recipient_first_name,
-            "clientnamelast": recipient_last_name,
-            "clientnamemiddle": "",
-            "clientphone": recipient_phone_onebox,
-            "clientemail": email if recipient_phone_onebox == client_phone_onebox else "",
+            # Standard OneBox client block = real app buyer/account.
+            # If recipient differs, dedicated order_client* fields below store shipment recipient.
+            "clientnamefirst": buyer_first_for_onebox,
+            "clientnamelast": buyer_last_for_onebox,
+            "clientnamemiddle": buyer_middle_for_onebox,
+            "clientphone": client_phone_onebox,
+            "clientemail": email,
             "clientaddress": full_address,
             "setorderclientphone": "",
             "phone_active_0": "1",
