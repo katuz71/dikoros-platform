@@ -202,12 +202,12 @@ def _apply_home_section_order(
         param = ""
         
         # Берем конкретный товар, а не его группу
-        if ref.sku:
-            where_sql = "sku = ?"
-            param = ref.sku
-        elif ref.external_id:
+        if ref.external_id:
             where_sql = "external_id = ?"
             param = ref.external_id
+        elif ref.sku:
+            where_sql = "sku = ?"
+            param = ref.sku
         else:
             continue
             
