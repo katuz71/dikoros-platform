@@ -68,7 +68,7 @@ export default function NewsScreen() {
           <Ionicons name="arrow-back" size={26} color="#111" />
         </TouchableOpacity>
 
-        <Text style={styles.title}>{page?.title || 'Новини'}</Text>
+        <Text style={styles.title}>{page?.title || 'Акції'}</Text>
 
         <View style={styles.headerSpacer} />
       </View>

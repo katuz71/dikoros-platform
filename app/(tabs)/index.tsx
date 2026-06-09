@@ -371,6 +371,18 @@ const ProductImage = ({ uri, style }: { uri: string; style?: any }) => {
   );
 };
 
+const SITE_CATEGORY_ORDER = [
+  'Мікродозінг',
+  'Сушені гриби',
+  'CBD',
+  'Адаптогени та суперфуди',
+  'Мазі',
+  'Настоянки',
+  'Трави та ягоди',
+  'Ваги',
+  'Консервація та мед',
+];
+
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -417,7 +429,7 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState("Всі");
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [categoryViewOpen, setCategoryViewOpen] = useState(false);
   const [sortType, setSortType] = useState<'popular' | 'asc' | 'desc'>('popular');
   const [successVisible, setSuccessVisible] = useState(false);
@@ -1171,13 +1183,15 @@ export default function Index() {
   // Derive only root categories from products for the home screen
   const derivedCategories = useMemo(() => {
     const categorySet = new Set<string>();
+
     safeProducts.forEach(p => {
       const rootCategory = getRootCategoryName(p?.category);
       if (rootCategory) {
         categorySet.add(rootCategory);
       }
     });
-    return ['Всі', ...Array.from(categorySet)];
+
+    return SITE_CATEGORY_ORDER.filter(cat => categorySet.has(cat));
   }, [safeProducts]);
 
   // Фильтрация товаров по поисковому запросу и категории
@@ -1187,7 +1201,7 @@ export default function Index() {
     );
 
     // Filter by root category so parent category includes child-category products
-    if (selectedCategory !== 'Всі') {
+    if (selectedCategory) {
       result = result.filter(p => getRootCategoryName(p?.category) === selectedCategory);
     }
 
@@ -1389,7 +1403,7 @@ export default function Index() {
                 styles.categoryText,
                 { color: '#2E7D32', fontWeight: '800' }
               ]}>
-                Новини
+                Акції
               </Text>
             </TouchableOpacity>
             {derivedCategories.map((cat, index) => (
@@ -1397,16 +1411,14 @@ export default function Index() {
                 key={index}
                 onPress={() => {
                   setSelectedCategory(cat);
-                  setCategoryViewOpen(cat !== 'Всі');
+                  setCategoryViewOpen(true);
                 }}
                 style={[
-                  styles.categoryItem,
-                  selectedCategory === cat && styles.categoryItemActive
+                  styles.categoryItem
                 ]}
               >
                 <Text style={[
-                  styles.categoryText,
-                  selectedCategory === cat && styles.categoryTextActive
+                  styles.categoryText
                 ]}>
                   {cat}
                 </Text>
@@ -1428,7 +1440,7 @@ export default function Index() {
             <TouchableOpacity
               onPress={() => {
                 setCategoryViewOpen(false);
-                setSelectedCategory('Всі');
+                setSelectedCategory('');
               }}
               style={{ padding: 8 }}
             >
@@ -1641,7 +1653,7 @@ export default function Index() {
 
       <View style={{ marginBottom: 24 }}>
         <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 12, textAlign: 'center' }}>
-          Новини
+          Акції
         </Text>
 
         <View style={{
@@ -1656,7 +1668,7 @@ export default function Index() {
             Дико-Корисно
           </Text>
           <Text style={{ fontSize: 13, lineHeight: 19, color: '#666' }}>
-            Корисні матеріали, поради та новини магазину.
+            Актуальна інформація зі сторінки акцій сайту.
           </Text>
         </View>
       </View>
@@ -1991,16 +2003,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#e0e0e0',
     marginRight: 8,
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#2E7D32',
   },
   categoryItemActive: {
     backgroundColor: '#2E7D32',
   },
   categoryText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+    fontWeight: '800',
+    color: '#2E7D32',
   },
   categoryTextActive: {
     color: '#fff',
