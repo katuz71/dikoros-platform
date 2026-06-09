@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
+
+import httpx
 from fastapi import APIRouter
 
 from db import get_db_connection
+from services.catalog_sync import HomepageProductRef, _fetch_homepage_sections
 from services.products import normalize_product_row
 
 
@@ -104,32 +108,44 @@ def _fetch_banners():
         conn.close()
 
 
+def _fetch_products_by_home_refs(refs: list[HomepageProductRef], limit: int = 50):
+    conn = get_db_connection()
+    try:
+        products = []
+
+        for ref in refs:
+            row = None
+            if ref.external_id:
+                row = conn.execute(
+                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE external_id = ? LIMIT 1",
+                    (ref.external_id,),
+                ).fetchone()
+            if not row and ref.sku:
+                row = conn.execute(
+                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? LIMIT 1",
+                    (ref.sku,),
+                ).fetchone()
+            if not row:
+                continue
+
+            products.append(normalize_product_row(dict(row)))
+            if len(products) >= limit:
+                break
+
+        return products
+    finally:
+        conn.close()
+
+
 @router.get("/home")
-def get_catalog_home():
-    # Отдаем карточки ровно так, как они висят на сайте (strict=False разрешает отдавать товары "Нет в наличии")
-    hits = _fetch_products(
-        where_sql="AND home_hit_order IS NOT NULL",
-        order_sql="ORDER BY home_hit_order ASC, id ASC",
-        limit=50,
-        strict=False,
-        dedupe_by=None
-    )
+async def get_catalog_home():
+    domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        sections = await _fetch_homepage_sections(client, domain)
 
-    promotions = _fetch_products(
-        where_sql="AND home_promotion_order IS NOT NULL",
-        order_sql="ORDER BY home_promotion_order ASC, id ASC",
-        limit=50,
-        strict=False,
-        dedupe_by=None
-    )
-
-    new_products = _fetch_products(
-        where_sql="AND home_new_order IS NOT NULL",
-        order_sql="ORDER BY home_new_order ASC, id ASC",
-        limit=50,
-        strict=False,
-        dedupe_by=None
-    )
+    hits = _fetch_products_by_home_refs(sections.get("hit", []), limit=50)
+    promotions = _fetch_products_by_home_refs(sections.get("promotion", []), limit=50)
+    new_products = _fetch_products_by_home_refs(sections.get("new", []), limit=50)
 
     return {
         "banners": _fetch_banners(),
