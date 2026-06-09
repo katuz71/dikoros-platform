@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
@@ -49,6 +49,16 @@ def _absolute_page_url(value: str) -> str | None:
     return urljoin(NEWS_SOURCE_URL, candidate)
 
 
+def _is_allowed_news_url(value: str) -> bool:
+    parsed = urlparse(value)
+    source = urlparse(NEWS_SOURCE_URL)
+    return (
+        parsed.scheme in {"http", "https"}
+        and parsed.netloc == source.netloc
+        and parsed.path not in {"", "/", source.path}
+    )
+
+
 def _image_url_from_attrs(attrs: dict[str, str]) -> str | None:
     for name in ("data-srcset", "srcset"):
         value = attrs.get(name, "")
@@ -91,6 +101,153 @@ def _is_content_image(url: str) -> bool:
 def _is_date_text(value: str) -> bool:
     low = value.lower()
     return any(month in low for month in MONTH_WORDS)
+
+
+def _fetch_html(url: str) -> str:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "DikorosUA-App/1.0 (+https://app.dikoros.ua)",
+            "Accept": "text/html,application/xhtml+xml",
+        },
+    )
+    with urlopen(request, timeout=8) as response:
+        return response.read().decode("utf-8", errors="ignore")
+
+
+class ArticleDetailExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.skip_depth = 0
+        self.in_heading = False
+        self.in_date = False
+        self.date_found = False
+        self.in_text_depth = 0
+        self.text_parts = []
+        self.paragraphs = []
+        self.title_parts = []
+        self.date_parts = []
+        self.image_url = None
+
+    def _flush_paragraph(self):
+        text = _normalize_text("".join(self.text_parts))
+        self.text_parts = []
+        if text:
+            self.paragraphs.append(text)
+
+    def _handle_image(self, attrs: list[tuple[str, str | None]]):
+        attr_map = dict(attrs)
+        class_parts = set(attr_map.get("class", "").split())
+        if self.image_url and "article__cover-img" not in class_parts:
+            return
+
+        image_url = _image_url_from_attrs(attr_map)
+        if image_url and _is_content_image(image_url):
+            self.image_url = image_url
+
+    def handle_starttag(self, tag, attrs):
+        attr_map = dict(attrs)
+
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.skip_depth += 1
+            return
+
+        if self.skip_depth:
+            return
+
+        class_parts = set(attr_map.get("class", "").split())
+
+        if tag == "h1" and "main-h" in class_parts:
+            self.in_heading = True
+            return
+
+        if (
+            tag == "div"
+            and "article__meta-item" in class_parts
+            and "j-comments-count-container" not in class_parts
+            and not self.date_found
+        ):
+            self.in_date = True
+            return
+
+        if tag == "div" and "article-text" in class_parts:
+            self.in_text_depth = 1
+            return
+
+        if self.in_text_depth:
+            self.in_text_depth += 1
+            if tag in {"p", "li", "h2", "h3"}:
+                self._flush_paragraph()
+            elif tag == "br":
+                self.text_parts.append("\n")
+
+        if tag == "img":
+            self._handle_image(attrs)
+
+    def handle_startendtag(self, tag, attrs):
+        if self.skip_depth:
+            return
+
+        if tag == "img":
+            self._handle_image(attrs)
+        elif tag == "br" and self.in_text_depth:
+            self.text_parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+
+        if self.skip_depth:
+            return
+
+        if self.in_heading and tag == "h1":
+            self.in_heading = False
+            return
+
+        if self.in_date and tag == "div":
+            self.in_date = False
+            self.date_found = True
+            return
+
+        if self.in_text_depth:
+            if tag in {"p", "li", "h2", "h3"}:
+                self._flush_paragraph()
+
+            self.in_text_depth -= 1
+            if self.in_text_depth <= 0:
+                self._flush_paragraph()
+
+    def handle_data(self, data):
+        if self.skip_depth:
+            return
+
+        if self.in_heading:
+            self.title_parts.append(data)
+        elif self.in_date:
+            self.date_parts.append(data)
+        elif self.in_text_depth:
+            self.text_parts.append(data)
+
+    def result(self, source_url: str) -> dict[str, str | None]:
+        title = _normalize_text("".join(self.title_parts))
+        date = _normalize_text("".join(self.date_parts))
+        body = "\n\n".join(self.paragraphs).strip()
+
+        return {
+            "title": title,
+            "heading": date or INFO_HEADING,
+            "body": body,
+            "image_url": self.image_url,
+            "source_url": source_url,
+        }
+
+
+def _extract_article_detail(html: str, source_url: str) -> dict[str, str | None]:
+    parser = ArticleDetailExtractor()
+    parser.feed(html)
+    parser.close()
+    return parser.result(source_url)
 
 
 class EntriesExtractor(HTMLParser):
@@ -294,15 +451,7 @@ def _extract_events(html: str) -> list[dict[str, str]]:
 
 
 def _fetch_source_html() -> str:
-    request = Request(
-        NEWS_SOURCE_URL,
-        headers={
-            "User-Agent": "DikorosUA-App/1.0 (+https://app.dikoros.ua)",
-            "Accept": "text/html,application/xhtml+xml",
-        },
-    )
-    with urlopen(request, timeout=8) as response:
-        return response.read().decode("utf-8", errors="ignore")
+    return _fetch_html(NEWS_SOURCE_URL)
 
 
 def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[str, str | None]]]:
@@ -444,6 +593,27 @@ def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[
     sections = [section for section in sections if section.get("body")]
 
     return title, sections
+
+
+@router.get("/api/pages/news/detail")
+def get_news_detail(source_url: str = Query(..., min_length=1)):
+    absolute_url = _absolute_page_url(source_url)
+
+    if not absolute_url or not _is_allowed_news_url(absolute_url):
+        raise HTTPException(status_code=400, detail="Invalid news source URL")
+
+    try:
+        detail = _extract_article_detail(_fetch_html(absolute_url), absolute_url)
+    except Exception:
+        raise HTTPException(status_code=502, detail="News detail is temporarily unavailable")
+
+    if not detail.get("title") and not detail.get("body"):
+        raise HTTPException(status_code=404, detail="News detail not found")
+
+    return {
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **detail,
+    }
 
 
 @router.get("/api/pages/news")

@@ -1,13 +1,24 @@
+import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+
+type NewsDetail = {
+  title: string;
+  heading: string;
+  body: string;
+  image_url: string;
+};
 
 export default function NewsDetailScreen() {
   const router = useRouter();
@@ -18,9 +29,62 @@ export default function NewsDetailScreen() {
     source_url?: string;
   }>();
 
-  const heading = Array.isArray(params.heading) ? params.heading[0] : params.heading;
-  const body = Array.isArray(params.body) ? params.body[0] : params.body;
-  const imageUrl = Array.isArray(params.image_url) ? params.image_url[0] : params.image_url;
+  const initialHeading = Array.isArray(params.heading) ? params.heading[0] : params.heading;
+  const initialBody = Array.isArray(params.body) ? params.body[0] : params.body;
+  const initialImageUrl = Array.isArray(params.image_url) ? params.image_url[0] : params.image_url;
+  const sourceUrl = Array.isArray(params.source_url) ? params.source_url[0] : params.source_url;
+
+  const [detail, setDetail] = useState<NewsDetail>({
+    title: '',
+    heading: initialHeading || '',
+    body: initialBody || '',
+    image_url: initialImageUrl || '',
+  });
+  const [loading, setLoading] = useState(!!sourceUrl);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadDetail = async () => {
+    if (!sourceUrl) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      setError('');
+      const response = await fetch(
+        `${API_URL}/api/pages/news/detail?source_url=${encodeURIComponent(sourceUrl)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDetail({
+        title: data.title || '',
+        heading: data.heading || initialHeading || '',
+        body: data.body || initialBody || '',
+        image_url: data.image_url || initialImageUrl || '',
+      });
+    } catch (err) {
+      console.warn('News detail load failed:', err);
+      setError('Не вдалося завантажити акцію. Спробуйте оновити сторінку.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDetail();
+  }, [sourceUrl]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDetail();
+  };
 
   return (
     <View style={styles.container}>
@@ -38,23 +102,35 @@ export default function NewsDetailScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.card}>
-          {!!imageUrl && (
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-          )}
-
-          {!!heading && <Text style={styles.heading}>{heading}</Text>}
-          {!!body && <Text style={styles.body}>{body}</Text>}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#2E7D32" />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          <View style={styles.card}>
+            {!!detail.image_url && (
+              <Image
+                source={{ uri: detail.image_url }}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            )}
+
+            {!!detail.heading && <Text style={styles.date}>{detail.heading}</Text>}
+            {!!detail.title && <Text style={styles.heading}>{detail.title}</Text>}
+            {!!detail.body && <Text style={styles.body}>{detail.body}</Text>}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -88,6 +164,11 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 44,
   },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: {
     padding: 20,
     paddingBottom: 40,
@@ -106,6 +187,12 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     backgroundColor: '#EEF2EE',
   },
+  date: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2E7D32',
+    marginBottom: 8,
+  },
   heading: {
     fontSize: 22,
     fontWeight: '900',
@@ -116,5 +203,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#374151',
+  },
+  error: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#B91C1C',
+    marginBottom: 14,
   },
 });
