@@ -195,24 +195,28 @@ def _apply_home_section_order(
 ) -> int:
     column = HOME_SECTION_COLUMNS[section]
     updated = 0
-    seen_groups = set()
+    seen_items = set()
 
     for order, ref in enumerate(refs, start=1):
-        row = None
+        where_sql = ""
+        param = ""
+        
+        # Берем конкретный товар, а не его группу
         if ref.sku:
-            cur.execute("SELECT sku, parent_sku, old_price, price, is_new FROM products WHERE sku = ? LIMIT 1", (ref.sku,))
-            row = cur.fetchone()
-        if not row and ref.external_id:
-            cur.execute("SELECT sku, parent_sku, old_price, price, is_new FROM products WHERE external_id = ? LIMIT 1", (ref.external_id,))
-            row = cur.fetchone()
-        if not row:
+            where_sql = "sku = ?"
+            param = ref.sku
+        elif ref.external_id:
+            where_sql = "external_id = ?"
+            param = ref.external_id
+        else:
+            continue
+            
+        if param in seen_items:
             continue
 
-        sku = str(_row_value(row, "sku") or "").strip()
-        parent_sku = str(_row_value(row, "parent_sku") or "").strip()
-        group_key = parent_sku or sku
-        
-        if not group_key or group_key in seen_groups:
+        cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
+        row = cur.fetchone()
+        if not row:
             continue
 
         if section == "promotion":
@@ -224,15 +228,16 @@ def _apply_home_section_order(
             if is_new:
                 continue
 
+        # Обновляем ТОЛЬКО одну конкретную карточку
         cur.execute(
             f"""
             UPDATE products
             SET {column} = ?
-            WHERE COALESCE(NULLIF(parent_sku, ''), sku) = ?
+            WHERE {where_sql}
             """,
-            (order, group_key),
+            (order, param),
         )
-        seen_groups.add(group_key)
+        seen_items.add(param)
         updated += 1
 
     return updated

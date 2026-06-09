@@ -25,18 +25,18 @@ def _rows_to_products(rows):
     return [normalize_product_row(dict(row)) for row in rows]
 
 
-def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = "", limit: int = 16, dedupe_by=None):
+def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = "", limit: int = 50, dedupe_by=None, strict: bool = True):
     conn = get_db_connection()
     try:
+        base_cond = "WHERE name IS NOT NULL AND TRIM(name) != '' AND LOWER(TRIM(name)) != 'без назви'"
+        
+        if strict:
+            base_cond += " AND COALESCE(status, '') != 'out_of_stock' AND price IS NOT NULL AND price > 0"
+            
         sql = f"""
             SELECT {PRODUCT_COLUMNS}
             FROM products
-            WHERE COALESCE(status, '') != 'out_of_stock'
-              AND name IS NOT NULL
-              AND TRIM(name) != ''
-              AND LOWER(TRIM(name)) != 'без назви'
-              AND price IS NOT NULL
-              AND price > 0
+            {base_cond}
             {where_sql}
             {order_sql}
             LIMIT ?
@@ -104,50 +104,31 @@ def _fetch_banners():
         conn.close()
 
 
-def _fetch_home_promotions():
-    promotions = _fetch_home_promotions()
-
-    if promotions:
-        return promotions
-
-    return _fetch_products(
-        where_sql="""
-            AND (
-                COALESCE(is_promotion, FALSE) = TRUE
-                OR (
-                    old_price IS NOT NULL
-                    AND price IS NOT NULL
-                    AND old_price > price
-                )
-            )
-        """,
-        order_sql="ORDER BY COALESCE(sort_order, 2147483647), id ASC",
-        dedupe_by="sort_order",
-        limit=16,
-    )
-
-
 @router.get("/home")
 def get_catalog_home():
+    # Отдаем карточки ровно так, как они висят на сайте (strict=False разрешает отдавать товары "Нет в наличии")
     hits = _fetch_products(
         where_sql="AND home_hit_order IS NOT NULL",
-        order_sql="ORDER BY home_hit_order ASC, COALESCE(sort_order, 2147483647), id ASC",
-        dedupe_by="home_hit_order",
-        limit=16,
+        order_sql="ORDER BY home_hit_order ASC, id ASC",
+        limit=50,
+        strict=False,
+        dedupe_by=None
     )
 
     promotions = _fetch_products(
         where_sql="AND home_promotion_order IS NOT NULL",
-        order_sql="ORDER BY home_promotion_order ASC, COALESCE(sort_order, 2147483647), id ASC",
-        dedupe_by="home_promotion_order",
-        limit=16,
+        order_sql="ORDER BY home_promotion_order ASC, id ASC",
+        limit=50,
+        strict=False,
+        dedupe_by=None
     )
 
     new_products = _fetch_products(
         where_sql="AND home_new_order IS NOT NULL",
-        order_sql="ORDER BY home_new_order ASC, COALESCE(sort_order, 2147483647), id ASC",
-        dedupe_by="home_new_order",
-        limit=16,
+        order_sql="ORDER BY home_new_order ASC, id ASC",
+        limit=50,
+        strict=False,
+        dedupe_by=None
     )
 
     return {
