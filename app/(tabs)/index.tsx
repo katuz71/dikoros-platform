@@ -1389,7 +1389,7 @@ export default function Index() {
                 styles.categoryText,
                 { color: '#2E7D32', fontWeight: '800' }
               ]}>
-                ??????
+                Новини
               </Text>
             </TouchableOpacity>
             {derivedCategories.map((cat, index) => (
