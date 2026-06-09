@@ -280,50 +280,75 @@ async def _onebox_fetch_order_product_context(order_id: str, browser_cookie: str
     """
     Fetch OneBox product row ids required by browser order save.
 
-    OneBox save needs:
+    Confirmed working browser save requires:
     - productid = catalog product id, e.g. 130
     - sortProducts230 = order product row id, e.g. 147014
+
+    Product table is loaded asynchronously in OneBox, so retry after order creation.
     """
-    async with httpx.AsyncClient(follow_redirects=False) as client:
-        resp = await client.get(
-            f"{ONEBOX_URL}/admin/block/order/product/get/ajax/?blockid=230&id={order_id}",
-            headers={
-                "Cookie": browser_cookie,
-                "Referer": f"{ONEBOX_URL}/{order_id}/",
-                "X-Requested-With": "XMLHttpRequest",
-                "User-Agent": "Mozilla/5.0",
-            },
-            timeout=30.0,
-        )
+    last_response_preview = ""
 
-    try:
-        data = resp.json()
-    except Exception:
-        logger.error("[OneBox] Product context ajax non-json response: %s", resp.text[:1000])
-        return {"productid": "", "sortProducts230": ""}
+    for attempt in range(1, 11):
+        async with httpx.AsyncClient(follow_redirects=False) as client:
+            resp = await client.get(
+                f"{ONEBOX_URL}/admin/block/order/product/get/ajax/?blockid=230&id={order_id}",
+                headers={
+                    "Cookie": browser_cookie,
+                    "Referer": f"{ONEBOX_URL}/{order_id}/",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "User-Agent": "Mozilla/5.0",
+                },
+                timeout=30.0,
+            )
 
-    products = data.get("products") or []
-    row_ids = []
-    product_ids = []
+        last_response_preview = resp.text[:1000]
 
-    for item in products:
-        row_id = str(item.get("id") or "").strip()
-        fields = item.get("fields") or {}
-        product_id = str(fields.get("productid") or "").strip()
+        try:
+            data = resp.json()
+        except Exception:
+            logger.warning(
+                "[OneBox] Product context ajax non-json attempt=%s status=%s body=%s",
+                attempt,
+                resp.status_code,
+                last_response_preview,
+            )
+            await asyncio.sleep(1)
+            continue
 
-        if row_id:
-            row_ids.append(row_id)
-        if product_id:
-            product_ids.append(product_id)
+        products = data.get("products") or []
+        row_ids = []
+        product_ids = []
 
-    result = {
-        "productid": product_ids[0] if product_ids else "",
-        "sortProducts230": ",".join(row_ids),
-        "raw": data,
+        for item in products:
+            row_id = str(item.get("id") or "").strip()
+            fields = item.get("fields") or {}
+            product_id = str(fields.get("productid") or "").strip()
+
+            if row_id:
+                row_ids.append(row_id)
+            if product_id:
+                product_ids.append(product_id)
+
+        result = {
+            "productid": product_ids[0] if product_ids else "",
+            "sortProducts230": ",".join(row_ids),
+            "attempt": attempt,
+            "raw": data,
+        }
+
+        logger.info("[OneBox] Product context attempt=%s: %s", attempt, json.dumps(result, ensure_ascii=False))
+
+        if result["productid"] and result["sortProducts230"]:
+            return result
+
+        await asyncio.sleep(1)
+
+    return {
+        "productid": "",
+        "sortProducts230": "",
+        "error": "missing_product_context_after_retries",
+        "last_response_preview": last_response_preview,
     }
-
-    logger.info("[OneBox] Product context for browser save: %s", json.dumps(result, ensure_ascii=False))
-    return result
 
 
 async def _onebox_browser_save_order_fields(
@@ -373,6 +398,20 @@ async def _onebox_browser_save_order_fields(
     product_context = await _onebox_fetch_order_product_context(order_id_str, browser_cookie_for_order)
     browser_product_id = str(product_context.get("productid") or "").strip()
     browser_sort_products_230 = str(product_context.get("sortProducts230") or "").strip()
+
+    if not browser_product_id or not browser_sort_products_230:
+        logger.error(
+            "[OneBox] Browser fallback skipped: missing product context order_id=%s productid=%s sortProducts230=%s context=%s",
+            order_id_str,
+            browser_product_id,
+            browser_sort_products_230,
+            json.dumps(product_context, ensure_ascii=False),
+        )
+        return {
+            "status": 0,
+            "error": "missing_product_context",
+            "product_context": product_context,
+        }
 
     # Browser-save payload.
     # Confirmed working variant:
