@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from html import unescape
+from html.parser import HTMLParser
 import logging
 import os
+import re
 import traceback
 
 import httpx
@@ -16,6 +20,111 @@ logger = logging.getLogger(__name__)
 
 EXPORT_PAGE_SIZE = 500
 MAX_EXPORT_PAGES = 100
+HOME_SECTION_COLUMNS = {
+    "hit": "home_hit_order",
+    "new": "home_new_order",
+    "promotion": "home_promotion_order",
+}
+
+
+@dataclass
+class HomepageProductRef:
+    section: str
+    sku: str | None = None
+    external_id: str | None = None
+
+
+def _class_contains(attrs: dict[str, str], value: str) -> bool:
+    return value in attrs.get("class", "").split()
+
+
+def _extract_sku_from_alt(value: str | None) -> str | None:
+    if not value:
+        return None
+
+    text = unescape(value).replace("&mdash;", "—")
+    before_brand = re.split(r"\s+—\s*Dikoros", text, maxsplit=1)[0].strip()
+    if not before_brand:
+        return None
+
+    candidate = before_brand.split()[-1].strip()
+    if "-" not in candidate:
+        return None
+    return candidate
+
+
+class HomepageSectionsParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.products: dict[str, list[HomepageProductRef]] = {
+            "hit": [],
+            "new": [],
+            "promotion": [],
+        }
+        self.current_section: str | None = None
+        self.special_content_index = 0
+        self.special_depth: int | None = None
+        self.current_card: HomepageProductRef | None = None
+        self.seen: set[tuple[str, str, str]] = set()
+
+    def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
+        attrs = {key: value or "" for key, value in attrs_list}
+
+        if self.special_depth is not None:
+            self.special_depth += 1
+
+        if tag == "div" and _class_contains(attrs, "catalogTabs-content") and _class_contains(attrs, "j-special-offers-content"):
+            self.special_content_index += 1
+            self._append_current_card()
+            self.current_section = "hit" if self.special_content_index == 1 else "promotion"
+            self.special_depth = 1
+            return
+
+        if (
+            tag == "div"
+            and self.current_section
+            and _class_contains(attrs, "j-product-container")
+            and attrs.get("data-id")
+        ):
+            self._append_current_card()
+            self.current_card = HomepageProductRef(
+                section=self.current_section,
+                external_id=attrs.get("data-id"),
+            )
+            return
+
+        if tag == "img" and self.current_card:
+            sku = _extract_sku_from_alt(attrs.get("alt") or attrs.get("title"))
+            if sku:
+                self.current_card.sku = sku
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.special_depth is not None:
+            self.special_depth -= 1
+            if self.special_depth <= 0:
+                self._append_current_card()
+                self.special_depth = None
+                self.current_section = None
+
+    def handle_data(self, data: str) -> None:
+        if data.strip() == "\u041d\u043e\u0432\u0438\u043d\u043a\u0438":
+            self._append_current_card()
+            self.current_section = "new"
+
+    def _append_current_card(self) -> None:
+        if not self.current_card:
+            return
+
+        key = (
+            self.current_card.section,
+            self.current_card.sku or "",
+            self.current_card.external_id or "",
+        )
+        if key not in self.seen:
+            self.products[self.current_card.section].append(self.current_card)
+            self.seen.add(key)
+
+        self.current_card = None
 
 
 def _localized_value(value: object, default: str = "") -> str:
@@ -52,6 +161,78 @@ async def _export_catalog_products(
     raise HTTPException(status_code=400, detail="Horoshop export pagination did not finish")
 
 
+async def _fetch_homepage_sections(
+    client: httpx.AsyncClient,
+    domain: str,
+) -> dict[str, list[HomepageProductRef]]:
+    response = await client.get(f"https://{domain}/")
+    parser = HomepageSectionsParser()
+    parser.feed(response.text)
+    parser._append_current_card()
+    return parser.products
+
+
+def _row_value(row: object, key: str, index: int = 0) -> object:
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(key)
+    try:
+        return row[key]  # type: ignore[index]
+    except Exception:
+        return row[index]  # type: ignore[index]
+
+
+def _apply_home_section_order(
+    cur,
+    section: str,
+    refs: list[HomepageProductRef],
+) -> int:
+    column = HOME_SECTION_COLUMNS[section]
+    updated = 0
+
+    for order, ref in enumerate(refs, start=1):
+        row = None
+        if ref.sku:
+            cur.execute("SELECT sku, parent_sku FROM products WHERE sku = ? LIMIT 1", (ref.sku,))
+            row = cur.fetchone()
+        if not row and ref.external_id:
+            cur.execute("SELECT sku, parent_sku FROM products WHERE external_id = ? LIMIT 1", (ref.external_id,))
+            row = cur.fetchone()
+        if not row:
+            continue
+
+        sku = str(_row_value(row, "sku") or "").strip()
+        parent_sku = str(_row_value(row, "parent_sku") or "").strip()
+        group_key = parent_sku or sku
+        if not group_key:
+            continue
+
+        cur.execute(
+            f"""
+            UPDATE products
+            SET {column} = ?
+            WHERE COALESCE(NULLIF(parent_sku, ''), sku) = ?
+            """,
+            (order, group_key),
+        )
+        updated += 1
+
+    return updated
+
+
+async def _apply_homepage_section_orders(
+    client: httpx.AsyncClient,
+    cur,
+    domain: str,
+) -> dict[str, int]:
+    sections = await _fetch_homepage_sections(client, domain)
+    return {
+        section: _apply_home_section_order(cur, section, refs)
+        for section, refs in sections.items()
+    }
+
+
 async def sync_catalog_from_horoshop() -> dict:
     domain = os.getenv("HOROSHOP_DOMAIN")
     login = os.getenv("HOROSHOP_LOGIN")
@@ -82,13 +263,25 @@ async def sync_catalog_from_horoshop() -> dict:
             count = 0
             group_order: dict[str, int] = {}
 
-            cur.execute("UPDATE products SET sort_order = NULL, is_hit = FALSE, is_new = FALSE, is_promotion = FALSE")
+            cur.execute(
+                """
+                UPDATE products
+                SET sort_order = NULL,
+                    is_hit = FALSE,
+                    is_new = FALSE,
+                    is_promotion = FALSE,
+                    home_hit_order = NULL,
+                    home_new_order = NULL,
+                    home_promotion_order = NULL
+                """
+            )
 
             for item in products_list:
                 sku = str(item.get("article") or item.get("parent_article") or "").strip()
                 if not sku:
                     continue
 
+                external_id = str(item.get("id") or item.get("external_id") or "").strip() or None
                 parent_sku = str(item.get("parent_article") or "").strip()
                 group_key = parent_sku or sku
                 if group_key not in group_order:
@@ -152,7 +345,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             description = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
-                            old_price = ?, sort_order = ?
+                            old_price = ?, sort_order = ?, external_id = ?
                         WHERE id = ?
                         """,
                         (
@@ -170,6 +363,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             is_new,
                             old_price,
                             sort_order,
+                            external_id,
                             product_id,
                         ),
                     )
@@ -178,10 +372,10 @@ async def sync_catalog_from_horoshop() -> dict:
                         """
                         INSERT INTO products (
                             sku, name, price, category, status, description,
-                            image, images, parent_sku, variant_name,
+                            image, images, parent_sku, variant_name, external_id,
                             is_hit, is_promotion, is_new, old_price, sort_order
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -194,6 +388,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             images_str,
                             parent_sku,
                             variant_name,
+                            external_id,
                             is_hit,
                             is_promotion,
                             is_new,
@@ -203,8 +398,15 @@ async def sync_catalog_from_horoshop() -> dict:
                     )
                 count += 1
 
+            home_section_counts = await _apply_homepage_section_orders(client, cur, domain)
+
         conn.commit()
-        return {"success": True, "count": count, "message": f"Synced products: {count}"}
+        return {
+            "success": True,
+            "count": count,
+            "home_sections": home_section_counts,
+            "message": f"Synced products: {count}",
+        }
     except HTTPException:
         if conn:
             conn.rollback()

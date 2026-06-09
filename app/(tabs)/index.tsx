@@ -99,6 +99,9 @@ type Product = {
   pack_sizes?: string[] | string;  // Changed to array to match backend, but might be string from DB
   old_price?: number | null;  // For discount logic
   sort_order?: number | null;
+  home_hit_order?: number | null;
+  home_new_order?: number | null;
+  home_promotion_order?: number | null;
   unit?: string;  // Measurement unit (e.g., "шт", "г", "мл")
   delivery_info?: string;
   return_info?: string;
@@ -122,13 +125,16 @@ const parseMaybeJsonArray = (value: any) => {
   return [];
 };
 
-const getHoroshopSortOrder = (product: any) => {
-  const value = Number(product?.sort_order);
+const getHomeSectionOrder = (product: any, key: 'home_hit_order' | 'home_new_order' | 'home_promotion_order') => {
+  const value = Number(product?.[key]);
   return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
 };
 
-const sortByHoroshopOrder = <T extends Product>(items: T[]) => {
-  return [...items].sort((a, b) => getHoroshopSortOrder(a) - getHoroshopSortOrder(b));
+const sortByHomeSectionOrder = <T extends Product>(
+  items: T[],
+  key: 'home_hit_order' | 'home_new_order' | 'home_promotion_order'
+) => {
+  return [...items].sort((a, b) => getHomeSectionOrder(a, key) - getHomeSectionOrder(b, key));
 };
 
 const getRootCategoryName = (value: any) => {
@@ -1224,11 +1230,18 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
-  const hitProducts = sortByHoroshopOrder(safeProducts.filter((p: any) => p?.is_hit === true)).slice(0, 16);
-  const promoProducts = sortByHoroshopOrder(
-    safeProducts.filter((p: any) => p?.is_promotion === true || (p?.old_price && Number(p.old_price) > Number(p.price)))
+  const hitProducts = sortByHomeSectionOrder(
+    safeProducts.filter((p: any) => p?.home_hit_order != null && Number.isFinite(Number(p.home_hit_order))),
+    'home_hit_order'
   ).slice(0, 16);
-  const newProducts = sortByHoroshopOrder(safeProducts.filter((p: any) => p?.is_new === true)).slice(0, 16);
+  const promoProducts = sortByHomeSectionOrder(
+    safeProducts.filter((p: any) => p?.home_promotion_order != null && Number.isFinite(Number(p.home_promotion_order))),
+    'home_promotion_order'
+  ).slice(0, 16);
+  const newProducts = sortByHomeSectionOrder(
+    safeProducts.filter((p: any) => p?.home_new_order != null && Number.isFinite(Number(p.home_new_order))),
+    'home_new_order'
+  ).slice(0, 16);
 
   // Removed fetchProducts useEffect as we use local DB now
 

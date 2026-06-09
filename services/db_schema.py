@@ -40,7 +40,10 @@ def fix_db_schema():
             remains INTEGER DEFAULT 0,
             parent_sku TEXT,
             variant_name TEXT,
-            sort_order INTEGER
+            sort_order INTEGER,
+            home_hit_order INTEGER,
+            home_new_order INTEGER,
+            home_promotion_order INTEGER
         )
     ''')
 
@@ -173,6 +176,9 @@ def fix_db_schema():
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS parent_sku TEXT")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_name TEXT")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_hit_order INTEGER")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_new_order INTEGER")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_promotion_order INTEGER")
     except Exception:
         pass
     try:
