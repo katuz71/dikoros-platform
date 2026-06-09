@@ -11,7 +11,7 @@ import httpx
 from fastapi import APIRouter
 
 from db import get_db_connection
-from services.catalog_sync import HomepageProductRef, _fetch_homepage_sections
+from services.catalog_sync import HOROSHOP_PAGE_HEADERS, HomepageProductRef, _fetch_homepage_sections
 from services.products import normalize_product_row
 
 
@@ -129,7 +129,11 @@ async def _resolve_ref_sku_from_href(
         return None
 
     try:
-        response = await client.get(urljoin(f"https://{domain}/", ref.href), timeout=12.0)
+        response = await client.get(
+            urljoin(f"https://{domain}/", ref.href),
+            headers=HOROSHOP_PAGE_HEADERS,
+            timeout=20.0,
+        )
         return _extract_product_page_sku(response.text)
     except httpx.HTTPError:
         return None

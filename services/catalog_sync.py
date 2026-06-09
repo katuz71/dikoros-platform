@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 EXPORT_PAGE_SIZE = 500
 MAX_EXPORT_PAGES = 100
+HOROSHOP_PAGE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+    "Accept-Language": "uk-UA,uk;q=0.9,en;q=0.8",
+}
 HOME_SECTION_COLUMNS = {
     "hit": "home_hit_order",
     "new": "home_new_order",
@@ -176,7 +180,7 @@ async def _fetch_homepage_sections(
     client: httpx.AsyncClient,
     domain: str,
 ) -> dict[str, list[HomepageProductRef]]:
-    response = await client.get(f"https://{domain}/")
+    response = await client.get(f"https://{domain}/", headers=HOROSHOP_PAGE_HEADERS)
     parser = HomepageSectionsParser()
     parser.feed(response.text)
     parser._append_current_card()
@@ -201,7 +205,11 @@ async def _resolve_ref_sku_from_href(
         return None
 
     try:
-        response = await client.get(urljoin(f"https://{domain}/", ref.href), timeout=30.0)
+        response = await client.get(
+            urljoin(f"https://{domain}/", ref.href),
+            headers=HOROSHOP_PAGE_HEADERS,
+            timeout=30.0,
+        )
     except httpx.HTTPError:
         return None
 
