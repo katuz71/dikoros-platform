@@ -76,7 +76,14 @@ class HomepageSectionsParser(HTMLParser):
         if tag == "div" and _class_contains(attrs, "catalogTabs-content") and _class_contains(attrs, "j-special-offers-content"):
             self.special_content_index += 1
             self._append_current_card()
-            self.current_section = "hit" if self.special_content_index == 1 else "promotion"
+
+            if self.special_content_index == 1:
+                self.current_section = "hit"
+            elif self.special_content_index == 2:
+                self.current_section = "new"
+            else:
+                self.current_section = None
+
             self.special_depth = 1
             return
 
@@ -107,9 +114,7 @@ class HomepageSectionsParser(HTMLParser):
                 self.current_section = None
 
     def handle_data(self, data: str) -> None:
-        if data.strip() == "\u041d\u043e\u0432\u0438\u043d\u043a\u0438":
-            self._append_current_card()
-            self.current_section = "new"
+        return
 
     def _append_current_card(self) -> None:
         if not self.current_card:
