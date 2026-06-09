@@ -39,7 +39,8 @@ def fix_db_schema():
             status TEXT DEFAULT 'В наличии',
             remains INTEGER DEFAULT 0,
             parent_sku TEXT,
-            variant_name TEXT
+            variant_name TEXT,
+            sort_order INTEGER
         )
     ''')
 
@@ -171,6 +172,7 @@ def fix_db_schema():
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS remains INTEGER DEFAULT 0")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS parent_sku TEXT")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_name TEXT")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER")
     except Exception:
         pass
     try:

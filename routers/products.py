@@ -75,7 +75,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
         FROM products 
         {where_str}
         GROUP BY {group_expr}
-        ORDER BY MAX(id) DESC
+        ORDER BY COALESCE(MIN(sort_order), 2147483647), MAX(id) DESC
         LIMIT ? OFFSET ?
     """
     cur.execute(keys_sql, tuple(params + [limit, offset]))
@@ -97,7 +97,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
             SELECT * 
             FROM products 
             WHERE {group_expr} IN ({placeholders})
-            ORDER BY id DESC
+            ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
         cur.execute(items_sql, tuple(group_keys))
         all_rows = cur.fetchall()

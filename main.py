@@ -31,6 +31,7 @@ from routers import (
     uploads,
     users,
 )
+from services.catalog_scheduler import start_catalog_sync_scheduler
 from services.images import UPLOADS_DIR
 from services.security import add_admin_guard_middleware, install_admin_route_guard
 
@@ -89,6 +90,7 @@ async def get_chat_widget(request: Request):
 @app.on_event("startup")
 def startup_event():
     fix_db_schema()
+    start_catalog_sync_scheduler()
     logger.info("Server started successfully")
 
 # --- ONEBOX ---

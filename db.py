@@ -120,7 +120,8 @@ def init_db_schema() -> None:
             status TEXT DEFAULT 'В наличии',
             remains INTEGER DEFAULT 0,
             parent_sku TEXT,
-            variant_name TEXT
+            variant_name TEXT,
+            sort_order INTEGER
         )
     ''')
 
@@ -252,6 +253,7 @@ def init_db_schema() -> None:
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS remains INTEGER DEFAULT 0",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS parent_sku TEXT",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_name TEXT",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS banner_url VARCHAR(255)",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS external_id TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT",
