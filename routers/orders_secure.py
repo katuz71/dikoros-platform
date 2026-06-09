@@ -154,12 +154,15 @@ async def create_order_secure(
         order_id = (row or {}).get("id")
         conn.commit()
 
-        if order.use_bonuses and order.bonus_used > 0 and order.payment_method == "cash":
+        # Current checkout payment methods are postpaid/bank_transfer/paypal_request.
+        # Bonuses are deducted immediately for these non-card orders.
+        if order.use_bonuses and order.bonus_used > 0 and order.payment_method != "card":
             cur.execute(
                 "UPDATE users SET bonus_balance = GREATEST(bonus_balance - ?, 0) WHERE phone = ?",
                 (order.bonus_used, user_phone),
             )
             conn.commit()
+            logger.info("Bonuses deducted on checkout: phone=%s amount=%s order_id=%s", user_phone, order.bonus_used, order_id)
 
         conn.close()
         conn = None
@@ -183,6 +186,9 @@ async def create_order_secure(
             "client_full_name": order.client_full_name or "",
             "recipient_name": order.recipient_name or "",
             "recipient_phone": order.recipient_phone or "",
+            "payer_name": order.payer_name or "",
+            "payer_phone": order.payer_phone or "",
+            "is_different_payer": bool(order.is_different_payer),
             "do_not_call": bool(order.do_not_call),
             "phone": clean_phone,
             "user_phone": user_phone,

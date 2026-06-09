@@ -260,6 +260,9 @@ async def create_onebox_order(order_data: dict) -> dict:
             recipient_phone = phone
         do_not_call = bool(order_data.get("do_not_call"))
         do_not_call_text = "\u0434\u0430" if do_not_call else "\u043d\u0435\u0442"
+        payer_name = str(order_data.get("payer_name") or "").strip()
+        payer_phone = str(order_data.get("payer_phone") or "").strip()
+        is_different_payer = bool(order_data.get("is_different_payer"))
         user_phone = str(order_data.get("user_phone") or "").strip()
         email = str(order_data.get("email") or "").strip()
         contact_preference = str(order_data.get("contact_preference") or "").strip()
@@ -356,7 +359,13 @@ async def create_onebox_order(order_data: dict) -> dict:
 
                 product_array.append(p_obj)
 
-        sum_str = "{:.4f}".format(total_sum)
+        try:
+            order_total_override = float(order_data.get("totalPrice"))
+        except (TypeError, ValueError):
+            order_total_override = None
+
+        sum_for_onebox = order_total_override if order_total_override is not None and order_total_override >= 0 else total_sum
+        sum_str = "{:.4f}".format(sum_for_onebox)
 
         source_id = int(os.getenv("ONEBOX_SOURCE_ID", "1"))
         payment_label = _onebox_payment_label(payment_method, delivery_method)
@@ -396,6 +405,22 @@ async def create_onebox_order(order_data: dict) -> dict:
         ])
         if email:
             buyer_comment_lines.append(f"Email \u043f\u043e\u043a\u0443\u043f\u0446\u044f: {email}")
+
+        if is_different_payer or payer_name or payer_phone:
+            buyer_comment_lines.extend([
+                "",
+                "\u0414\u0430\u043d\u0456 \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430:",
+                f"\u041f\u043b\u0430\u0442\u043d\u0438\u043a: {payer_name or client_full_name or name}",
+                f"\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430: {_onebox_phone(payer_phone or phone)}",
+            ])
+
+        if bonus_used and bonus_used != "0":
+            buyer_comment_lines.extend([
+                "",
+                f"\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u043d\u043e \u0431\u043e\u043d\u0443\u0441\u0456\u0432: {bonus_used} \u0433\u0440\u043d",
+                f"\u0421\u0443\u043c\u0430 \u0434\u043e \u0441\u043f\u043b\u0430\u0442\u0438 \u043f\u0456\u0441\u043b\u044f \u0431\u043e\u043d\u0443\u0441\u0456\u0432: {sum_str} \u0433\u0440\u043d",
+            ])
+
         onebox_order_comment = "\n".join(buyer_comment_lines)
 
         # Official OneBox order creation endpoint.

@@ -95,6 +95,9 @@ export default function CheckoutScreen() {
   const [middleName, setMiddleName] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [isDifferentPayer, setIsDifferentPayer] = useState(false);
+  const [payerName, setPayerName] = useState('');
+  const [payerPhone, setPayerPhone] = useState('');
   const [doNotCall, setDoNotCall] = useState(false);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); // ✅ NEW: Optional Email
@@ -154,6 +157,9 @@ export default function CheckoutScreen() {
         if (parsed.middleName) setMiddleName(parsed.middleName);
         if (parsed.recipientName) setRecipientName(parsed.recipientName);
         if (parsed.recipientPhone) setRecipientPhone(parsed.recipientPhone);
+        if (parsed.isDifferentPayer) setIsDifferentPayer(Boolean(parsed.isDifferentPayer));
+        if (parsed.payerName) setPayerName(parsed.payerName);
+        if (parsed.payerPhone) setPayerPhone(parsed.payerPhone);
         if (parsed.doNotCall) setDoNotCall(Boolean(parsed.doNotCall));
         if (parsed.email) setEmail(parsed.email); // Load saved email
         if (parsed.city) setCity(parsed.city);
@@ -314,6 +320,11 @@ export default function CheckoutScreen() {
       return;
     }
 
+    if (isDifferentPayer && (!payerName.trim() || !payerPhone.trim())) {
+      Alert.alert('\u0423\u0432\u0430\u0433\u0430', '\u0417\u0430\u043f\u043e\u0432\u043d\u0456\u0442\u044c \u041f\u0406\u0411 \u0442\u0430 \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430.');
+      return;
+    }
+
     const storedPhone = await AsyncStorage.getItem('userPhone');
     const accessToken = await AsyncStorage.getItem('accessToken');
     if (!storedPhone || !accessToken) {
@@ -330,7 +341,23 @@ export default function CheckoutScreen() {
     const phoneForAccount = canonicalizePhone(storedPhone);
 
     if (shouldSaveUserData) {
-      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ name, lastName, middleName, recipientName, recipientPhone, doNotCall, email, city, warehouse, deliveryMethod, paymentMethod, orderComment }));
+      await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({
+        name,
+        lastName,
+        middleName,
+        recipientName,
+        recipientPhone,
+        isDifferentPayer,
+        payerName,
+        payerPhone,
+        doNotCall,
+        email,
+        city,
+        warehouse,
+        deliveryMethod,
+        paymentMethod,
+        orderComment
+      }));
     } else {
       await AsyncStorage.removeItem('savedCheckoutInfo');
     }
@@ -353,6 +380,8 @@ export default function CheckoutScreen() {
       const clientFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
       const finalRecipientName = recipientName.trim() || clientFullName || name;
       const finalRecipientPhone = canonicalizePhone(recipientPhone || phone);
+      const finalPayerName = isDifferentPayer ? payerName.trim() : clientFullName;
+      const finalPayerPhone = isDifferentPayer ? canonicalizePhone(payerPhone) : canonicalizePhone(phone);
       const finalCityName = city.name;
       const finalWarehouseName = warehouse.name;
       const finalCityRef = ['nova_poshta', 'ukrposhta_branch'].includes(deliveryMethod) ? (city.ref || "") : "";
@@ -365,6 +394,9 @@ export default function CheckoutScreen() {
         client_full_name: clientFullName || name,
         recipient_name: finalRecipientName,
         recipient_phone: finalRecipientPhone,
+        payer_name: finalPayerName,
+        payer_phone: finalPayerPhone,
+        is_different_payer: isDifferentPayer,
         do_not_call: doNotCall,
         user_phone: phoneForAccount,
         phone: canonicalizePhone(phone),
@@ -680,6 +712,34 @@ export default function CheckoutScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <TouchableOpacity
+              style={[styles.saveDataRow, { marginTop: 14, marginBottom: 10, paddingHorizontal: 0 }]}
+              onPress={() => setIsDifferentPayer(!isDifferentPayer)}
+            >
+              <View style={[styles.checkbox, isDifferentPayer && styles.checkboxActive]}>
+                {isDifferentPayer && <Ionicons name="checkmark" size={16} color="#FFF" />}
+              </View>
+              <Text style={styles.saveDataText}>{'\u0406\u043d\u0448\u0438\u0439 \u043f\u043b\u0430\u0442\u043d\u0438\u043a'}</Text>
+            </TouchableOpacity>
+
+            {isDifferentPayer && (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder={'\u041f\u0406\u0411 \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430'}
+                  value={payerName}
+                  onChangeText={setPayerName}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder={'\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043f\u043b\u0430\u0442\u043d\u0438\u043a\u0430'}
+                  value={payerPhone}
+                  onChangeText={setPayerPhone}
+                  keyboardType="phone-pad"
+                />
+              </>
+            )}
           </View>
 
           <View style={styles.card}>
