@@ -258,7 +258,72 @@ async def _onebox_update_recipient_order_fields(
         )
 
     logger.info(f"[OneBox] Recipient/bonus fields update response: {resp.text}")
-    return resp.json()
+    official_result = resp.json()
+
+    browser_result = await _onebox_browser_save_order_fields(
+        order_id=order_id_str,
+        recipient_name=recipient_name,
+        recipient_phone=recipient_phone_onebox,
+        bonus_used=bonus_used_str,
+        client_comment=client_comment,
+        do_not_call=False,
+    )
+
+    return {
+        "official_update": official_result,
+        "browser_fallback_update": browser_result,
+    }
+
+
+
+async def _onebox_fetch_order_product_context(order_id: str, browser_cookie: str) -> dict:
+    """
+    Fetch OneBox product row ids required by browser order save.
+
+    OneBox save needs:
+    - productid = catalog product id, e.g. 130
+    - sortProducts230 = order product row id, e.g. 147014
+    """
+    async with httpx.AsyncClient(follow_redirects=False) as client:
+        resp = await client.get(
+            f"{ONEBOX_URL}/admin/block/order/product/get/ajax/?blockid=230&id={order_id}",
+            headers={
+                "Cookie": browser_cookie,
+                "Referer": f"{ONEBOX_URL}/{order_id}/",
+                "X-Requested-With": "XMLHttpRequest",
+                "User-Agent": "Mozilla/5.0",
+            },
+            timeout=30.0,
+        )
+
+    try:
+        data = resp.json()
+    except Exception:
+        logger.error("[OneBox] Product context ajax non-json response: %s", resp.text[:1000])
+        return {"productid": "", "sortProducts230": ""}
+
+    products = data.get("products") or []
+    row_ids = []
+    product_ids = []
+
+    for item in products:
+        row_id = str(item.get("id") or "").strip()
+        fields = item.get("fields") or {}
+        product_id = str(fields.get("productid") or "").strip()
+
+        if row_id:
+            row_ids.append(row_id)
+        if product_id:
+            product_ids.append(product_id)
+
+    result = {
+        "productid": product_ids[0] if product_ids else "",
+        "sortProducts230": ",".join(row_ids),
+        "raw": data,
+    }
+
+    logger.info("[OneBox] Product context for browser save: %s", json.dumps(result, ensure_ascii=False))
+    return result
 
 
 async def _onebox_browser_save_order_fields(
@@ -305,33 +370,56 @@ async def _onebox_browser_save_order_fields(
 
     browser_cookie_for_order = "; ".join(cookie_parts)
 
-    # Minimal browser-save payload.
-    # Do NOT send product/payment fields here: OneBox tries to reprocess products
-    # and can fail with "Shop-object by id not found" before saving recipient fields.
+    product_context = await _onebox_fetch_order_product_context(order_id_str, browser_cookie_for_order)
+    browser_product_id = str(product_context.get("productid") or "").strip()
+    browser_sort_products_230 = str(product_context.get("sortProducts230") or "").strip()
+
+    # Browser-save payload.
+    # Confirmed working variant:
+    # - productid = catalog product id from product ajax
+    # - sortProducts230 = order product row id from product ajax
     form_data = {
         f"oldorderstatusid_{order_id_str}": str(ONEBOX_STATUS_ID),
+
+        "productid": browser_product_id,
+        "category": "0",
+        "sortProducts": "",
+        "sortProducts230": browser_sort_products_230,
+        "discount": "",
+        "ordercurrencyid": "1",
+        "postcomment[]": "",
+        "noAddIssueBySaveComment": "1",
+        "email-quotestart": "",
 
         "setorderclientphone": "",
         "phone_active_0": "1",
         "email_active_0": "1",
-
         "customorder_Neperezvanivat": "1" if do_not_call else "0",
 
-        # Real recipient fields confirmed from DevTools browser payload.
         "order_clientname": recipient_name,
         "order_clientphone": recipient_phone_onebox,
 
-        # Real bonus fields confirmed from DevTools browser payload.
         "customorder_Znizhkanasaiti": bonus_used_str,
         "customorder_Vikoristanibonusinasaiti": bonus_used_str,
-
-        # Website comment must stay clean.
         "customorder_Komentarzsaitu": client_comment,
-        "comments": client_comment,
 
         "oldclient": "1",
+        "paymentaccountid": "1",
+        "amount": "",
+        "paymentdirection": "fromclient",
         "orderadd": order_id_str,
         "linkkeyorderadd": order_id_str,
+        "orderamountbase": "",
+        "client": "",
+        "clientidadd": "",
+        "comment": "",
+        "paymentcategoryid": "",
+        "date": "",
+        "bankdetail": "",
+        "paymentadd": "",
+        "weight": "0,5",
+        "volumeGeneral": "",
+        "customorder_Peredavativzvit": "1",
         "ok": "1",
         "ajax": "1",
         "orderid": order_id_str,
@@ -351,6 +439,11 @@ async def _onebox_browser_save_order_fields(
     # Send exactly as browser does: multipart/form-data.
     # httpx will generate boundary automatically.
     multipart_data = [(key, (None, str(value))) for key, value in form_data.items()]
+    multipart_data.extend([
+        ("oldclient", (None, "1")),
+        ("oldclient", (None, "1")),
+        ("oldclient", (None, "1")),
+    ])
 
     async with httpx.AsyncClient(follow_redirects=False) as client:
         resp = await client.post(
@@ -375,9 +468,21 @@ async def _onebox_browser_save_order_fields(
         resp.text[:1000],
     )
 
-    if "application/json" in content_type:
+    body_preview = resp.text[:500]
+    if resp.text.strip() == "ok":
+        return {
+            "status": 1,
+            "http_status": resp.status_code,
+            "content_type": content_type,
+            "body_preview": body_preview,
+        }
+
+    if resp.text.strip().startswith("{"):
         try:
-            return resp.json()
+            parsed = resp.json()
+            parsed.setdefault("http_status", resp.status_code)
+            parsed.setdefault("content_type", content_type)
+            return parsed
         except Exception:
             pass
 
@@ -385,7 +490,7 @@ async def _onebox_browser_save_order_fields(
         "status": 1 if resp.status_code == 200 else 0,
         "http_status": resp.status_code,
         "content_type": content_type,
-        "body_preview": resp.text[:500],
+        "body_preview": body_preview,
     }
 
 
