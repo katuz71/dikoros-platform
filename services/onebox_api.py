@@ -258,7 +258,137 @@ async def _onebox_update_recipient_order_fields(
         )
 
     logger.info(f"[OneBox] Recipient/bonus fields update response: {resp.text}")
-    return resp.json()
+    official_result = resp.json()
+
+    browser_result = await _onebox_browser_save_order_fields(
+        order_id=order_id_str,
+        recipient_name=recipient_name,
+        recipient_phone=recipient_phone_onebox,
+        bonus_used=bonus_used_str,
+        client_comment=client_comment,
+    )
+
+    return {
+        "official_update": official_result,
+        "browser_fallback_update": browser_result,
+    }
+
+
+async def _onebox_browser_save_order_fields(
+    order_id: str | int,
+    recipient_name: str,
+    recipient_phone: str,
+    bonus_used: str = "",
+    client_comment: str = "",
+    do_not_call: bool = False,
+) -> dict:
+    """
+    Fallback through the same endpoint OneBox UI uses.
+    Requires ONEBOX_BROWSER_COOKIE in env.
+    """
+    order_id_str = str(order_id or "").strip()
+    recipient_name = str(recipient_name or "").strip()
+    recipient_phone_onebox = _onebox_phone(recipient_phone)
+    bonus_used_str = str(bonus_used or "").strip() or "0"
+    client_comment = str(client_comment or "")
+    browser_cookie = (os.getenv("ONEBOX_BROWSER_COOKIE") or "").strip()
+
+    if not order_id_str:
+        return {"status": 0, "skipped": True, "reason": "missing_order_id"}
+
+    if not browser_cookie:
+        return {"status": 0, "skipped": True, "reason": "missing_ONEBOX_BROWSER_COOKIE"}
+
+    form_data = {
+        f"oldorderstatusid_{order_id_str}": str(ONEBOX_STATUS_ID),
+        "productid": "",
+        "category": "0",
+        "sortProducts": "",
+        "discount": "",
+        "ordercurrencyid": "1",
+        "postcomment[]": "",
+        "noAddIssueBySaveComment": "1",
+        "email-quotestart": "",
+        "setorderclientphone": "",
+        "phone_active_0": "1",
+        "email_active_0": "1",
+        "customorder_Neperezvanivat": "1" if do_not_call else "0",
+
+        # Real recipient fields confirmed from DevTools browser payload.
+        "order_clientname": recipient_name,
+        "order_clientphone": recipient_phone_onebox,
+
+        # Real bonus fields confirmed from DevTools browser payload.
+        "customorder_Znizhkanasaiti": bonus_used_str,
+        "customorder_Vikoristanibonusinasaiti": bonus_used_str,
+
+        "oldclient": "1",
+        "paymentaccountid": "1",
+        "amount": "",
+        "paymentdirection": "fromclient",
+        "orderadd": order_id_str,
+        "linkkeyorderadd": order_id_str,
+        "orderamountbase": "",
+        "client": "",
+        "clientidadd": "",
+        "comment": "",
+        "paymentcategoryid": "",
+        "date": "",
+        "bankdetail": "",
+        "paymentadd": "",
+        "weight": "0,5",
+        "volumeGeneral": "",
+        "customorder_Peredavativzvit": "1",
+        "ok": "1",
+        "ajax": "1",
+        "orderid": order_id_str,
+        "isOrderControl": "1",
+        "custom_status_menu": "copyOrder",
+        "doprocedure": "",
+        "customorder_ObratiakkauntPRROvruchnu": "0",
+        "tabid": "0",
+        "reloadMenu": "1",
+    }
+
+    logger.warning("[OneBox] Browser fallback update via /ajax/admin/chat/get/order/")
+    safe_form = dict(form_data)
+    logger.info(json.dumps(safe_form, ensure_ascii=False, indent=2))
+
+    async with httpx.AsyncClient(follow_redirects=False) as client:
+        resp = await client.post(
+            f"{ONEBOX_URL}/ajax/admin/chat/get/order/",
+            data=form_data,
+            headers={
+                "Cookie": browser_cookie,
+                "Origin": ONEBOX_URL,
+                "Referer": f"{ONEBOX_URL}/{order_id_str}/",
+                "X-Requested-With": "XMLHttpRequest",
+                "User-Agent": "Mozilla/5.0",
+            },
+            timeout=30.0,
+        )
+
+    content_type = resp.headers.get("content-type", "")
+    logger.info(
+        "[OneBox] Browser fallback response: status=%s content-type=%s body=%s",
+        resp.status_code,
+        content_type,
+        resp.text[:1000],
+    )
+
+    if "application/json" in content_type:
+        try:
+            return resp.json()
+        except Exception:
+            pass
+
+    return {
+        "status": 1 if resp.status_code == 200 else 0,
+        "http_status": resp.status_code,
+        "content_type": content_type,
+        "body_preview": resp.text[:500],
+    }
+
 
 
 async def create_onebox_order(order_data: dict) -> dict:
