@@ -200,23 +200,22 @@ def _apply_home_section_order(
     for order, ref in enumerate(refs, start=1):
         where_sql = ""
         param = ""
-        
+        row = None
+
         # Берем конкретный товар, а не его группу
         if ref.external_id:
             where_sql = "external_id = ?"
             param = ref.external_id
-        elif ref.sku:
+            cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
+            row = cur.fetchone()
+
+        if not row and ref.sku:
             where_sql = "sku = ?"
             param = ref.sku
-        else:
-            continue
+            cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
+            row = cur.fetchone()
             
-        if param in seen_items:
-            continue
-
-        cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
-        row = cur.fetchone()
-        if not row:
+        if not row or param in seen_items:
             continue
 
         if section == "promotion":
