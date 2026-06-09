@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from html import unescape
 from urllib.parse import urljoin
+import urllib.request
 
 import httpx
 from fastapi import APIRouter
@@ -129,13 +131,13 @@ async def _resolve_ref_sku_from_href(
         return None
 
     try:
-        response = await client.get(
-            urljoin(f"https://{domain}/", ref.href),
-            headers=HOROSHOP_PAGE_HEADERS,
-            timeout=20.0,
+        url = urljoin(f"https://{domain}/", ref.href)
+        request = urllib.request.Request(url, headers=HOROSHOP_PAGE_HEADERS)
+        html = await asyncio.to_thread(
+            lambda: urllib.request.urlopen(request, timeout=20.0).read().decode("utf-8", "replace")
         )
-        return _extract_product_page_sku(response.text)
-    except httpx.HTTPError:
+        return _extract_product_page_sku(html)
+    except OSError:
         return None
 
 

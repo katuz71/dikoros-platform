@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
+import asyncio
 import logging
 import os
 import re
 import traceback
 from urllib.parse import urljoin
+import urllib.request
 
 import httpx
 from fastapi import HTTPException
@@ -205,15 +207,17 @@ async def _resolve_ref_sku_from_href(
         return None
 
     try:
-        response = await client.get(
-            urljoin(f"https://{domain}/", ref.href),
-            headers=HOROSHOP_PAGE_HEADERS,
-            timeout=30.0,
+        url = urljoin(f"https://{domain}/", ref.href)
+        request = urllib.request.Request(url, headers=HOROSHOP_PAGE_HEADERS)
+        html = await asyncio.to_thread(
+            lambda: urllib.request.urlopen(request, timeout=30.0).read().decode("utf-8", "replace")
         )
     except httpx.HTTPError:
         return None
+    except OSError:
+        return None
 
-    return _extract_product_page_sku(response.text)
+    return _extract_product_page_sku(html)
 
 
 def _row_value(row: object, key: str, index: int = 0) -> object:
