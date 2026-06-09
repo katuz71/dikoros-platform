@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import traceback
+from urllib.parse import urljoin
 
 import httpx
 from fastapi import HTTPException
@@ -182,6 +183,31 @@ async def _fetch_homepage_sections(
     return parser.products
 
 
+def _extract_product_page_sku(html: str) -> str | None:
+    match = re.search(r"Артикул:\s*([^<]+)", html)
+    if not match:
+        return None
+
+    sku = unescape(match.group(1)).strip()
+    return sku or None
+
+
+async def _resolve_ref_sku_from_href(
+    client: httpx.AsyncClient,
+    domain: str,
+    ref: HomepageProductRef,
+) -> str | None:
+    if not ref.href:
+        return None
+
+    try:
+        response = await client.get(urljoin(f"https://{domain}/", ref.href), timeout=30.0)
+    except httpx.HTTPError:
+        return None
+
+    return _extract_product_page_sku(response.text)
+
+
 def _row_value(row: object, key: str, index: int = 0) -> object:
     if row is None:
         return None
@@ -193,8 +219,10 @@ def _row_value(row: object, key: str, index: int = 0) -> object:
         return row[index]  # type: ignore[index]
 
 
-def _apply_home_section_order(
+async def _apply_home_section_order(
+    client: httpx.AsyncClient,
     cur,
+    domain: str,
     section: str,
     refs: list[HomepageProductRef],
 ) -> int:
@@ -219,6 +247,14 @@ def _apply_home_section_order(
             param = ref.sku
             cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
             row = cur.fetchone()
+
+        if not row and ref.href:
+            resolved_sku = await _resolve_ref_sku_from_href(client, domain, ref)
+            if resolved_sku:
+                where_sql = "sku = ?"
+                param = resolved_sku
+                cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
+                row = cur.fetchone()
             
         if not row or param in seen_items:
             continue
@@ -236,10 +272,11 @@ def _apply_home_section_order(
         cur.execute(
             f"""
             UPDATE products
-            SET {column} = ?
+            SET {column} = ?,
+                external_id = COALESCE(external_id, ?)
             WHERE {where_sql}
             """,
-            (order, param),
+            (order, ref.external_id, param),
         )
         seen_items.add(param)
         updated += 1
@@ -253,10 +290,10 @@ async def _apply_homepage_section_orders(
     domain: str,
 ) -> dict[str, int]:
     sections = await _fetch_homepage_sections(client, domain)
-    return {
-        section: _apply_home_section_order(cur, section, refs)
-        for section, refs in sections.items()
-    }
+    result: dict[str, int] = {}
+    for section, refs in sections.items():
+        result[section] = await _apply_home_section_order(client, cur, domain, section, refs)
+    return result
 
 
 async def sync_catalog_from_horoshop() -> dict:
