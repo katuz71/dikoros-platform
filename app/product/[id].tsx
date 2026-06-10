@@ -100,7 +100,7 @@ export default function ProductScreen() {
     // real product parameters, not SKU codes.
     const isHiddenOptionName = (key: string) => {
       const normalized = clean(key).toLowerCase();
-      return normalized === '\u0430\u0440\u0442\u0438\u043a\u0443\u043b' || normalized === 'article' || normalized === 'sku' || normalized === 'אנעטךףכ';
+      return normalized === '\u0430\u0440\u0442\u0438\u043a\u0443\u043b' || normalized === 'article' || normalized === 'sku';
     };
 
     let oKeys = clean(product.option_names)
