@@ -129,8 +129,8 @@ const styles = StyleSheet.create({
   },
   categoryGridCard: {
     flex: 1,
-    marginHorizontal: -2,
-    marginBottom: 0,
+    marginHorizontal: 1,
+    marginBottom: 3,
   },
   imageBlock: {
     position: 'relative',
