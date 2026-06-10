@@ -52,7 +52,6 @@ export default function ProductScreen() {
   }, [product, allProducts]);
   
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, user_name: '', comment: '', user_phone: '' });
@@ -66,6 +65,8 @@ export default function ProductScreen() {
   // --- Helpers ---
   const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
   const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
+  const skuOptionKey = '__sku';
+  const skuOptionTitle = '\u0410\u0440\u0442\u0438\u043a\u0443\u043b';
   
   const formatPrice = (price: number) => {
     return `${(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₴`;
@@ -81,8 +82,8 @@ export default function ProductScreen() {
   };
 
   // --- Normalization ---
-  const { optionKeys, internalKeys, variantRows, matrix, useVariantListSelector, variantDisplayRows } = useMemo(() => {
-    if (!product) return { optionKeys: [], internalKeys: [], variantRows: [], matrix: {}, useVariantListSelector: false, variantDisplayRows: [] };
+  const { optionKeys, internalKeys, variantRows, matrix } = useMemo(() => {
+    if (!product) return { optionKeys: [], internalKeys: [], variantRows: [], matrix: {} };
     
     // 1. Parse variants
     let rawVariants: any[] = [];
@@ -299,10 +300,13 @@ export default function ProductScreen() {
 
       const options: Record<string, string> = {};
       iKeys.forEach((ik, idx) => { options[ik] = parts[idx] || ""; });
+      const articleLabel = getVariantArticle(v);
+      if (articleLabel) options[skuOptionKey] = articleLabel;
 
       rows.push({
         raw: v,
         rowId: variantIdentity(v),
+        articleLabel,
         options,
         price: Number(v?.price ?? 0) || product.price || 0,
         old_price: Number(v?.old_price ?? 0) || undefined
@@ -317,74 +321,50 @@ export default function ProductScreen() {
       m[ik] = Array.from(values);
     });
 
-    const visibleCombo = (row: any) => iKeys.map((ik) => clean(row.options[ik])).filter(Boolean).join(' · ');
-    const comboCounts = new Map<string, number>();
-    rows.forEach((row) => {
-      const key = visibleCombo(row);
-      comboCounts.set(key, (comboCounts.get(key) || 0) + 1);
-    });
-
-    const hasDuplicateVisibleCombinations = rows.some((row) => {
-      const key = visibleCombo(row);
-      return !!key && (comboCounts.get(key) || 0) > 1;
-    });
-
-    const shouldUseVariantListSelector = rows.length > 12 || hasDuplicateVisibleCombinations;
-    const displayRows = rows.map((row) => {
-      const visible = visibleCombo(row) || clean(row.raw?.name || row.raw?.variant_name || row.raw?.title || row.raw?.sku);
-      const article = getVariantArticle(row.raw);
-      const needsArticle = (comboCounts.get(visibleCombo(row)) || 0) > 1;
-      const label = needsArticle && article && !visible.includes(article)
-        ? `${visible} · ${article}`
-        : visible;
-      const status = clean(row.raw?.status).toLowerCase();
-      const disabled = status ? !['available', 'in_stock'].includes(status) : Number(row.raw?.stock ?? row.raw?.remains ?? 1) <= 0;
-
-      return {
-        id: row.rowId,
-        label,
-        price: row.price,
-        oldPrice: row.old_price,
-        disabled,
-        raw: row.raw,
-      };
-    });
-
-    return {
-      optionKeys: oKeys,
-      internalKeys: iKeys,
-      variantRows: rows,
-      matrix: m,
-      useVariantListSelector: shouldUseVariantListSelector,
-      variantDisplayRows: displayRows,
-    };
+    return { optionKeys: oKeys, internalKeys: iKeys, variantRows: rows, matrix: m };
   }, [product]);
+
+  const matchingVisibleRows = useMemo(() => {
+    if (!variantRows.length) return [];
+    const matches = variantRows.filter(row =>
+      internalKeys.every(ik => {
+        const expected = clean(selectedOptions[ik]);
+        return !expected || clean(row.options[ik]) === expected;
+      })
+    );
+    return matches.length ? matches : variantRows;
+  }, [variantRows, internalKeys, selectedOptions]);
+
+  const skuOptionValues = useMemo(() => {
+    const values: string[] = [];
+    matchingVisibleRows.forEach(row => {
+      const value = clean(row.options[skuOptionKey] || row.articleLabel || row.raw?.sku || row.rowId);
+      if (value && !values.includes(value)) values.push(value);
+    });
+    return values;
+  }, [matchingVisibleRows]);
+
+  const shouldShowSkuOption = skuOptionValues.length > 1;
+  const uiOptionKeys = shouldShowSkuOption ? [...optionKeys, skuOptionTitle] : optionKeys;
+  const uiInternalKeys = shouldShowSkuOption ? [...internalKeys, skuOptionKey] : internalKeys;
+  const uiMatrix = shouldShowSkuOption ? { ...matrix, [skuOptionKey]: skuOptionValues } : matrix;
 
   // Current match
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
-    const selectedById = selectedVariantId
-      ? variantRows.find(row => clean(row.rowId) === clean(selectedVariantId))
-      : null;
-
-    if (selectedById) {
-      return {
-        activeRow: selectedById,
-        currentPrice: selectedById.price,
-        oldPrice: selectedById.old_price,
-      };
-    }
-
+    const selectedSku = shouldShowSkuOption ? clean(selectedOptions[skuOptionKey]) : '';
     const exact = variantRows.find(row =>
       internalKeys.every(ik => clean(row.options[ik]) === clean(selectedOptions[ik]))
+      && (!selectedSku || clean(row.options[skuOptionKey]) === selectedSku)
     );
 
     const best = exact || [...variantRows]
       .map(row => {
-        const score = internalKeys.reduce((sum, ik) => {
+        const optionScore = internalKeys.reduce((sum, ik) => {
           return sum + (clean(row.options[ik]) === clean(selectedOptions[ik]) ? 1 : 0);
         }, 0);
+        const skuScore = selectedSku && clean(row.options[skuOptionKey]) === selectedSku ? 1 : 0;
 
-        return { row, score };
+        return { row, score: optionScore + skuScore };
       })
       .sort((a, b) => b.score - a.score)[0]?.row;
 
@@ -395,22 +375,17 @@ export default function ProductScreen() {
       currentPrice: found ? found.price : (product?.price || 0),
       oldPrice: found ? found.old_price : (product?.old_price || 0)
     };
-  }, [variantRows, selectedOptions, product, internalKeys, selectedVariantId]);
+  }, [variantRows, selectedOptions, product, internalKeys, shouldShowSkuOption]);
 
   // Normalize option selection to always match existing variant
   // Change only the selected option. Impossible combinations are disabled in ProductDetailsView.
   const applyOptionChange = useCallback((key: string, value: string) => {
-    setSelectedVariantId(null);
-    setSelectedOptions(prev => ({ ...prev, [key]: value }));
+    setSelectedOptions(prev => {
+      const next = { ...prev, [key]: value };
+      if (key !== skuOptionKey) delete next[skuOptionKey];
+      return next;
+    });
   }, []);
-
-  const selectVariantById = useCallback((rowId: string) => {
-    const row = variantRows.find(item => clean(item.rowId) === clean(rowId));
-    if (!row) return;
-
-    setSelectedVariantId(row.rowId);
-    setSelectedOptions({ ...row.options });
-  }, [variantRows]);
 
   // Data Loading
   useEffect(() => {
@@ -424,7 +399,6 @@ export default function ProductScreen() {
       setLoading(true);
       setError(null);
       setSelectedOptions({});
-      setSelectedVariantId(null);
       
       let url = `${API_URL}/products/${productId}`;
       try {
@@ -562,24 +536,39 @@ export default function ProductScreen() {
 
   // Set default selection when product/matrix loads
   useEffect(() => {
-    if (!variantRows.length) {
-      setSelectedVariantId(null);
-      return;
-    }
-
+    if (!variantRows.length) return;
     const firstRow = variantRows[0];
+    const allowedSkuValues = new Set(skuOptionValues.map(clean));
 
-    if (!Object.keys(selectedOptions).length) {
-      setSelectedOptions({ ...firstRow.options });
-    }
+    setSelectedOptions(prev => {
+      const next = { ...prev };
+      let changed = false;
 
-    if (useVariantListSelector) {
-      const hasSelected = selectedVariantId && variantRows.some(row => clean(row.rowId) === clean(selectedVariantId));
-      if (!hasSelected) setSelectedVariantId(firstRow.rowId);
-    } else if (selectedVariantId) {
-      setSelectedVariantId(null);
-    }
-  }, [variantRows, useVariantListSelector]);
+      internalKeys.forEach((key) => {
+        if (clean(next[key])) return;
+        if (clean(firstRow.options[key])) {
+          next[key] = firstRow.options[key];
+          changed = true;
+        }
+      });
+
+      if (shouldShowSkuOption) {
+        const currentSku = clean(next[skuOptionKey]);
+        if (!currentSku || !allowedSkuValues.has(currentSku)) {
+          const fallbackSku = clean(matchingVisibleRows[0]?.options?.[skuOptionKey] || skuOptionValues[0]);
+          if (fallbackSku) {
+            next[skuOptionKey] = fallbackSku;
+            changed = true;
+          }
+        }
+      } else if (skuOptionKey in next) {
+        delete next[skuOptionKey];
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [variantRows, internalKeys, shouldShowSkuOption, skuOptionValues, matchingVisibleRows]);
 
   const onShare = async (item = product) => {
     try {
@@ -730,9 +719,9 @@ export default function ProductScreen() {
        <ProductDetailsView 
           product={displayProduct}
           variantRows={variantRows}
-          optionKeys={optionKeys}
-          internalKeys={internalKeys}
-          matrix={matrix}
+          optionKeys={uiOptionKeys}
+          internalKeys={uiInternalKeys}
+          matrix={uiMatrix}
           selectedOptions={selectedOptions}
           applyOptionChange={applyOptionChange}
           currentPrice={currentPrice}
@@ -740,17 +729,12 @@ export default function ProductScreen() {
           activeRow={activeRow}
           formatPrice={formatPrice}
           clean={clean}
-          useVariantListSelector={useVariantListSelector}
-          variantDisplayRows={variantDisplayRows}
-          selectedVariantId={activeRow?.rowId || selectedVariantId}
-          onSelectVariant={selectVariantById}
           onAddToCart={() => {
             Vibration.vibrate(10);
 
             const selectedVariantProduct = displayProduct;
 
-            const selectedVariantLabel = variantDisplayRows.find(row => clean(row.id) === clean(activeRow?.rowId))?.label;
-            const selections = selectedVariantLabel || internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
+            const selections = uiInternalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
             const selectedUnit = selectedVariantProduct.unit || product.unit || 'шт';
             addItem(selectedVariantProduct, 1, selections || selectedUnit, selectedUnit, currentPrice);
             showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');

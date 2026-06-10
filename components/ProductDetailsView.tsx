@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
     Dimensions,
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -30,10 +29,6 @@ interface ProductDetailsViewProps {
   onShare: () => void;
   formatPrice: (price: number) => string;
   clean: (v: any) => string;
-  useVariantListSelector?: boolean;
-  variantDisplayRows?: any[];
-  selectedVariantId?: string | null;
-  onSelectVariant?: (id: string) => void;
   // Extra data for tabs and reviews (optional but recommended for 1-to-1 look)
   reviews?: any[];
   totalReviews?: number;
@@ -65,10 +60,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onShare,
   formatPrice,
   clean,
-  useVariantListSelector = false,
-  variantDisplayRows = [],
-  selectedVariantId,
-  onSelectVariant,
   reviews = [],
   totalReviews = 0,
   averageRating = 0,
@@ -81,7 +72,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   favorites = []
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
-  const [variantListOpen, setVariantListOpen] = React.useState(false);
 
   const cleanProductHtml = (html: any) => {
     const decode = (value: string) => {
@@ -265,12 +255,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   }, [slideImages]);
 
   const productTextTabs = splitProductText();
-  const selectedVariantDisplay = variantDisplayRows.find((row: any) => clean(row?.id) === clean(selectedVariantId))
-    || variantDisplayRows.find((row: any) => clean(row?.id) === clean(activeRow?.rowId))
-    || variantDisplayRows[0];
 
   return (
-    <>
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
       {/* 1. Фото товара (Carousel start) */}
       <View style={{ height: 320, width: Dimensions.get('window').width }}>
@@ -339,26 +325,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         </View>
 
         {/* Variations */}
-        {useVariantListSelector && variantDisplayRows.length > 0 ? (
-          <View style={styles.variationsSection}>
-            <Text style={styles.optionTitle}>Варіант</Text>
-            <TouchableOpacity
-              onPress={() => setVariantListOpen(true)}
-              style={styles.variantListTrigger}
-              activeOpacity={0.85}
-            >
-              <View style={styles.variantListTriggerText}>
-                <Text numberOfLines={1} style={styles.variantListLabel}>
-                  {selectedVariantDisplay?.label || 'Варіант'}
-                </Text>
-                <Text style={styles.variantListPrice}>
-                  {formatPrice(Number(selectedVariantDisplay?.price ?? currentPrice))}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={18} color="#4B5563" />
-            </TouchableOpacity>
-          </View>
-        ) : internalKeys.length > 0 ? (
+        {internalKeys.length > 0 ? (
           <View style={styles.variationsSection}>
             {internalKeys.map((ik, idx) => (
               <View key={ik} style={styles.optionGroup}>
@@ -367,9 +334,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 <View style={styles.optionValues}>
                   {(matrix[ik] || []).map((val) => {
                     const isSel = clean(selectedOptions[ik]) === clean(val);
+                    const isSkuOption = ik === '__sku';
 
                     const isAvailable = variantRows.some((row: any) => {
                       return internalKeys.every((key) => {
+                        if (key === '__sku' && !isSkuOption) return true;
                         const expected = key === ik ? val : selectedOptions[key];
                         if (!expected) return true;
                         return clean(row.options[key]) === clean(expected);
@@ -492,66 +461,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       </View>
     </ScrollView>
 
-    <Modal visible={variantListOpen} transparent animationType="slide" onRequestClose={() => setVariantListOpen(false)}>
-      <View style={styles.variantModalBackdrop}>
-        <TouchableOpacity style={styles.variantModalBackdropPress} activeOpacity={1} onPress={() => setVariantListOpen(false)} />
-        <View style={styles.variantModalSheet}>
-          <View style={styles.variantModalHeader}>
-            <Text style={styles.variantModalTitle}>Варіант</Text>
-            <TouchableOpacity onPress={() => setVariantListOpen(false)} style={styles.variantModalClose}>
-              <Ionicons name="close" size={22} color="#111827" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.variantModalList} contentContainerStyle={styles.variantModalListContent} showsVerticalScrollIndicator={false}>
-            {variantDisplayRows.map((row: any) => {
-              const isSelected = clean(row?.id) === clean(selectedVariantId) || clean(row?.id) === clean(activeRow?.rowId);
-              const isDisabled = !!row?.disabled;
-
-              return (
-                <TouchableOpacity
-                  key={String(row?.id)}
-                  disabled={isDisabled}
-                  onPress={() => {
-                    if (isDisabled) return;
-                    onSelectVariant?.(String(row.id));
-                    setVariantListOpen(false);
-                  }}
-                  style={[
-                    styles.variantListItem,
-                    isSelected && styles.variantListItemActive,
-                    isDisabled && styles.variantListItemDisabled,
-                  ]}
-                >
-                  <View style={styles.variantListItemText}>
-                    <Text
-                      numberOfLines={2}
-                      style={[
-                        styles.variantListItemLabel,
-                        isSelected && styles.variantListItemLabelActive,
-                        isDisabled && styles.variantListItemLabelDisabled,
-                      ]}
-                    >
-                      {row.label}
-                    </Text>
-                    {isDisabled ? (
-                      <Text style={styles.variantListItemMeta}>Немає в наявності</Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.variantListItemPriceWrap}>
-                    <Text style={[styles.variantListItemPrice, isSelected && styles.variantListItemPriceActive]}>
-                      {formatPrice(Number(row.price ?? 0))}
-                    </Text>
-                    {isSelected ? <Ionicons name="checkmark-circle" size={18} color="#2E7D32" /> : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-    </>
   );
 };
 
@@ -583,44 +492,6 @@ const styles = StyleSheet.create({
   optionBtnText: { color: '#111827', fontWeight: '800', fontSize: 13, lineHeight: 16 },
   optionBtnTextActive: { color: 'white' },
   optionBtnTextDisabled: { color: '#6B7280' },
-  variantListTrigger: { minHeight: 58, borderRadius: 14, borderWidth: 1.2, borderColor: '#D1D5DB', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  variantListTriggerText: { flex: 1 },
-  variantListLabel: { color: '#111827', fontSize: 15, lineHeight: 20, fontWeight: '800' },
-  variantListPrice: { marginTop: 2, color: '#2E7D32', fontSize: 14, lineHeight: 18, fontWeight: '800' },
-  variantModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.38)' },
-  variantModalBackdropPress: { ...StyleSheet.absoluteFillObject },
-  variantModalSheet: { maxHeight: '78%', backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingHorizontal: 16, paddingBottom: 18 },
-  variantModalHeader: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  variantModalTitle: { fontSize: 18, lineHeight: 24, fontWeight: '900', color: '#111827' },
-  variantModalClose: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  variantModalList: { maxHeight: 520 },
-  variantModalListContent: { paddingBottom: 14 },
-  variantListItem: { minHeight: 58, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  variantListItemActive: { borderColor: '#2E7D32', backgroundColor: '#F0FDF4' },
-  variantListItemDisabled: { opacity: 0.4 },
-  variantListItemText: { flex: 1 },
-  variantListItemLabel: { color: '#111827', fontSize: 14, lineHeight: 19, fontWeight: '800' },
-  variantListItemLabelActive: { color: '#14532D' },
-  variantListItemLabelDisabled: { color: '#6B7280' },
-  variantListItemMeta: { marginTop: 2, color: '#6B7280', fontSize: 12, lineHeight: 16, fontWeight: '600' },
-  variantListItemPriceWrap: { alignItems: 'flex-end', justifyContent: 'center', minWidth: 78, gap: 4 },
-  variantListItemPrice: { color: '#111827', fontSize: 14, lineHeight: 18, fontWeight: '900' },
-  variantListItemPriceActive: { color: '#2E7D32' },
-  variationDropdownSection: { marginBottom: 24 },
-  variantSelectorRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  variantSelectorBtn: { flex: 1, minHeight: 58, borderRadius: 14, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center' },
-  variantSelectorBtnActive: { borderColor: '#2E7D32', backgroundColor: '#F0FDF4' },
-  variantSelectorTitle: { fontSize: 11, lineHeight: 14, color: '#6B7280', fontWeight: '700', marginBottom: 4, textAlign: 'center' },
-  variantSelectorValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  variantSelectorValue: { flexShrink: 1, fontSize: 13, lineHeight: 16, color: '#111827', fontWeight: '800', textAlign: 'center' },
-  variantDropdown: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 8, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
-  variantDropdownTitle: { fontSize: 14, fontWeight: '800', color: '#111827', paddingHorizontal: 8, paddingVertical: 8 },
-  variantDropdownOption: { minHeight: 46, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  variantDropdownOptionActive: { backgroundColor: '#ECFDF5' },
-  variantDropdownOptionDisabled: { opacity: 0.35 },
-  variantDropdownOptionText: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
-  variantDropdownOptionTextActive: { color: '#2E7D32', fontWeight: '800' },
-  variantDropdownOptionTextDisabled: { color: '#9CA3AF' },
   tabsContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 4 },
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   tabBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, elevation: 2 },
