@@ -15,12 +15,159 @@ from services.products import normalize_product_row
 
 router = APIRouter()
 
+PRODUCT_SELECT_FIELDS = """
+    id, sku, name, price, discount, image, images, category, pack_sizes,
+    old_price, unit, description, usage, composition, delivery_info, return_info,
+    variants, option_names, external_id, is_bestseller, is_promotion, is_new,
+    is_hit, status, remains, parent_sku, variant_name, sort_order,
+    home_hit_order, home_new_order, home_promotion_order
+"""
+
+PRODUCT_GROUP_EXPR = "COALESCE(NULLIF(parent_sku, ''), NULLIF(sku, ''), CAST(id AS TEXT))"
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _product_group_key(product: dict) -> str:
+    return str(product.get("parent_sku") or product.get("sku") or product.get("id") or "").strip()
+
+
+def _variant_label(product: dict) -> str:
+    return str(product.get("variant_name") or product.get("name") or product.get("sku") or "").strip()
+
+
+def _format_variant(product: dict) -> dict:
+    old_price = _as_float(product.get("old_price"))
+    status = product.get("status")
+    return {
+        "id": product.get("id"),
+        "sku": product.get("sku"),
+        "name": _variant_label(product),
+        "title": product.get("name"),
+        "variant_name": product.get("variant_name"),
+        "price": _as_float(product.get("price")),
+        "old_price": old_price if old_price > 0 else None,
+        "discount": product.get("discount") or 0,
+        "status": status,
+        "stock": 1 if status in ("available", "in_stock") else 0,
+        "image": product.get("image"),
+        "images": product.get("images"),
+        "parent_sku": product.get("parent_sku"),
+        "is_hit": bool(product.get("is_hit")),
+        "is_new": bool(product.get("is_new")),
+        "is_promotion": bool(product.get("is_promotion")),
+    }
+
+
+def _sort_group_variants(variants: list[dict], group_key: str, selected_id: int | None = None) -> list[dict]:
+    def sort_key(product: dict):
+        sku = str(product.get("sku") or "").strip()
+        parent_sku = str(product.get("parent_sku") or "").strip()
+        product_id = int(product.get("id") or 0)
+
+        if selected_id and product_id == selected_id:
+            primary = 0
+        elif sku and sku == group_key:
+            primary = 1
+        elif parent_sku and sku == parent_sku:
+            primary = 1
+        else:
+            primary = 2
+
+        return (
+            primary,
+            _as_float(product.get("price")),
+            int(product.get("sort_order") or 2147483647),
+            product_id,
+        )
+
+    return sorted(variants, key=sort_key)
+
+
+def _attach_group_variants(conn, product: dict) -> dict:
+    """Attach Horoshop SKU variants to a product detail response.
+
+    Horoshop exports each variant as a separate product row. The mobile PDP
+    needs the whole group so variant selection can change price/SKU/images like
+    on the site.
+    """
+    normalized = normalize_product_row(product)
+    group_key = _product_group_key(normalized)
+    if not group_key:
+        return normalized
+
+    rows = conn.execute(
+        f"""
+        SELECT {PRODUCT_SELECT_FIELDS}
+        FROM products
+        WHERE {PRODUCT_GROUP_EXPR} = ?
+        ORDER BY COALESCE(sort_order, 2147483647), id DESC
+        """,
+        (group_key,),
+    ).fetchall()
+
+    variants = [normalize_product_row(dict(row)) for row in rows]
+    if not variants:
+        return normalized
+
+    selected_id = int(normalized.get("id") or 0)
+    ordered = _sort_group_variants(variants, group_key, selected_id=selected_id)
+    formatted_variants = [_format_variant(item) for item in ordered]
+
+    min_price = min((_as_float(item.get("price")) for item in ordered), default=_as_float(normalized.get("price")))
+    max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=_as_float(normalized.get("old_price")))
+
+    normalized["variants"] = formatted_variants
+    normalized["minPrice"] = min_price
+    normalized["old_price"] = max_old_price if max_old_price > 0 else normalized.get("old_price")
+    normalized["option_names"] = normalized.get("option_names") or ("Варіант" if len(formatted_variants) > 1 else normalized.get("option_names"))
+    normalized["status"] = "available" if any(item.get("status") == "available" for item in ordered) else normalized.get("status")
+    normalized["stock"] = 1 if normalized.get("status") in ("available", "in_stock") else 0
+
+    return normalized
+
+
+def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
+    if not variants:
+        return None
+
+    ordered = _sort_group_variants(variants, group_key)
+    main_variant = ordered[0].copy()
+    price_sorted = sorted(ordered, key=lambda item: _as_float(item.get("price")))
+
+    min_price = _as_float(price_sorted[0].get("price")) if price_sorted else _as_float(main_variant.get("price"))
+    max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=0.0)
+
+    formatted_variants = [_format_variant(item) for item in ordered]
+
+    main_variant["variants"] = formatted_variants
+    main_variant["price"] = min_price
+    main_variant["minPrice"] = min_price
+    main_variant["old_price"] = max_old_price if max_old_price > 0 else None
+    main_variant["option_names"] = main_variant.get("option_names") or ("Варіант" if len(formatted_variants) > 1 else main_variant.get("option_names"))
+
+    if any(item.get("status") == "available" for item in ordered):
+        main_variant["status"] = "available"
+    elif any(item.get("status") != "out_of_stock" for item in ordered) and main_variant.get("status") == "out_of_stock":
+        main_variant["status"] = "in_stock"
+
+    main_variant["stock"] = 1 if main_variant.get("status") in ("available", "in_stock") else 0
+    main_variant["is_hit"] = any(bool(item.get("is_hit")) for item in ordered)
+    main_variant["is_new"] = any(bool(item.get("is_new")) for item in ordered)
+    main_variant["is_promotion"] = any(bool(item.get("is_promotion")) for item in ordered)
+
+    return main_variant
+
 
 # 1. ТОВАРЫ
 @router.get("/api/products")
 @router.get("/products")
 async def get_products_paginated(page: int = 1, limit: int = 50, category: str = None, status: str = None, search: str = None):
-    import json
     conn = get_db_connection()
     cur = conn.cursor()
     
@@ -56,9 +203,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
     if where_clauses:
         where_str = " WHERE " + " AND ".join(where_clauses)
         
-    group_expr = "COALESCE(NULLIF(parent_sku, ''), NULLIF(sku, ''), CAST(id AS TEXT))"
-    
-    cur.execute(f"SELECT COUNT(DISTINCT {group_expr}) as count FROM products {where_str}", tuple(params))
+    cur.execute(f"SELECT COUNT(DISTINCT {PRODUCT_GROUP_EXPR}) as count FROM products {where_str}", tuple(params))
     row = cur.fetchone()
     if isinstance(row, dict):
         total_count = row.get('count', 0)
@@ -71,10 +216,10 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
     
     # Get paginated group keys
     keys_sql = f"""
-        SELECT {group_expr} as group_key
+        SELECT {PRODUCT_GROUP_EXPR} as group_key
         FROM products 
         {where_str}
-        GROUP BY {group_expr}
+        GROUP BY {PRODUCT_GROUP_EXPR}
         ORDER BY COALESCE(MIN(sort_order), 2147483647), MAX(id) DESC
         LIMIT ? OFFSET ?
     """
@@ -94,9 +239,9 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
     if group_keys:
         placeholders = ",".join(["?"] * len(group_keys))
         items_sql = f"""
-            SELECT * 
+            SELECT {PRODUCT_SELECT_FIELDS}
             FROM products 
-            WHERE {group_expr} IN ({placeholders})
+            WHERE {PRODUCT_GROUP_EXPR} IN ({placeholders})
             ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
         cur.execute(items_sql, tuple(group_keys))
@@ -105,89 +250,16 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
         groups_dict = {}
         for r in all_rows:
             d = normalize_product_row(dict(r))
-            psku = d.get('parent_sku')
-            rsku = d.get('sku')
-            rid = d.get('id')
-            gkey = psku if psku else rsku if rsku else str(rid)
-            
+            gkey = _product_group_key(d)
             if gkey not in groups_dict:
                 groups_dict[gkey] = []
             groups_dict[gkey].append(d)
             
         # Assemble resulting products in order of group_keys
         for gkey in group_keys:
-            variants = groups_dict.get(gkey, [])
-            if not variants:
-                continue
-                
-            # Sort variants by price ascending to find min price easily
-            variants_sorted = sorted(variants, key=lambda x: float(x.get('price') or 0.0))
-            
-            main_variant = variants_sorted[0].copy()
-            min_price = main_variant.get('price') or 0.0
-            
-            max_old_price = 0.0
-            formatted_variants = []
-            
-            has_available = False
-            has_hit = False
-            has_new = False
-            has_promotion = False
-            
-            for v in variants_sorted:
-                v_name = v.get('variant_name')
-                if not v_name or not str(v_name).strip():
-                    v_name = v.get('name')
-                
-                v_old_price = float(v.get('old_price') or 0.0)
-                if v_old_price > max_old_price:
-                    max_old_price = v_old_price
-                
-                v_status = v.get('status')
-                if v_status == 'available':
-                    has_available = True
-                
-                if v.get('is_hit'):
-                    has_hit = True
-                if v.get('is_new'):
-                    has_new = True
-                if v.get('is_promotion'):
-                    has_promotion = True
-                
-                formatted_variants.append({
-                    "id": v.get('id'),
-                    "sku": v.get('sku'),
-                    "name": v_name,
-                    "price": float(v.get('price') or 0.0),
-                    "old_price": v_old_price if v_old_price > 0 else None,
-                    "status": v_status,
-                    "stock": 1 if v_status == 'available' else 0,
-                    "is_hit": bool(v.get('is_hit')),
-                    "is_new": bool(v.get('is_new')),
-                    "is_promotion": bool(v.get('is_promotion'))
-                })
-                
-            main_variant['variants'] = formatted_variants
-            main_variant['price'] = min_price
-            main_variant['old_price'] = max_old_price if max_old_price > 0 else None
-            
-            if has_available:
-                main_variant['status'] = 'available'
-            else:
-                has_in_stock = any(v.get('status') != 'out_of_stock' for v in variants_sorted)
-                if has_in_stock and main_variant.get('status') == 'out_of_stock':
-                    main_variant['status'] = 'in_stock'
-            
-            main_variant['stock'] = 1 if main_variant.get('status') in ('available', 'in_stock') else 0
-            
-            if has_hit:
-                main_variant['is_hit'] = True
-            if has_new:
-                main_variant['is_new'] = True
-            if has_promotion:
-                main_variant['is_promotion'] = True
-                
-            grouped_products.append(main_variant)
+            product = _build_grouped_product(str(gkey), groups_dict.get(gkey, []))
+            if product:
+                grouped_products.append(product)
 
     conn.close()
     
@@ -197,6 +269,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
         "current_page": page,
         "categories": sorted(list(set([c for c in all_categories if c])))
     }
+
 
 @router.get("/products/by-external-id")
 def get_product_by_external_id_query(external_id: str):
@@ -208,10 +281,8 @@ def get_product_by_external_id_query(external_id: str):
     
     conn = get_db_connection()
     try:
-        row = conn.execute("""
-            SELECT id, name, price, discount, image, images, category, pack_sizes,
-                   old_price, unit, description, usage, delivery_info, return_info,
-                   variants, option_names, external_id, is_bestseller, is_promotion, is_new
+        row = conn.execute(f"""
+            SELECT {PRODUCT_SELECT_FIELDS}
             FROM products 
             WHERE LOWER(
                 RTRIM(
@@ -230,55 +301,30 @@ def get_product_by_external_id_query(external_id: str):
         """, (normalized,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Product not found")
-        d = dict(row)
-        d["discount"] = d.get("discount", 0) if d.get("discount") is not None else 0
-        variants_value = d.get("variants")
-        if isinstance(variants_value, str):
-            try:
-                d["variants"] = json.loads(variants_value)
-            except (json.JSONDecodeError, TypeError):
-                d["variants"] = []
-        elif isinstance(variants_value, list):
-            d["variants"] = variants_value
-        else:
-            d["variants"] = []
-        d["composition"] = None
-        return d
+        return _attach_group_variants(conn, dict(row))
     finally:
         conn.close()
+
 
 @router.get("/products/external/{external_id:path}")
 def get_product_by_external_id(external_id: str):
     conn = get_db_connection()
     try:
-        row = conn.execute("""
-            SELECT id, name, price, discount, image, images, category, pack_sizes,
-                   old_price, unit, description, usage, delivery_info, return_info,
-                   variants, option_names, external_id, is_bestseller, is_promotion, is_new
+        row = conn.execute(f"""
+            SELECT {PRODUCT_SELECT_FIELDS}
             FROM products WHERE external_id=?
         """, (external_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Product not found")
-        d = dict(row)
-        d["discount"] = d.get("discount", 0) if d.get("discount") is not None else 0
-        variants_value = d.get("variants")
-        if isinstance(variants_value, str):
-            try:
-                d["variants"] = json.loads(variants_value)
-            except (json.JSONDecodeError, TypeError):
-                d["variants"] = []
-        elif isinstance(variants_value, list):
-            d["variants"] = variants_value
-        else:
-            d["variants"] = []
-        d["composition"] = None
-        return d
+        return _attach_group_variants(conn, dict(row))
     finally:
         conn.close()
+
 
 @router.get("/products/external")
 def get_product_by_external_query(external_id: str):
     return get_product_by_external_id_query(external_id)
+
 
 @router.get("/api/products/{id}")
 @router.get("/api/product/{id}")
@@ -287,17 +333,15 @@ def get_product_by_external_query(external_id: str):
 def get_product(id: int):
     conn = get_db_connection()
     try:
-        row = conn.execute("""
-            SELECT id, name, price, discount, image, images, category, pack_sizes,
-                   old_price, unit, description, usage, composition, delivery_info, return_info,
-                   variants, option_names, external_id, is_bestseller, is_promotion, is_new
+        row = conn.execute(f"""
+            SELECT {PRODUCT_SELECT_FIELDS}
             FROM products WHERE id=?
         """, (id,)).fetchone()
 
         if not row:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        return normalize_product_row(dict(row))
+        return _attach_group_variants(conn, dict(row))
     finally:
         conn.close()
 
