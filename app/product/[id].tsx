@@ -52,6 +52,7 @@ export default function ProductScreen() {
   }, [product, allProducts]);
   
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, user_name: '', comment: '', user_phone: '' });
@@ -64,6 +65,7 @@ export default function ProductScreen() {
 
   // --- Helpers ---
   const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
+  const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
   
   const formatPrice = (price: number) => {
     return `${(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₴`;
@@ -79,8 +81,8 @@ export default function ProductScreen() {
   };
 
   // --- Normalization ---
-  const { optionKeys, internalKeys, variantRows, matrix } = useMemo(() => {
-    if (!product) return { optionKeys: [], internalKeys: [], variantRows: [], matrix: {} };
+  const { optionKeys, internalKeys, variantRows, matrix, useVariantListSelector, variantDisplayRows } = useMemo(() => {
+    if (!product) return { optionKeys: [], internalKeys: [], variantRows: [], matrix: {}, useVariantListSelector: false, variantDisplayRows: [] };
     
     // 1. Parse variants
     let rawVariants: any[] = [];
@@ -98,7 +100,7 @@ export default function ProductScreen() {
     // real product parameters, not SKU codes.
     const isHiddenOptionName = (key: string) => {
       const normalized = clean(key).toLowerCase();
-      return normalized === 'артикул' || normalized === 'article';
+      return normalized === '\u0430\u0440\u0442\u0438\u043a\u0443\u043b' || normalized === 'article' || normalized === 'sku' || normalized === 'אנעטךףכ';
     };
 
     let oKeys = clean(product.option_names)
@@ -110,19 +112,37 @@ export default function ProductScreen() {
     const hasOnlyGenericVariantOption = oKeys.length === 1 && clean(oKeys[0]).toLowerCase() === '\u0432\u0430\u0440\u0456\u0430\u043d\u0442';
     if (hasOnlyGenericVariantOption) oKeys = [];
 
-    const getStructuredOptions = (variant: any): Record<string, string> | null => {
+    const getRawStructuredOptions = (variant: any): Record<string, string> => {
       const raw = variant?.options;
-      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
 
       const out: Record<string, string> = {};
       Object.entries(raw).forEach(([key, value]) => {
         const k = clean(key);
         const v = clean(value);
-        if (!k || !v || isHiddenOptionName(k)) return;
+        if (!k || !v) return;
         out[k] = v;
       });
 
+      return out;
+    };
+
+    const getStructuredOptions = (variant: any): Record<string, string> | null => {
+      const raw = getRawStructuredOptions(variant);
+      const out: Record<string, string> = {};
+
+      Object.entries(raw).forEach(([key, value]) => {
+        if (isHiddenOptionName(key)) return;
+        out[key] = value;
+      });
+
       return Object.keys(out).length ? out : null;
+    };
+
+    const getVariantArticle = (variant: any) => {
+      const raw = getRawStructuredOptions(variant);
+      const hiddenEntry = Object.entries(raw).find(([key]) => isHiddenOptionName(key));
+      return clean(hiddenEntry?.[1] || variant?.sku || variant?.article || variant?.id);
     };
 
     const structuredOptionKeys: string[] = [];
@@ -282,6 +302,7 @@ export default function ProductScreen() {
 
       rows.push({
         raw: v,
+        rowId: variantIdentity(v),
         options,
         price: Number(v?.price ?? 0) || product.price || 0,
         old_price: Number(v?.old_price ?? 0) || undefined
@@ -296,11 +317,63 @@ export default function ProductScreen() {
       m[ik] = Array.from(values);
     });
 
-    return { optionKeys: oKeys, internalKeys: iKeys, variantRows: rows, matrix: m };
+    const visibleCombo = (row: any) => iKeys.map((ik) => clean(row.options[ik])).filter(Boolean).join(' · ');
+    const comboCounts = new Map<string, number>();
+    rows.forEach((row) => {
+      const key = visibleCombo(row);
+      comboCounts.set(key, (comboCounts.get(key) || 0) + 1);
+    });
+
+    const hasDuplicateVisibleCombinations = rows.some((row) => {
+      const key = visibleCombo(row);
+      return !!key && (comboCounts.get(key) || 0) > 1;
+    });
+
+    const shouldUseVariantListSelector = rows.length > 12 || hasDuplicateVisibleCombinations;
+    const displayRows = rows.map((row) => {
+      const visible = visibleCombo(row) || clean(row.raw?.name || row.raw?.variant_name || row.raw?.title || row.raw?.sku);
+      const article = getVariantArticle(row.raw);
+      const needsArticle = (comboCounts.get(visibleCombo(row)) || 0) > 1;
+      const label = needsArticle && article && !visible.includes(article)
+        ? `${visible} · ${article}`
+        : visible;
+      const status = clean(row.raw?.status).toLowerCase();
+      const disabled = status ? !['available', 'in_stock'].includes(status) : Number(row.raw?.stock ?? row.raw?.remains ?? 1) <= 0;
+
+      return {
+        id: row.rowId,
+        label,
+        price: row.price,
+        oldPrice: row.old_price,
+        disabled,
+        raw: row.raw,
+      };
+    });
+
+    return {
+      optionKeys: oKeys,
+      internalKeys: iKeys,
+      variantRows: rows,
+      matrix: m,
+      useVariantListSelector: shouldUseVariantListSelector,
+      variantDisplayRows: displayRows,
+    };
   }, [product]);
 
   // Current match
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
+    const selectedById = selectedVariantId
+      ? variantRows.find(row => clean(row.rowId) === clean(selectedVariantId))
+      : null;
+
+    if (selectedById) {
+      return {
+        activeRow: selectedById,
+        currentPrice: selectedById.price,
+        oldPrice: selectedById.old_price,
+      };
+    }
+
     const exact = variantRows.find(row =>
       internalKeys.every(ik => clean(row.options[ik]) === clean(selectedOptions[ik]))
     );
@@ -322,13 +395,22 @@ export default function ProductScreen() {
       currentPrice: found ? found.price : (product?.price || 0),
       oldPrice: found ? found.old_price : (product?.old_price || 0)
     };
-  }, [variantRows, selectedOptions, product, internalKeys]);
+  }, [variantRows, selectedOptions, product, internalKeys, selectedVariantId]);
 
   // Normalize option selection to always match existing variant
   // Change only the selected option. Impossible combinations are disabled in ProductDetailsView.
   const applyOptionChange = useCallback((key: string, value: string) => {
+    setSelectedVariantId(null);
     setSelectedOptions(prev => ({ ...prev, [key]: value }));
   }, []);
+
+  const selectVariantById = useCallback((rowId: string) => {
+    const row = variantRows.find(item => clean(item.rowId) === clean(rowId));
+    if (!row) return;
+
+    setSelectedVariantId(row.rowId);
+    setSelectedOptions({ ...row.options });
+  }, [variantRows]);
 
   // Data Loading
   useEffect(() => {
@@ -342,6 +424,7 @@ export default function ProductScreen() {
       setLoading(true);
       setError(null);
       setSelectedOptions({});
+      setSelectedVariantId(null);
       
       let url = `${API_URL}/products/${productId}`;
       try {
@@ -479,10 +562,24 @@ export default function ProductScreen() {
 
   // Set default selection when product/matrix loads
   useEffect(() => {
-    if (variantRows.length && !Object.keys(selectedOptions).length) {
-      setSelectedOptions({ ...variantRows[0].options });
+    if (!variantRows.length) {
+      setSelectedVariantId(null);
+      return;
     }
-  }, [variantRows]);
+
+    const firstRow = variantRows[0];
+
+    if (!Object.keys(selectedOptions).length) {
+      setSelectedOptions({ ...firstRow.options });
+    }
+
+    if (useVariantListSelector) {
+      const hasSelected = selectedVariantId && variantRows.some(row => clean(row.rowId) === clean(selectedVariantId));
+      if (!hasSelected) setSelectedVariantId(firstRow.rowId);
+    } else if (selectedVariantId) {
+      setSelectedVariantId(null);
+    }
+  }, [variantRows, useVariantListSelector]);
 
   const onShare = async (item = product) => {
     try {
@@ -643,12 +740,17 @@ export default function ProductScreen() {
           activeRow={activeRow}
           formatPrice={formatPrice}
           clean={clean}
+          useVariantListSelector={useVariantListSelector}
+          variantDisplayRows={variantDisplayRows}
+          selectedVariantId={activeRow?.rowId || selectedVariantId}
+          onSelectVariant={selectVariantById}
           onAddToCart={() => {
             Vibration.vibrate(10);
 
             const selectedVariantProduct = displayProduct;
 
-            const selections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
+            const selectedVariantLabel = variantDisplayRows.find(row => clean(row.id) === clean(activeRow?.rowId))?.label;
+            const selections = selectedVariantLabel || internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
             const selectedUnit = selectedVariantProduct.unit || product.unit || 'шт';
             addItem(selectedVariantProduct, 1, selections || selectedUnit, selectedUnit, currentPrice);
             showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');
