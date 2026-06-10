@@ -1,8 +1,7 @@
-
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Product = {
   id: number;
@@ -30,6 +29,18 @@ type Props = {
   onToggleFavorite: (product: Product) => void;
 };
 
+type CardProps = {
+  item: Product;
+  isFavorite: boolean;
+  onOpenProduct: (product: Product) => void;
+  onAddToCart: (product: Product) => void;
+  onToggleFavorite: (product: Product) => void;
+};
+
+const CARD_WIDTH = 150;
+const CARD_GAP = 8;
+const ITEM_WIDTH = CARD_WIDTH + CARD_GAP;
+
 const formatPrice = (price: number) => `${Number(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
 
 const getBadges = (item: Product) => {
@@ -54,6 +65,80 @@ const getBadges = (item: Product) => {
   return badges;
 };
 
+const HomeProductCard = memo(function HomeProductCard({
+  item,
+  isFavorite,
+  onOpenProduct,
+  onAddToCart,
+  onToggleFavorite,
+}: CardProps) {
+  const badges = getBadges(item);
+  const imageUrl = getImageUrl(item.image || item.picture || item.image_url || '', {
+    width: 300,
+    height: 300,
+    quality: 75,
+    format: 'webp',
+  });
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={styles.card}
+      onPress={() => onOpenProduct(item)}
+    >
+      <View style={styles.imageWrap}>
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          resizeMode="cover"
+          fadeDuration={0}
+        />
+
+        {badges.length > 0 && (
+          <View style={styles.badgesWrap}>
+            {badges.map((badge) => (
+              <View key={badge} style={styles.badge}>
+                <Text style={styles.badgeText}>{badge}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => onToggleFavorite(item)}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={17}
+            color={isFavorite ? '#DC2626' : '#4B5563'}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <Text numberOfLines={2} style={styles.name}>{item.name}</Text>
+
+      <View style={styles.bottomRow}>
+        <View style={{ flex: 1 }}>
+          {!!item.old_price && Number(item.old_price) > Number(item.price) && (
+            <Text style={styles.oldPrice}>{formatPrice(Number(item.old_price))}</Text>
+          )}
+          <Text style={styles.price}>{formatPrice(Number(item.price))}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.cartButton}
+          onPress={() => onAddToCart(item)}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons name="cart-outline" size={16} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export default function HomeProductCarousel({
   title,
   products,
@@ -62,6 +147,31 @@ export default function HomeProductCarousel({
   onAddToCart,
   onToggleFavorite,
 }: Props) {
+  const favoriteIds = new Set(favorites.map((favorite) => favorite.id));
+
+  const renderItem = useCallback(
+    ({ item }: { item: Product }) => (
+      <HomeProductCard
+        item={item}
+        isFavorite={favoriteIds.has(item.id)}
+        onOpenProduct={onOpenProduct}
+        onAddToCart={onAddToCart}
+        onToggleFavorite={onToggleFavorite}
+      />
+    ),
+    [favoriteIds, onAddToCart, onOpenProduct, onToggleFavorite]
+  );
+
+  const keyExtractor = useCallback((item: Product) => String(item.id), []);
+  const getItemLayout = useCallback(
+    (_: ArrayLike<Product> | null | undefined, index: number) => ({
+      length: ITEM_WIDTH,
+      offset: ITEM_WIDTH * index,
+      index,
+    }),
+    []
+  );
+
   if (!Array.isArray(products) || products.length === 0) return null;
 
   return (
@@ -71,66 +181,23 @@ export default function HomeProductCarousel({
         <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
       </View>
 
-      <ScrollView
+      <FlatList
+        data={products}
         horizontal
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
-      >
-        {products.map((item) => {
-          const badges = getBadges(item);
-          const isFavorite = favorites.some((fav) => fav.id === item.id);
-          const imageUrl = getImageUrl(item.image || item.picture || item.image_url || '');
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.85}
-              style={styles.card}
-              onPress={() => onOpenProduct(item)}
-            >
-              <View style={styles.imageWrap}>
-                <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
-
-                {badges.length > 0 && (
-                  <View style={styles.badgesWrap}>
-                    {badges.map((badge) => (
-                      <View key={badge} style={styles.badge}>
-                        <Text style={styles.badgeText}>{badge}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={styles.favoriteButton}
-                  onPress={() => onToggleFavorite(item)}
-                >
-                  <Ionicons
-                    name={isFavorite ? 'heart' : 'heart-outline'}
-                    size={17}
-                    color={isFavorite ? '#DC2626' : '#4B5563'}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <Text numberOfLines={2} style={styles.name}>{item.name}</Text>
-
-              <View style={styles.bottomRow}>
-                <View style={{ flex: 1 }}>
-                  {!!item.old_price && Number(item.old_price) > Number(item.price) && (
-                    <Text style={styles.oldPrice}>{formatPrice(Number(item.old_price))}</Text>
-                  )}
-                  <Text style={styles.price}>{formatPrice(Number(item.price))}</Text>
-                </View>
-
-                <TouchableOpacity style={styles.cartButton} onPress={() => onAddToCart(item)}>
-                  <Ionicons name="cart-outline" size={16} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === 'android'}
+        nestedScrollEnabled
+        directionalLockEnabled
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+      />
     </View>
   );
 }
@@ -156,9 +223,9 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   card: {
-    width: 150,
+    width: CARD_WIDTH,
     height: 238,
-    marginRight: 6,
+    marginRight: CARD_GAP,
     backgroundColor: '#fff',
   },
   imageWrap: {
