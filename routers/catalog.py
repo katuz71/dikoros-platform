@@ -71,6 +71,43 @@ def _compact_products(products: list[dict]) -> list[dict]:
     return [_compact_product(product) for product in products]
 
 
+def _product_group_key(product: dict) -> str:
+    """Stable dedupe key for carousel cards.
+
+    Horoshop exports variants as separate SKUs. On the app home screen those
+    variants must be shown as one product card, not as repeated cards.
+    """
+    name = str(product.get("name") or "").strip().casefold()
+    category = str(product.get("category") or "").strip().casefold()
+    if name:
+        return f"name:{category}:{name}"
+
+    parent_sku = str(product.get("parent_sku") or "").strip()
+    if parent_sku:
+        return f"parent:{parent_sku}"
+
+    sku = str(product.get("sku") or product.get("id") or "").strip()
+    return f"sku:{sku}"
+
+
+def _dedupe_products(products: list[dict], limit: int | None = None) -> list[dict]:
+    seen: set[str] = set()
+    result: list[dict] = []
+
+    for product in products:
+        key = _product_group_key(product)
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(product)
+
+        if limit is not None and len(result) >= limit:
+            break
+
+    return result
+
+
 def _rows_to_products(rows):
     return [normalize_product_row(dict(row)) for row in rows]
 
@@ -91,31 +128,29 @@ def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = ""
             {order_sql}
             LIMIT ?
         """
-        fetch_limit = limit
-        if dedupe_by:
-            fetch_limit = min(max(limit * 10, limit), 500)
+        fetch_limit = min(max(limit * 10, limit), 500)
 
         rows = conn.execute(sql, tuple(params) + (fetch_limit,)).fetchall()
         products = _compact_products(_rows_to_products(rows))
 
-        if not dedupe_by:
-            return products
+        if dedupe_by:
+            seen = set()
+            deduped = []
 
-        seen = set()
-        deduped = []
+            for product in products:
+                key = product.get(dedupe_by)
+                if key is None or key in seen:
+                    continue
 
-        for product in products:
-            key = product.get(dedupe_by)
-            if key is None or key in seen:
-                continue
+                seen.add(key)
+                deduped.append(product)
 
-            seen.add(key)
-            deduped.append(product)
+                if len(deduped) >= limit:
+                    break
 
-            if len(deduped) >= limit:
-                break
+            return deduped
 
-        return deduped
+        return _dedupe_products(products, limit=limit)
     finally:
         conn.close()
 
@@ -215,10 +250,8 @@ async def _fetch_products_by_home_refs(
                 continue
 
             products.append(_compact_product(normalize_product_row(dict(row))))
-            if len(products) >= limit:
-                break
 
-        return products
+        return _dedupe_products(products, limit=limit)
     finally:
         conn.close()
 
