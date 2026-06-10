@@ -182,6 +182,23 @@ async def _fetch_products_by_home_refs(
         conn.close()
 
 
+def _fetch_promotion_fallback(limit: int = 50):
+    return _fetch_products(
+        where_sql="""
+            AND (
+                COALESCE(is_promotion, FALSE) = TRUE
+                OR (
+                    old_price IS NOT NULL
+                    AND price IS NOT NULL
+                    AND old_price > price
+                )
+            )
+        """,
+        order_sql="ORDER BY COALESCE(home_promotion_order, sort_order, 2147483647), id DESC",
+        limit=limit,
+    )
+
+
 @router.get("/home")
 async def get_catalog_home():
     domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
@@ -191,6 +208,9 @@ async def get_catalog_home():
         hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=50)
         promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=50)
         new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=50)
+
+    if not promotions:
+        promotions = _fetch_promotion_fallback(limit=50)
 
     return {
         "banners": _fetch_banners(),
@@ -214,22 +234,7 @@ def get_catalog_hits(limit: int = 32):
 
 @router.get("/promotions")
 def get_catalog_promotions(limit: int = 32):
-    return {
-        "products": _fetch_products(
-            where_sql="""
-                AND (
-                    COALESCE(is_promotion, FALSE) = TRUE
-                    OR (
-                        old_price IS NOT NULL
-                        AND price IS NOT NULL
-                        AND old_price > price
-                    )
-                )
-            """,
-            order_sql="ORDER BY COALESCE(home_promotion_order, sort_order, 2147483647), id DESC",
-            limit=limit,
-        )
-    }
+    return {"products": _fetch_promotion_fallback(limit=limit)}
 
 
 @router.get("/new")
