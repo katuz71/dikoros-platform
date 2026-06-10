@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
 import asyncio
+import json
 import logging
 import os
 import re
@@ -17,6 +18,7 @@ import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
+from services.variant_options import build_variant_options
 
 
 logger = logging.getLogger(__name__)
@@ -383,7 +385,16 @@ async def sync_catalog_from_horoshop() -> dict:
 
             count = 0
             group_order: dict[str, int] = {}
+            product_groups: dict[str, list[dict]] = {}
             active_skus: set[str] = set()
+
+            for item in products_list:
+                sku = str(item.get("article") or item.get("parent_article") or "").strip()
+                if not sku:
+                    continue
+                parent_sku = str(item.get("parent_article") or "").strip()
+                group_key = parent_sku or sku
+                product_groups.setdefault(group_key, []).append(item)
 
             cur.execute(
                 """
@@ -394,7 +405,8 @@ async def sync_catalog_from_horoshop() -> dict:
                     is_promotion = FALSE,
                     home_hit_order = NULL,
                     home_new_order = NULL,
-                    home_promotion_order = NULL
+                    home_promotion_order = NULL,
+                    variant_options = NULL
                 """
             )
 
@@ -410,6 +422,8 @@ async def sync_catalog_from_horoshop() -> dict:
                 if group_key not in group_order:
                     group_order[group_key] = len(group_order) + 1
                 sort_order = group_order[group_key]
+                variant_options = build_variant_options(item, product_groups.get(group_key, [item]))
+                variant_options_json = json.dumps(variant_options, ensure_ascii=False) if variant_options else None
 
                 variant_name = _localized_value(item.get("mod_title") or {})
                 title = _localized_value(item.get("title") or {}, "Без назви")
@@ -459,7 +473,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             description = ?, image = ?, images = ?,
-                            parent_sku = ?, variant_name = ?,
+                            parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?
                         WHERE id = ?
@@ -474,6 +488,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             images_str,
                             parent_sku,
                             variant_name,
+                            variant_options_json,
                             is_hit,
                             is_promotion,
                             is_new,
@@ -490,9 +505,10 @@ async def sync_catalog_from_horoshop() -> dict:
                         INSERT INTO products (
                             sku, name, price, category, status, description,
                             image, images, parent_sku, variant_name, external_id,
-                            is_hit, is_promotion, is_new, old_price, discount, sort_order
+                            variant_options, is_hit, is_promotion, is_new,
+                            old_price, discount, sort_order
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -506,6 +522,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             parent_sku,
                             variant_name,
                             external_id,
+                            variant_options_json,
                             is_hit,
                             is_promotion,
                             is_new,

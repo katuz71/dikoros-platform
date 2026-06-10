@@ -18,7 +18,7 @@ router = APIRouter()
 PRODUCT_SELECT_FIELDS = """
     id, sku, name, price, discount, image, images, category, pack_sizes,
     old_price, unit, description, usage, composition, delivery_info, return_info,
-    variants, option_names, external_id, is_bestseller, is_promotion, is_new,
+    variants, option_names, variant_options, external_id, is_bestseller, is_promotion, is_new,
     is_hit, status, remains, parent_sku, variant_name, sort_order,
     home_hit_order, home_new_order, home_promotion_order
 """
@@ -41,9 +41,45 @@ def _variant_label(product: dict) -> str:
     return str(product.get("variant_name") or product.get("name") or product.get("sku") or "").strip()
 
 
+def _parse_variant_options(value: object) -> dict[str, str]:
+    if isinstance(value, dict):
+        return {str(k): str(v) for k, v in value.items() if str(k).strip() and str(v).strip()}
+    if not isinstance(value, str) or not value.strip():
+        return {}
+
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    return {
+        str(key): str(option_value)
+        for key, option_value in parsed.items()
+        if str(key).strip() and str(option_value).strip()
+    }
+
+
+def _option_names_from_variants(variants: list[dict]) -> str | None:
+    keys: list[str] = []
+    for variant in variants:
+        options = variant.get("options") or {}
+        if not isinstance(options, dict):
+            continue
+        for key in options.keys():
+            key_text = str(key).strip()
+            if key_text and key_text not in keys:
+                keys.append(key_text)
+
+    return "|".join(keys) if keys else None
+
+
 def _format_variant(product: dict) -> dict:
     old_price = _as_float(product.get("old_price"))
     status = product.get("status")
+    options = _parse_variant_options(product.get("variant_options"))
     return {
         "id": product.get("id"),
         "sku": product.get("sku"),
@@ -58,6 +94,7 @@ def _format_variant(product: dict) -> dict:
         "image": product.get("image"),
         "images": product.get("images"),
         "parent_sku": product.get("parent_sku"),
+        "options": options,
         "is_hit": bool(product.get("is_hit")),
         "is_new": bool(product.get("is_new")),
         "is_promotion": bool(product.get("is_promotion")),
@@ -125,7 +162,7 @@ def _attach_group_variants(conn, product: dict) -> dict:
     normalized["variants"] = formatted_variants
     normalized["minPrice"] = min_price
     normalized["old_price"] = max_old_price if max_old_price > 0 else normalized.get("old_price")
-    normalized["option_names"] = normalized.get("option_names") or ("Варіант" if len(formatted_variants) > 1 else normalized.get("option_names"))
+    normalized["option_names"] = _option_names_from_variants(formatted_variants) or normalized.get("option_names") or ("\u0412\u0430\u0440\u0456\u0430\u043d\u0442" if len(formatted_variants) > 1 else normalized.get("option_names"))
     normalized["status"] = "available" if any(item.get("status") == "available" for item in ordered) else normalized.get("status")
     normalized["stock"] = 1 if normalized.get("status") in ("available", "in_stock") else 0
 
@@ -149,7 +186,7 @@ def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
     main_variant["price"] = min_price
     main_variant["minPrice"] = min_price
     main_variant["old_price"] = max_old_price if max_old_price > 0 else None
-    main_variant["option_names"] = main_variant.get("option_names") or ("Варіант" if len(formatted_variants) > 1 else main_variant.get("option_names"))
+    main_variant["option_names"] = _option_names_from_variants(formatted_variants) or main_variant.get("option_names") or ("\u0412\u0430\u0440\u0456\u0430\u043d\u0442" if len(formatted_variants) > 1 else main_variant.get("option_names"))
 
     if any(item.get("status") == "available" for item in ordered):
         main_variant["status"] = "available"

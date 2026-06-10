@@ -31,6 +31,7 @@ def fix_db_schema():
             return_info TEXT,
             variants TEXT,
             option_names TEXT,
+            variant_options TEXT,
             external_id TEXT UNIQUE,
             is_bestseller BOOLEAN DEFAULT FALSE,
             is_hit BOOLEAN DEFAULT FALSE,
@@ -161,6 +162,7 @@ def fix_db_schema():
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS option_names TEXT")
+    c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_options TEXT")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS delivery_info TEXT")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS return_info TEXT")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS external_id TEXT")
