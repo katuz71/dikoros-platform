@@ -30,7 +30,7 @@ type Props = {
   onToggleFavorite: (product: Product) => void;
 };
 
-const formatPrice = (price: number) => `${Number(price || 0).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ' ')} ₴`;
+const formatPrice = (price: number) => `${Number(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
 
 const getBadges = (item: Product) => {
   const badges: string[] = [];
@@ -137,13 +137,13 @@ export default function HomeProductCarousel({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 22,
+    marginBottom: 18,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     paddingHorizontal: 2,
   },
   title: {
@@ -153,12 +153,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   list: {
-    paddingRight: 20,
+    paddingRight: 12,
   },
   card: {
     width: 150,
     height: 238,
-    marginRight: 14,
+    marginRight: 6,
     backgroundColor: '#fff',
   },
   imageWrap: {
