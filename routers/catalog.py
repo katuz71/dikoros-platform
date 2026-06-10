@@ -182,6 +182,22 @@ async def _fetch_products_by_home_refs(
         conn.close()
 
 
+def _fetch_home_hit_products(limit: int = 50):
+    return _fetch_products(
+        where_sql="AND home_hit_order IS NOT NULL",
+        order_sql="ORDER BY home_hit_order ASC, id DESC",
+        limit=limit,
+    )
+
+
+def _fetch_hit_fallback(limit: int = 50):
+    return _fetch_products(
+        where_sql="AND COALESCE(is_hit, FALSE) = TRUE",
+        order_sql="ORDER BY COALESCE(sort_order, 2147483647), id DESC",
+        limit=limit,
+    )
+
+
 def _fetch_promotion_fallback(limit: int = 50):
     return _fetch_products(
         where_sql="""
@@ -209,6 +225,9 @@ async def get_catalog_home():
         promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=50)
         new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=50)
 
+    if not hits:
+        hits = _fetch_home_hit_products(limit=50) or _fetch_hit_fallback(limit=50)
+
     if not promotions:
         promotions = _fetch_promotion_fallback(limit=50)
 
@@ -223,13 +242,10 @@ async def get_catalog_home():
 
 @router.get("/hits")
 def get_catalog_hits(limit: int = 32):
-    return {
-        "products": _fetch_products(
-            where_sql="AND COALESCE(is_hit, FALSE) = TRUE",
-            order_sql="ORDER BY COALESCE(home_hit_order, sort_order, 2147483647), id DESC",
-            limit=limit,
-        )
-    }
+    products = _fetch_home_hit_products(limit=limit)
+    if not products:
+        products = _fetch_hit_fallback(limit=limit)
+    return {"products": products}
 
 
 @router.get("/promotions")
