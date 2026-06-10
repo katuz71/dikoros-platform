@@ -204,28 +204,31 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   };
 
   const getAllImages = (p: any) => {
-    let list: string[] = [];
+    let gallery: string[] = [];
+
     if (Array.isArray(p?.images)) {
-      list = p.images.map((u: any) => String(u ?? '').trim()).filter(Boolean);
-    } else if (p.images && typeof p.images === 'string') {
+      gallery = p.images.map((u: any) => String(u ?? '').trim()).filter(Boolean);
+    } else if (p?.images && typeof p.images === 'string') {
       if (p.images.startsWith('[') && p.images.endsWith(']')) {
         try {
           const parsed = JSON.parse(p.images);
-          if (Array.isArray(parsed)) list = parsed;
+          if (Array.isArray(parsed)) {
+            gallery = parsed.map((u: any) => String(u ?? '').trim()).filter(Boolean);
+          }
         } catch {}
       } else {
-        list = p.images.split(',').map((u: string) => u.trim()).filter(Boolean);
+        gallery = p.images.split(',').map((u: string) => u.trim()).filter(Boolean);
       }
     }
-    const main = p.image || p.picture || p.image_url;
-    let listFull = list
+
+    const main = String(p?.image || p?.picture || p?.image_url || '').trim();
+    const ordered = [main, ...gallery]
+      .map((u: any) => String(u ?? '').trim())
+      .filter(Boolean);
+
+    const listFull = ordered
       .map((u: any) => getImageUrl(String(u ?? '').trim()))
       .filter((u: string) => !!u && u !== 'null' && u !== 'undefined');
-    const mainFull = main ? getImageUrl(String(main).trim()) : '';
-
-    if (listFull.length === 0 && mainFull) {
-      listFull = [mainFull];
-    }
 
     // Dedupe (preserve order)
     const seen = new Set<string>();
