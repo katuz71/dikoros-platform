@@ -93,11 +93,53 @@ export default function ProductScreen() {
       }
     } catch (e) { console.warn("Parse variants error", e); }
 
-    // 2. Get option headers or infer them from variant names
-    let oKeys = clean(product.option_names).split('|').map(clean).filter(Boolean);
+    // 2. Get option headers from backend structured options first.
+    // Hide internal disambiguation keys like Артикул from UI: users should choose
+    // real product parameters, not SKU codes.
+    const isHiddenOptionName = (key: string) => {
+      const normalized = clean(key).toLowerCase();
+      return normalized === 'артикул' || normalized === 'article';
+    };
+
+    let oKeys = clean(product.option_names)
+      .split('|')
+      .map(clean)
+      .filter(Boolean)
+      .filter(key => !isHiddenOptionName(key));
+
     const hasOnlyGenericVariantOption = oKeys.length === 1 && clean(oKeys[0]).toLowerCase() === '\u0432\u0430\u0440\u0456\u0430\u043d\u0442';
-    const hasExplicitOptions = oKeys.length > 0 && !hasOnlyGenericVariantOption;
     if (hasOnlyGenericVariantOption) oKeys = [];
+
+    const getStructuredOptions = (variant: any): Record<string, string> | null => {
+      const raw = variant?.options;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+      const out: Record<string, string> = {};
+      Object.entries(raw).forEach(([key, value]) => {
+        const k = clean(key);
+        const v = clean(value);
+        if (!k || !v || isHiddenOptionName(k)) return;
+        out[k] = v;
+      });
+
+      return Object.keys(out).length ? out : null;
+    };
+
+    const structuredOptionKeys: string[] = [];
+    rawVariants.forEach((variant) => {
+      const structured = getStructuredOptions(variant);
+      if (!structured) return;
+
+      Object.keys(structured).forEach((key) => {
+        if (!structuredOptionKeys.includes(key)) structuredOptionKeys.push(key);
+      });
+    });
+
+    if (!oKeys.length && structuredOptionKeys.length > 0) {
+      oKeys = structuredOptionKeys;
+    }
+
+    const hasExplicitOptions = oKeys.length > 0 && !hasOnlyGenericVariantOption;
 
     const variantLabels = rawVariants
       .map(v => clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize))
@@ -226,9 +268,13 @@ export default function ProductScreen() {
     const rows: any[] = [];
     rawVariants.forEach((v) => {
       const label = clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize);
-      if (!label) return;
+      const structuredOptions = getStructuredOptions(v);
+      if (!label && !structuredOptions) return;
 
-      const parts = inferVariantParts(label);
+      const parts = structuredOptions
+        ? oKeys.map((key) => clean(structuredOptions[key]))
+        : inferVariantParts(label);
+
       while (parts.length < oKeys.length) parts.push("");
 
       const options: Record<string, string> = {};
