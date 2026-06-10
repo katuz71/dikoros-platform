@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import ProductImage from './ProductImage';
-// Используем flex вместо фиксированной ширины для идеальной симметрии
 
 interface ProductCardProps {
   item: {
@@ -39,14 +38,14 @@ export default function ProductCard({
   const hasDiscount = safeOldPrice !== null && safeOldPrice > safePrice;
   const safeBadge = item.badge || null;
   const hasImage = !!(item.picture || item.image || item.image_url);
+  const isDefaultGridCard = !style;
 
   return (
     <TouchableOpacity 
       onPress={onPress}
       activeOpacity={0.85}
-      style={[styles.card, style]}
+      style={[styles.card, isDefaultGridCard && styles.categoryGridCard, style]}
     >
-      {/* Блок изображения (Верх) */}
       <View style={styles.imageBlock}>
         {hasImage ? (
           <ProductImage 
@@ -59,14 +58,12 @@ export default function ProductCard({
           </View>
         )}
         
-        {/* Бейдж */}
         {safeBadge && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{safeBadge}</Text>
           </View>
         )}
         
-        {/* Кнопка избранного */}
         <TouchableOpacity 
           onPress={onFavoritePress}
           style={styles.favoriteButton}
@@ -80,16 +77,13 @@ export default function ProductCard({
         </TouchableOpacity>
       </View>
       
-      {/* Инфо-блок (Центр + Низ) */}
       <View style={styles.infoBlock}>
-        {/* Название товара */}
         <View style={styles.nameContainer}>
           <Text style={styles.name} numberOfLines={2}>
             {safeName}
           </Text>
         </View>
         
-        {/* Нижний ряд (Цена + Корзина) - прижат к низу */}
         <View style={styles.bottomRow}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
@@ -102,7 +96,6 @@ export default function ProductCard({
             )}
           </View>
           
-          {/* Кнопка корзины */}
           <TouchableOpacity 
             onPress={onCartPress}
             style={styles.cartButton}
@@ -122,7 +115,7 @@ export default function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
+    flex: 0.48,
     backgroundColor: 'white',
     borderRadius: 12,
     shadowColor: '#000',
@@ -133,10 +126,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 300,
     flexDirection: 'column',
-    // В категориях FlatList уже задаёт gap между колонками и строками.
-    // Компенсируем его здесь, чтобы карточки стояли максимально плотно и могли касаться.
+  },
+  categoryGridCard: {
+    flex: 1,
     marginHorizontal: -6,
     marginBottom: -18,
+    transform: [{ scaleX: 1.075 }, { scaleY: 1.055 }],
   },
   imageBlock: {
     position: 'relative',
