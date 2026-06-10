@@ -308,6 +308,38 @@ async def _apply_homepage_section_orders(
     return result
 
 
+def _mark_stale_horoshop_products_out_of_stock(cur, active_skus: set[str]) -> int:
+    """Hide local products that disappeared from the Horoshop export.
+
+    Horoshop is the source of truth for catalog products. If a product SKU is no
+    longer returned by /api/catalog/export/, the app must stop showing it while
+    preserving local order history and product ids.
+    """
+    if not active_skus:
+        return 0
+
+    placeholders = ",".join(["?"] * len(active_skus))
+    cur.execute(
+        f"""
+        UPDATE products
+        SET status = 'out_of_stock',
+            is_hit = FALSE,
+            is_new = FALSE,
+            is_promotion = FALSE,
+            home_hit_order = NULL,
+            home_new_order = NULL,
+            home_promotion_order = NULL,
+            sort_order = NULL
+        WHERE sku IS NOT NULL
+          AND TRIM(sku) != ''
+          AND sku NOT IN ({placeholders})
+        """,
+        tuple(sorted(active_skus)),
+    )
+
+    return int(getattr(cur, "rowcount", 0) or 0)
+
+
 async def sync_catalog_from_horoshop() -> dict:
     domain = os.getenv("HOROSHOP_DOMAIN")
     login = os.getenv("HOROSHOP_LOGIN")
@@ -337,6 +369,7 @@ async def sync_catalog_from_horoshop() -> dict:
 
             count = 0
             group_order: dict[str, int] = {}
+            active_skus: set[str] = set()
 
             cur.execute(
                 """
@@ -356,6 +389,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 if not sku:
                     continue
 
+                active_skus.add(sku)
                 external_id = str(item.get("id") or item.get("external_id") or "").strip() or None
                 parent_sku = str(item.get("parent_article") or "").strip()
                 group_key = parent_sku or sku
@@ -470,14 +504,16 @@ async def sync_catalog_from_horoshop() -> dict:
                     )
                 count += 1
 
+            stale_count = _mark_stale_horoshop_products_out_of_stock(cur, active_skus)
             home_section_counts = await _apply_homepage_section_orders(client, cur, domain)
 
         conn.commit()
         return {
             "success": True,
             "count": count,
+            "stale_out_of_stock": stale_count,
             "home_sections": home_section_counts,
-            "message": f"Synced products: {count}",
+            "message": f"Synced products: {count}; hidden stale products: {stale_count}",
         }
     except HTTPException:
         if conn:
