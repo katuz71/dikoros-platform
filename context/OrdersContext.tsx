@@ -166,7 +166,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      const productsUrl = `${API_URL}/products?limit=500`;
+      const productsUrl = `${API_URL}/products?limit=500&status=available`;
       console.log("🔥 TRYING TO FETCH:", productsUrl);
       
       const controller = new AbortController();
