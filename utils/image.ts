@@ -27,7 +27,7 @@ export const isLikelyCertificateImage = (path: string | null | undefined): boole
 /**
  * Получает URL изображения
  * @param path - путь к изображению (может быть относительным или полным URL)
- * @param options - опции (оставлены для обратной совместимости, но не используются)
+ * @param options - опции оптимизации для серверного /api/image
  */
 export const getImageUrl = (
   path: string | null | undefined,
@@ -53,8 +53,8 @@ export const getImageUrl = (
       if (Array.isArray(parsed) && parsed.length > 0) {
         safePath = String(parsed[0] ?? '').trim();
       }
-    } catch (e) {
-      console.error('Failed to parse image array:', safePath);
+    } catch {
+      return placeholder;
     }
   }
   
@@ -91,16 +91,5 @@ export const getImageUrl = (
   if (fmt) params.set('format', fmt);
   params.set('v', v);
 
-  const fullUrl = `${baseUrl}/api/image?${params.toString()}`;
-  
-  console.log('🔍 getImageUrl:', {
-    originalPath: safePath,
-    cleanPath,
-    baseUrl,
-    fullUrl,
-    API_URL
-  });
-  
-  return fullUrl;
+  return `${baseUrl}/api/image?${params.toString()}`;
 };
-
