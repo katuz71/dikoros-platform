@@ -122,21 +122,25 @@ export default function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-  flex: 0.48, // 48% ширины контейнера для идеального распределения
-  backgroundColor: 'white',
-  borderRadius: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-  overflow: 'hidden',
-  minHeight: 300, // Фиксированная минимальная высота
-  flexDirection: 'column',
-},
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+    minHeight: 300,
+    flexDirection: 'column',
+    // В категориях FlatList уже задаёт gap между колонками и строками.
+    // Компенсируем его здесь, чтобы карточки стояли максимально плотно и могли касаться.
+    marginHorizontal: -6,
+    marginBottom: -18,
+  },
   imageBlock: {
     position: 'relative',
-    aspectRatio: 1, // Квадратный блок изображения
+    aspectRatio: 1,
     backgroundColor: '#f5f5f5',
   },
   image: {
@@ -184,10 +188,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     padding: 12,
-    justifyContent: 'space-between', // Распределяем пространство
+    justifyContent: 'space-between',
   },
   nameContainer: {
-    minHeight: 40, // Фиксированная высота на 2 строки
+    minHeight: 40,
     maxHeight: 40,
   },
   name: {
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 'auto', // Прижимаем к низу
+    marginTop: 'auto',
   },
   priceContainer: {
     flex: 1,
