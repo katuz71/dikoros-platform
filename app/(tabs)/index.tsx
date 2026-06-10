@@ -1,4 +1,4 @@
-import { API_URL } from '@/config/api';
+﻿import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';
 import { getImageUrl } from '@/utils/image';
@@ -6,9 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
-import ProductCard from '../../components/ProductCard';
+import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
+import ProductCard from '../../components/ProductCard';
 import { useFavoritesStore } from '../../store/favoritesStore';
 
 // Анимированная кнопка избранного
@@ -945,7 +945,7 @@ export default function Index() {
   }, []);
 
   const loadCatalogHome = useCallback(async () => {
-    const CACHE_KEY = 'cached_catalog_home_v2';
+    const CACHE_KEY = 'cached_catalog_home_v5';
 
     try {
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);
@@ -1493,7 +1493,7 @@ export default function Index() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingRight: 20 }}
+            contentContainerStyle={{ paddingRight: 0 }}
           >
             <TouchableOpacity
               key="news"
@@ -1573,9 +1573,8 @@ export default function Index() {
             renderItem={renderProductItem}
             keyExtractor={item => item?.id?.toString() || Math.random().toString()}
             numColumns={2}
-            columnWrapperStyle={{ justifyContent: 'space-between', gap: 12 }}
-            contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 4 }}
-            ItemSeparatorComponent={() => <View style={{ height: 18 }} />}
+            columnWrapperStyle={{ justifyContent: 'space-between', gap: 0 }}
+            contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 0 }}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -1584,13 +1583,14 @@ export default function Index() {
       {!categoryViewOpen && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          style={{ flex: 1, width: '100%', backgroundColor: '#f5f5f5' }}
+          contentContainerStyle={{ paddingBottom: 120, backgroundColor: '#f5f5f5' }}
         >
       {/* BANNERS */}
       {banners.length > 0 && (() => {
         const { width } = Dimensions.get('window');
         const SLIDE_WIDTH = width;
-        const BANNER_WIDTH = width - 40;
+        const BANNER_WIDTH = width - 16;
 
         return (
           <ScrollView
@@ -1620,7 +1620,7 @@ export default function Index() {
                   key={b?.id || Math.random()}
                   style={{
                     width: SLIDE_WIDTH,
-                    paddingHorizontal: 20
+                    paddingHorizontal: 8
                   }}
                 >
                   <BannerImage
@@ -1640,7 +1640,7 @@ export default function Index() {
           <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 12, textAlign: 'center' }}>
             Останні переглянуті
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 0 }}>
             {recentProducts.map((item) => {
               const imageUrl = getImageUrl(item.image || item.picture || item.image_url || '');
               return (
@@ -2063,22 +2063,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   headerLogo: {
-    width: 160,
+    width: 150,
     height: 45,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingTop: 50,
     paddingBottom: 20,
+    width: '100%',
+    maxWidth: '100%',
   },
   headerIcons: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
   },
   categoriesList: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     marginBottom: 15,
   },
   categoryItem: {
@@ -2117,3 +2122,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
+
+
+
+
+
+
+
+
