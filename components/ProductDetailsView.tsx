@@ -334,11 +334,9 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 <View style={styles.optionValues}>
                   {(matrix[ik] || []).map((val) => {
                     const isSel = clean(selectedOptions[ik]) === clean(val);
-                    const isSkuOption = ik === '__sku';
 
                     const isAvailable = variantRows.some((row: any) => {
                       return internalKeys.every((key) => {
-                        if (key === '__sku' && !isSkuOption) return true;
                         const expected = key === ik ? val : selectedOptions[key];
                         if (!expected) return true;
                         return clean(row.options[key]) === clean(expected);
