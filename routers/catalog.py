@@ -280,7 +280,10 @@ async def get_catalog_home():
         promotions = _fetch_promotion_fallback(limit=50)
 
     return {
-        "banners": _fetch_banners(),
+        # Banners are loaded by the app through /banners. Keeping them out of
+        # /api/catalog/home prevents large base64 payloads from blocking the
+        # home product sections.
+        "banners": [],
         "categories": _fetch_categories(),
         "hits": hits,
         "promotions": promotions,
