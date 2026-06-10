@@ -29,6 +29,47 @@ PRODUCT_COLUMNS = """
     home_promotion_order
 """
 
+CARD_FIELDS = {
+    "id",
+    "name",
+    "price",
+    "discount",
+    "image",
+    "images",
+    "category",
+    "old_price",
+    "unit",
+    "external_id",
+    "is_bestseller",
+    "is_promotion",
+    "is_new",
+    "is_hit",
+    "sku",
+    "status",
+    "remains",
+    "parent_sku",
+    "variant_name",
+    "sort_order",
+    "home_hit_order",
+    "home_new_order",
+    "home_promotion_order",
+    "variants",
+    "option_names",
+}
+
+
+def _compact_product(product: dict) -> dict:
+    """Return the lightweight shape needed by carousel cards.
+
+    Home endpoints must stay small and fast. Product details are loaded by id on
+    the product screen, so large HTML descriptions must not be shipped here.
+    """
+    return {key: product.get(key) for key in CARD_FIELDS if key in product}
+
+
+def _compact_products(products: list[dict]) -> list[dict]:
+    return [_compact_product(product) for product in products]
+
 
 def _rows_to_products(rows):
     return [normalize_product_row(dict(row)) for row in rows]
@@ -55,7 +96,7 @@ def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = ""
             fetch_limit = min(max(limit * 10, limit), 500)
 
         rows = conn.execute(sql, tuple(params) + (fetch_limit,)).fetchall()
-        products = _rows_to_products(rows)
+        products = _compact_products(_rows_to_products(rows))
 
         if not dedupe_by:
             return products
@@ -173,7 +214,7 @@ async def _fetch_products_by_home_refs(
             if not row:
                 continue
 
-            products.append(normalize_product_row(dict(row)))
+            products.append(_compact_product(normalize_product_row(dict(row))))
             if len(products) >= limit:
                 break
 
