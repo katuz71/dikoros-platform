@@ -182,6 +182,13 @@ async def _fetch_products_by_home_refs(
         conn.close()
 
 
+async def _fetch_live_home_hits(limit: int = 50):
+    domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        sections = await _fetch_homepage_sections(client, domain)
+        return await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=limit)
+
+
 def _fetch_home_hit_products(limit: int = 50):
     return _fetch_products(
         where_sql="AND home_hit_order IS NOT NULL",
@@ -241,10 +248,10 @@ async def get_catalog_home():
 
 
 @router.get("/hits")
-def get_catalog_hits(limit: int = 32):
-    products = _fetch_home_hit_products(limit=limit)
+async def get_catalog_hits(limit: int = 32):
+    products = await _fetch_live_home_hits(limit=limit)
     if not products:
-        products = _fetch_hit_fallback(limit=limit)
+        products = _fetch_home_hit_products(limit=limit) or _fetch_hit_fallback(limit=limit)
     return {"products": products}
 
 
