@@ -32,8 +32,6 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 export default function ProductScreen() {
   const { id } = useLocalSearchParams();
   const productId = Number(Array.isArray(id) ? id[0] : id);
-  console.warn("PDP id raw=", id);
-  console.warn("PDP productId=", productId);
   
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -97,7 +95,9 @@ export default function ProductScreen() {
 
     // 2. Get option headers or infer them from variant names
     let oKeys = clean(product.option_names).split('|').map(clean).filter(Boolean);
-    const hasExplicitOptions = oKeys.length > 0;
+    const hasOnlyGenericVariantOption = oKeys.length === 1 && clean(oKeys[0]).toLowerCase() === '\u0432\u0430\u0440\u0456\u0430\u043d\u0442';
+    const hasExplicitOptions = oKeys.length > 0 && !hasOnlyGenericVariantOption;
+    if (hasOnlyGenericVariantOption) oKeys = [];
 
     const variantLabels = rawVariants
       .map(v => clean(v?.name || v?.variant || v?.title || v?.size || v?.pack_size || v?.packSize))
@@ -279,7 +279,6 @@ export default function ProductScreen() {
   }, [variantRows, selectedOptions, product, internalKeys]);
 
   // Normalize option selection to always match existing variant
-  // Normalize option selection to always match existing variant
   // Change only the selected option. Impossible combinations are disabled in ProductDetailsView.
   const applyOptionChange = useCallback((key: string, value: string) => {
     setSelectedOptions(prev => ({ ...prev, [key]: value }));
@@ -301,12 +300,10 @@ export default function ProductScreen() {
       let url = `${API_URL}/products/${productId}`;
       try {
         let res = await fetch(url);
-        console.warn(`PDP fetch url=${url} status=${res.status}`);
         
         // If 405 or 404, try alternative (some servers prefer query params or have prefix issues)
         if (res.status === 405 || res.status === 404) {
           const altUrl = `${API_URL}/products?id=${productId}`;
-          console.warn(`PDP trying altUrl=${altUrl}`);
           const altRes = await fetch(altUrl);
           if (altRes.ok) {
              const allProducts = await altRes.json();
@@ -441,12 +438,12 @@ export default function ProductScreen() {
     }
   }, [variantRows]);
 
-  const onShare = async () => {
+  const onShare = async (item = product) => {
     try {
-      if (!product) return;
+      if (!item) return;
       await Share.share({
-        message: `Дізнайтеся більше про ${product.name}: ${getImageUrl(product.image)}`,
-        title: product.name
+        message: `Дізнайтеся більше про ${item.name}: ${getImageUrl(item.image)}`,
+        title: item.name
       });
     } catch {}
   };
@@ -547,7 +544,24 @@ export default function ProductScreen() {
     </SafeAreaView>
   );
 
-  const isFavorite = favorites.some(f => f.id === product.id);
+  const activeVariantRaw = activeRow?.raw || null;
+  const displayProduct = activeVariantRaw
+    ? {
+        ...product,
+        id: activeVariantRaw.id || product.id,
+        sku: activeVariantRaw.sku || product.sku,
+        name: activeVariantRaw.name || activeVariantRaw.variant_name || activeVariantRaw.title || product.name,
+        variant_name: activeVariantRaw.variant_name || activeVariantRaw.name || product.variant_name,
+        price: currentPrice,
+        old_price: activeVariantRaw.old_price ?? oldPrice ?? product.old_price,
+        status: activeVariantRaw.status || product.status,
+        stock: activeVariantRaw.stock ?? product.stock,
+        image: activeVariantRaw.image || product.image,
+        images: activeVariantRaw.images || product.images,
+      }
+    : product;
+
+  const isFavorite = favorites.some(f => f.id === displayProduct.id);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -561,17 +575,17 @@ export default function ProductScreen() {
               <Ionicons name="cart-outline" size={22} color="#000" />
               {cartCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{cartCount}</Text></View> : null}
             </TouchableOpacity>
-            <TouchableOpacity onPress={onShare} style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => onShare(displayProduct)} style={styles.iconBtn}>
                 <Ionicons name="share-outline" size={20} color="#000" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { toggleFavorite(product); showToast(isFavorite ? 'Видалено' : 'Додано'); }} style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => { toggleFavorite(displayProduct); showToast(isFavorite ? 'Видалено' : 'Додано'); }} style={styles.iconBtn}>
               <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ef4444" : "#000"} />
             </TouchableOpacity>
           </View>
        </View>
 
        <ProductDetailsView 
-          product={product}
+          product={displayProduct}
           variantRows={variantRows}
           optionKeys={optionKeys}
           internalKeys={internalKeys}
@@ -586,21 +600,11 @@ export default function ProductScreen() {
           onAddToCart={() => {
             Vibration.vibrate(10);
 
-            const selectedVariantProduct = activeRow?.raw
-              ? {
-                  ...product,
-                  id: activeRow.raw.id || product.id,
-                  sku: activeRow.raw.sku || product.sku,
-                  name: activeRow.raw.name || product.name,
-                  price: currentPrice,
-                  old_price: activeRow.raw.old_price || product.old_price,
-                  status: activeRow.raw.status || product.status,
-                  stock: activeRow.raw.stock ?? product.stock,
-                }
-              : product;
+            const selectedVariantProduct = displayProduct;
 
             const selections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-            addItem(selectedVariantProduct, 1, selections || (product.unit || 'шт'), product.unit || 'шт', currentPrice);
+            const selectedUnit = selectedVariantProduct.unit || product.unit || 'шт';
+            addItem(selectedVariantProduct, 1, selections || selectedUnit, selectedUnit, currentPrice);
             showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');
             trackEvent('AddToCart', {
               content_ids: [selectedVariantProduct.id],
@@ -613,7 +617,7 @@ export default function ProductScreen() {
                 item_name: selectedVariantProduct.name,
                 price: currentPrice,
                 quantity: 1,
-                item_variant: selections || (product.unit || 'шт')
+                item_variant: selections || selectedUnit
               }]
             });
 
@@ -625,13 +629,13 @@ export default function ProductScreen() {
                 item_name: selectedVariantProduct.name,
                 price: currentPrice,
                 quantity: 1,
-                item_variant: selections || (product.unit || 'шт')
+                item_variant: selections || selectedUnit
               }]
             });
           }}
-          onToggleFavorite={() => toggleFavorite(product)}
+          onToggleFavorite={() => toggleFavorite(displayProduct)}
           isFavorite={isFavorite}
-          onShare={onShare}
+          onShare={() => onShare(displayProduct)}
           reviews={reviews}
           totalReviews={reviews.length}
           averageRating={reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) : 0}

@@ -72,7 +72,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   favorites = []
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
-  const [openOptionKey, setOpenOptionKey] = React.useState<string | null>(null);
 
   const cleanProductHtml = (html: any) => {
     const decode = (value: string) => {
@@ -254,7 +253,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const slideImagesFull = React.useMemo(() => {
     return (slideImages || []).map((u: any) => getImageUrl(String(u ?? '').trim()));
   }, [slideImages]);
-  if (__DEV__) console.warn("PDP images data:", images);
 
   const productTextTabs = splitProductText();
 
@@ -262,7 +260,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
       {/* 1. Фото товара (Carousel start) */}
       <View style={{ height: 320, width: Dimensions.get('window').width }}>
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+        <ScrollView key={`${String(product?.id ?? '')}:${String(product?.image ?? '')}`} horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
             {slideImagesFull.map((img: string, i: number) => {
               const placeholder = getImageUrl('');
               const candidates = [img, ...slideImagesFull.filter((_, j) => j !== i), placeholder];
@@ -328,87 +326,53 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
         {/* Variations */}
         {internalKeys.length > 0 ? (
-          <View style={styles.variationDropdownSection}>
-            <View style={styles.variantSelectorRow}>
-              {internalKeys.map((ik, idx) => {
-                const isOpen = openOptionKey === ik;
-                const selectedLabel = selectedOptions[ik] || '???????';
+          <View style={styles.variationsSection}>
+            {internalKeys.map((ik, idx) => (
+              <View key={ik} style={styles.optionGroup}>
+                <Text style={styles.optionTitle}>{optionKeys[idx]}</Text>
 
-                return (
-                  <TouchableOpacity
-                    key={ik}
-                    onPress={() => setOpenOptionKey(isOpen ? null : ik)}
-                    style={[styles.variantSelectorBtn, isOpen && styles.variantSelectorBtnActive]}
-                  >
-                    <Text style={styles.variantSelectorTitle} numberOfLines={1}>
-                      {optionKeys[idx]}
-                    </Text>
+                <View style={styles.optionValues}>
+                  {(matrix[ik] || []).map((val) => {
+                    const isSel = clean(selectedOptions[ik]) === clean(val);
 
-                    <View style={styles.variantSelectorValueRow}>
-                      <Text style={styles.variantSelectorValue} numberOfLines={1}>
-                        {selectedLabel}
-                      </Text>
-                      <Ionicons
-                        name={isOpen ? "chevron-up" : "chevron-down"}
-                        size={14}
-                        color={isOpen ? "#2E7D32" : "#6B7280"}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {openOptionKey ? (
-              <View style={styles.variantDropdown}>
-                <Text style={styles.variantDropdownTitle}>
-                  {optionKeys[internalKeys.indexOf(openOptionKey)]}
-                </Text>
-
-                {(matrix[openOptionKey] || []).map((val) => {
-                  const isSel = clean(selectedOptions[openOptionKey]) === clean(val);
-
-                  const isAvailable = variantRows.some((row: any) => {
-                    return internalKeys.every((key) => {
-                      const expected = key === openOptionKey ? val : selectedOptions[key];
-                      if (!expected) return true;
-                      return clean(row.options[key]) === clean(expected);
+                    const isAvailable = variantRows.some((row: any) => {
+                      return internalKeys.every((key) => {
+                        const expected = key === ik ? val : selectedOptions[key];
+                        if (!expected) return true;
+                        return clean(row.options[key]) === clean(expected);
+                      });
                     });
-                  });
 
-                  return (
-                    <TouchableOpacity
-                      key={val}
-                      disabled={!isAvailable}
-                      onPress={() => {
-                        if (!isAvailable) return;
-                        applyOptionChange(openOptionKey, val);
-                        setOpenOptionKey(null);
-                      }}
-                      style={[
-                        styles.variantDropdownOption,
-                        isSel && styles.variantDropdownOptionActive,
-                        !isAvailable && styles.variantDropdownOptionDisabled
-                      ]}
-                    >
-                      <Text
+                    return (
+                      <TouchableOpacity
+                        key={val}
+                        disabled={!isAvailable}
+                        onPress={() => {
+                          if (!isAvailable) return;
+                          applyOptionChange(ik, val);
+                        }}
                         style={[
-                          styles.variantDropdownOptionText,
-                          isSel && styles.variantDropdownOptionTextActive,
-                          !isAvailable && styles.variantDropdownOptionTextDisabled
+                          styles.optionBtn,
+                          isSel && styles.optionBtnActive,
+                          !isAvailable && styles.optionBtnDisabled,
                         ]}
                       >
-                        {val}
-                      </Text>
-
-                      {isSel ? (
-                        <Ionicons name="checkmark" size={18} color="#2E7D32" />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.optionBtnText,
+                            isSel && styles.optionBtnTextActive,
+                            !isAvailable && styles.optionBtnTextDisabled,
+                          ]}
+                        >
+                          {val}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            ) : null}
+            ))}
           </View>
         ) : null}
 
@@ -518,11 +482,13 @@ const styles = StyleSheet.create({
   variationsSection: { marginBottom: 24 },
   optionGroup: { marginBottom: 15 },
   optionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 10 },
-  optionValues: { gap: 10 },
-  optionBtn: { minWidth: 60, height: 44, borderRadius: 8, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginRight: 8 },
+  optionValues: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optionBtn: { minHeight: 38, maxWidth: '100%', borderRadius: 999, borderWidth: 1.2, borderColor: '#D1D5DB', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8 },
   optionBtnActive: { borderColor: '#2E7D32', backgroundColor: '#2E7D32' },
-  optionBtnText: { color: '#1f2937', fontWeight: '600', fontSize: 14 },
+  optionBtnDisabled: { opacity: 0.35 },
+  optionBtnText: { color: '#111827', fontWeight: '800', fontSize: 13, lineHeight: 16 },
   optionBtnTextActive: { color: 'white' },
+  optionBtnTextDisabled: { color: '#6B7280' },
   variationDropdownSection: { marginBottom: 24 },
   variantSelectorRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   variantSelectorBtn: { flex: 1, minHeight: 58, borderRadius: 14, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center' },
