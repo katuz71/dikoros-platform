@@ -84,7 +84,7 @@ class HomepageSectionsParser(HTMLParser):
         if tag == "div" and _class_contains(attrs, "catalogTabs-content") and _class_contains(attrs, "j-special-offers-content"):
             self.special_content_index += 1
             self._append_current_card()
-            
+
             if self.special_content_index == 1:
                 self.current_section = "hit"
             elif self.special_content_index == 2:
@@ -93,7 +93,7 @@ class HomepageSectionsParser(HTMLParser):
                 self.current_section = "promotion"
             else:
                 self.current_section = None
-                
+
             self.special_depth = 1
             return
 
@@ -148,6 +148,20 @@ def _localized_value(value: object, default: str = "") -> str:
     if isinstance(value, dict):
         return str(value.get("ua") or value.get("ru") or value.get("en") or default)
     return str(value or default)
+
+
+def _parse_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _old_price_from_discount(price: float, discount_percent: float) -> float:
+    """Reconstruct regular price when Horoshop sends discount percent only."""
+    if price <= 0 or discount_percent <= 0 or discount_percent >= 100:
+        return 0.0
+    return round(price / (1 - discount_percent / 100), 2)
 
 
 async def _export_catalog_products(
@@ -267,7 +281,7 @@ async def _apply_home_section_order(
                 param = resolved_sku
                 cur.execute(f"SELECT old_price, price, is_new FROM products WHERE {where_sql} LIMIT 1", (param,))
                 row = cur.fetchone()
-            
+
         if not row or param in seen_items:
             continue
 
@@ -404,15 +418,11 @@ async def sync_catalog_from_horoshop() -> dict:
                 parent_obj = item.get("parent") or {}
                 category = parent_obj.get("value") or "Загальне"
 
-                try:
-                    price = float(item.get("price") or 0)
-                except (TypeError, ValueError):
-                    price = 0.0
-
-                try:
-                    old_price = float(item.get("old_price") or 0)
-                except (TypeError, ValueError):
-                    old_price = 0.0
+                price = _parse_float(item.get("price"))
+                discount_percent = int(_parse_float(item.get("discount")))
+                old_price = _parse_float(item.get("old_price"))
+                if old_price <= price and discount_percent > 0:
+                    old_price = _old_price_from_discount(price, discount_percent)
 
                 status = "available"
                 presence_obj = item.get("presence") or {}
@@ -437,7 +447,7 @@ async def sync_catalog_from_horoshop() -> dict:
                     item.get("new") == 1
                     or any("новинка" in t or "new" in t for t in icon_texts)
                 )
-                
+
                 is_promotion = bool(old_price > 0 and old_price > price) and not is_new
 
                 cur.execute("SELECT id FROM products WHERE sku = ?", (sku,))
@@ -451,7 +461,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             description = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
-                            old_price = ?, sort_order = ?, external_id = ?
+                            old_price = ?, discount = ?, sort_order = ?, external_id = ?
                         WHERE id = ?
                         """,
                         (
@@ -468,6 +478,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             is_promotion,
                             is_new,
                             old_price,
+                            discount_percent,
                             sort_order,
                             external_id,
                             product_id,
@@ -479,9 +490,9 @@ async def sync_catalog_from_horoshop() -> dict:
                         INSERT INTO products (
                             sku, name, price, category, status, description,
                             image, images, parent_sku, variant_name, external_id,
-                            is_hit, is_promotion, is_new, old_price, sort_order
+                            is_hit, is_promotion, is_new, old_price, discount, sort_order
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -499,6 +510,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             is_promotion,
                             is_new,
                             old_price,
+                            discount_percent,
                             sort_order,
                         ),
                     )
