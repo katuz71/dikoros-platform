@@ -14,9 +14,16 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from db import get_db_connection
-from models.schemas import SocialAuthRequest, UserAuth, SmsAuthStartRequest, SmsAuthVerifyRequest, EmailRegisterRequest, EmailLoginRequest
-from services.auth import create_access_token, get_current_user_phone, hash_password, verify_password
+from models.schemas import (
+    EmailLoginRequest,
+    EmailRegisterRequest,
+    SmsAuthStartRequest,
+    SmsAuthVerifyRequest,
+    SocialAuthRequest,
+    UserAuth,
+)
 from services.alphasms import send_sms_code
+from services.auth import create_access_token, get_current_user_phone
 from services.users import migrate_phone_references, normalize_phone, phone_lookup_variants
 
 
@@ -25,14 +32,51 @@ logger = logging.getLogger(__name__)
 
 SMS_AUTH_CODES = {}
 SMS_CODE_TTL_SECONDS = 10 * 60
+REGISTRATION_BONUS_AMOUNT = 150
+REFERRAL_BONUS_AMOUNT = 50
+DEFAULT_CASHBACK_PERCENT = 5
 
 GOOGLE_WEB_CLIENT_ID = "451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com"
 GOOGLE_ANDROID_CLIENT_ID = "451079322222-49sf5d8pc3kb2fr10022b5im58s21ao6.apps.googleusercontent.com"
 
 
-
 def _normalize_email(email: str) -> str:
     return (email or "").strip().lower()
+
+
+def _normalize_referrer(raw_referrer: str | None, new_user_phone: str) -> str | None:
+    referrer = normalize_phone(raw_referrer or "")
+    if not referrer or referrer == new_user_phone:
+        return None
+    return referrer
+
+
+def _apply_referral_bonus(cur, referrer: str | None, new_user_phone: str) -> str | None:
+    """Credit 50 UAH to an existing referrer once, only when a new user is created."""
+    clean_referrer = _normalize_referrer(referrer, new_user_phone)
+    if not clean_referrer:
+        return None
+
+    referrer_user = cur.execute("SELECT phone FROM users WHERE phone = ?", (clean_referrer,)).fetchone()
+    if not referrer_user:
+        logger.info(
+            "Referral skipped: referrer not found referrer=%s new_user=%s",
+            clean_referrer,
+            new_user_phone,
+        )
+        return None
+
+    cur.execute(
+        "UPDATE users SET bonus_balance = COALESCE(bonus_balance, 0) + ? WHERE phone = ?",
+        (REFERRAL_BONUS_AMOUNT, clean_referrer),
+    )
+    logger.info(
+        "Referral bonus applied: referrer=%s new_user=%s amount=%s",
+        clean_referrer,
+        new_user_phone,
+        REFERRAL_BONUS_AMOUNT,
+    )
+    return clean_referrer
 
 
 def _verify_social_token(provider: str, token: str) -> dict:
@@ -111,8 +155,7 @@ def auth_email_login(body: EmailLoginRequest):
 def auth_sms_start(body: SmsAuthStartRequest):
     """
     Start SMS login/registration.
-    Dev mode: generates code and writes it to backend logs.
-    Later this function will call the real SMS provider.
+    New users can pass referrer here; it is stored with the pending SMS code.
     """
     clean_phone = normalize_phone(body.phone)
     if not clean_phone or not clean_phone.startswith("380") or len(clean_phone) != 12:
@@ -123,12 +166,13 @@ def auth_sms_start(body: SmsAuthStartRequest):
         "code": code,
         "expires_at": time.time() + SMS_CODE_TTL_SECONDS,
         "attempts": 0,
+        "referrer": _normalize_referrer(getattr(body, "referrer", None), clean_phone),
     }
 
     try:
         sms_result = send_sms_code(clean_phone, code)
         logger.info("[SMS AUTH] code sent via AlphaSMS phone=%s result=%s", clean_phone, sms_result)
-    except Exception as e:
+    except Exception:
         SMS_AUTH_CODES.pop(clean_phone, None)
         logger.exception("[SMS AUTH] AlphaSMS send failed")
         raise HTTPException(status_code=502, detail="SMS provider error")
@@ -144,7 +188,7 @@ def auth_sms_start(body: SmsAuthStartRequest):
 def auth_sms_verify(body: SmsAuthVerifyRequest):
     """
     Verify SMS code and login/register user.
-    New users receive 150 bonus only once at account creation.
+    New users receive 150 UAH once. If a valid referrer exists, the referrer receives 50 UAH once.
     """
     clean_phone = normalize_phone(body.phone)
     code = "".join(filter(str.isdigit, str(body.code or "")))
@@ -168,46 +212,69 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
     if str(record.get("code")) != code:
         raise HTTPException(status_code=400, detail="Invalid SMS code")
 
+    pending_referrer = _normalize_referrer(getattr(body, "referrer", None), clean_phone) or record.get("referrer")
+
     conn = get_db_connection()
     try:
-        user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+        cur = conn.cursor()
+        user = cur.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
         is_new_user = False
+        applied_referrer = None
 
         if not user:
             legacy_user = None
             for legacy_phone in phone_lookup_variants(clean_phone)[1:]:
-                legacy_user = conn.execute("SELECT * FROM users WHERE phone=?", (legacy_phone,)).fetchone()
+                legacy_user = cur.execute("SELECT * FROM users WHERE phone=?", (legacy_phone,)).fetchone()
                 if legacy_user:
                     migrate_phone_references(conn, legacy_phone, clean_phone)
                     logger.info("Migrated SMS user phone: %s -> %s", legacy_phone, clean_phone)
                     break
 
             if legacy_user:
-                conn.execute(
-                    "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
-                    (clean_phone,),
+                cur.execute(
+                    "UPDATE users SET phone_verified = TRUE, cashback_percent = GREATEST(COALESCE(cashback_percent, 0), ?) WHERE phone = ?",
+                    (DEFAULT_CASHBACK_PERCENT, clean_phone),
                 )
             else:
                 is_new_user = True
-                logger.info("New SMS user registration: phone=%s bonus=%s", clean_phone, 150)
-                conn.execute(
-                    "INSERT INTO users (phone, bonus_balance, total_spent, cashback_percent, created_at, phone_verified) VALUES (?, 150, 0, 0, ?, TRUE)",
-                    (clean_phone, datetime.now().isoformat()),
+                applied_referrer = _apply_referral_bonus(cur, pending_referrer, clean_phone)
+                logger.info(
+                    "New SMS user registration: phone=%s bonus=%s cashback=%s referrer=%s",
+                    clean_phone,
+                    REGISTRATION_BONUS_AMOUNT,
+                    DEFAULT_CASHBACK_PERCENT,
+                    applied_referrer,
+                )
+                cur.execute(
+                    """
+                    INSERT INTO users (
+                        phone, bonus_balance, total_spent, cashback_percent, referrer, created_at, phone_verified
+                    ) VALUES (?, ?, 0, ?, ?, ?, TRUE)
+                    """,
+                    (
+                        clean_phone,
+                        REGISTRATION_BONUS_AMOUNT,
+                        DEFAULT_CASHBACK_PERCENT,
+                        applied_referrer,
+                        datetime.now().isoformat(),
+                    ),
                 )
         else:
-            conn.execute(
-                "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
-                (clean_phone,),
+            cur.execute(
+                "UPDATE users SET phone_verified = TRUE, cashback_percent = GREATEST(COALESCE(cashback_percent, 0), ?) WHERE phone = ?",
+                (DEFAULT_CASHBACK_PERCENT, clean_phone),
             )
 
         conn.commit()
-        user = conn.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
+        user = cur.execute("SELECT * FROM users WHERE phone=?", (clean_phone,)).fetchone()
 
         SMS_AUTH_CODES.pop(clean_phone, None)
 
         out = dict(user)
         out["access_token"] = create_access_token(clean_phone)
         out["is_new_user"] = is_new_user
+        out["referral_bonus_applied"] = bool(applied_referrer)
+        out["applied_referrer"] = applied_referrer
         return out
     finally:
         conn.close()
