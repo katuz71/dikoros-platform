@@ -30,7 +30,7 @@ const newShare = `  // 4. Реферальная ссылка
         url: referral.web_link,
         title: 'Запрошення в DikorosUA',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.log(error?.message || error);
       Alert.alert('Помилка', 'Не вдалося створити реферальне посилання. Спробуйте ще раз.');
     }
@@ -47,6 +47,10 @@ if (!source.includes('const res = await fetch(`${API_URL}/api/referral/me`')) {
     changed = true;
   }
 }
+
+const catchBefore = source;
+source = source.replace('    } catch (error) {\n      console.log(error?.message || error);', '    } catch (error: any) {\n      console.log(error?.message || error);');
+if (source !== catchBefore) changed = true;
 
 const oldFirstTier = `    let currentPercent = 0;
     let nextLevel = 2000;
