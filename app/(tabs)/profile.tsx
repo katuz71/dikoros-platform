@@ -667,7 +667,7 @@ export default function ProfileScreen() {
         url: referral.web_link,
         title: 'Запрошення в DikorosUA',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.log(error?.message || error);
       Alert.alert('Помилка', 'Не вдалося створити реферальне посилання. Спробуйте ще раз.');
     }
