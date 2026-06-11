@@ -7,7 +7,6 @@ from html import escape
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 
-from config.api import API_URL if False else None
 from services.auth import get_current_user_phone
 from services.users import normalize_phone
 
@@ -20,7 +19,7 @@ APP_SCHEME = "dikoros"
 PUBLIC_APP_URL = "https://app.dikoros.ua"
 
 
-def _referral_payload(phone: str) -> dict:
+def referral_payload(phone: str) -> dict:
     referrer = normalize_phone(phone)
     web_link = f"{PUBLIC_APP_URL}/ref?referrer={referrer}"
     app_link = f"{APP_SCHEME}://ref?referrer={referrer}"
@@ -40,7 +39,7 @@ def _referral_payload(phone: str) -> dict:
 
 @router.get("/api/referral/me")
 def get_my_referral(phone: str = Depends(get_current_user_phone)):
-    return _referral_payload(phone)
+    return referral_payload(phone)
 
 
 @router.get("/ref", response_class=HTMLResponse)
