@@ -45,7 +45,7 @@ if (!source.includes('const res = await fetch(`${API_URL}/api/referral/me`')) {
   source = source.replace(shareBlockPattern, newShare);
 }
 
-const newCashback = `    let currentPercent = 5;
+const newCashbackBlock = `    let currentPercent = 5;
     let nextLevel = 5000;
     let nextPercent = 10;
     let prevLevel = 0;
@@ -72,13 +72,15 @@ const newCashback = `    let currentPercent = 5;
       prevLevel = 25000;
     }`;
 
-const cashbackBlockPattern = /    let currentPercent = [\s\S]*?\n\n    \/\/ Считаем % заполнения/;
-if (!source.includes(newCashback)) {
-  if (!cashbackBlockPattern.test(source)) {
-    console.warn('cashback block was not found; skipped');
-  } else {
-    source = source.replace(cashbackBlockPattern, `${newCashback}\n\n    // Считаем % заполнения`);
+if (!source.includes(newCashbackBlock)) {
+  const startMarker = '    let currentPercent = ';
+  const endMarker = '\n\n    // Считаем % заполнения';
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+  if (start === -1 || end === -1) {
+    throw new Error('cashback block markers were not found');
   }
+  source = source.slice(0, start) + newCashbackBlock + source.slice(end);
 }
 
 const newTable = `                <View style={styles.tr}><Text style={styles.td}>0 - 4 999 ₴</Text><Text style={styles.tdR}>5%</Text></View>
@@ -86,13 +88,15 @@ const newTable = `                <View style={styles.tr}><Text style={styles.td
                 <View style={styles.tr}><Text style={styles.td}>10 000 - 24 999 ₴</Text><Text style={styles.tdR}>15%</Text></View>
                 <View style={[styles.tr, {borderBottomWidth:0}]}><Text style={styles.td}>від 25 000 ₴</Text><Text style={styles.tdR}>20%</Text></View>`;
 
-const tableBlockPattern = /                <View style=\{styles\.tr\}><Text style=\{styles\.td\}>0 -[\s\S]*?від 25 000 ₴<\/Text><Text style=\{styles\.tdR\}>20%<\/Text><\/View>/;
+const tableStartMarker = '                <View style={styles.tr}><Text style={styles.td}>0 -';
+const tableEndMarker = '                <View style={[styles.tr, {borderBottomWidth:0}]}><Text style={styles.td}>від 25 000 ₴</Text><Text style={styles.tdR}>20%</Text></View>';
 if (!source.includes(newTable)) {
-  if (!tableBlockPattern.test(source)) {
-    console.warn('cashback table block was not found; skipped');
-  } else {
-    source = source.replace(tableBlockPattern, newTable);
+  const start = source.indexOf(tableStartMarker);
+  const end = source.indexOf(tableEndMarker, start);
+  if (start === -1 || end === -1) {
+    throw new Error('cashback table markers were not found');
   }
+  source = source.slice(0, start) + newTable + source.slice(end + tableEndMarker.length);
 }
 
 fs.writeFileSync(profilePath, source, 'utf8');
