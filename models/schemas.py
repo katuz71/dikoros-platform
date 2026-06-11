@@ -239,11 +239,13 @@ class EmailLoginRequest(BaseModel):
 
 class SmsAuthStartRequest(BaseModel):
     phone: str
+    referrer: Optional[str] = None
 
 
 class SmsAuthVerifyRequest(BaseModel):
     phone: str
     code: str
+    referrer: Optional[str] = None
 
 
 class SocialAuthRequest(BaseModel):
@@ -258,7 +260,7 @@ class SocialLoginRequest(BaseModel):
 
 
 class PushTokenRequest(BaseModel):
-    auth_id: str
+    auth_id: Optional[str] = None
     token: str
     send_welcome: bool = False
 
