@@ -4,15 +4,6 @@ const path = require('path');
 const profilePath = path.join(__dirname, '..', 'app', '(tabs)', 'profile.tsx');
 let source = fs.readFileSync(profilePath, 'utf8');
 
-const oldShare = `  // 4. Поделиться
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: \`Привіт! Тримай від мене 50 грн на покупки в Dikoros UA! \nВкажи мій номер \${phone} при замовленні.\`,
-      });
-    } catch (error: any) { console.log(error.message); }
-  };`;
-
 const newShare = `  // 4. Реферальная ссылка
   const handleShare = async () => {
     try {
@@ -42,13 +33,16 @@ const newShare = `  // 4. Реферальная ссылка
       console.log(error?.message || error);
       Alert.alert('Помилка', 'Не вдалося створити реферальне посилання. Спробуйте ще раз.');
     }
-  };`;
+  };
 
-if (!source.includes(newShare)) {
-  if (!source.includes(oldShare)) {
-    throw new Error('handleShare block was not found or was already changed differently');
+  const openLink =`;
+
+const shareBlockPattern = /  \/\/ 4\.[\s\S]*?  const openLink =/;
+if (!source.includes('const res = await fetch(`${API_URL}/api/referral/me`')) {
+  if (!shareBlockPattern.test(source)) {
+    throw new Error('handleShare/openLink block was not found');
   }
-  source = source.replace(oldShare, newShare);
+  source = source.replace(shareBlockPattern, newShare);
 }
 
 const oldCashback = `    let currentPercent = 0;
