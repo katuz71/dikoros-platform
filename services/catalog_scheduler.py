@@ -13,7 +13,7 @@ from services.catalog_sync import sync_catalog_from_horoshop
 
 logger = logging.getLogger(__name__)
 
-SYNC_INTERVAL_SECONDS = 24 * 60 * 60
+SYNC_INTERVAL_SECONDS = 60 * 60
 INITIAL_SYNC_DELAY_SECONDS = 60
 _started = False
 
@@ -31,9 +31,9 @@ def _sync_loop() -> None:
     while True:
         try:
             result = asyncio.run(sync_catalog_from_horoshop())
-            logger.info("Daily Horoshop catalog sync completed: %s", result)
+            logger.info("Hourly Horoshop catalog sync completed: %s", result)
         except Exception as exc:
-            logger.exception("Daily Horoshop catalog sync failed: %s", exc)
+            logger.exception("Hourly Horoshop catalog sync failed: %s", exc)
 
         time.sleep(SYNC_INTERVAL_SECONDS)
 
@@ -46,7 +46,6 @@ def start_catalog_sync_scheduler() -> None:
     if not _has_horoshop_credentials():
         logger.info("Horoshop catalog sync scheduler skipped: credentials are not configured")
         return
-
     _started = True
     thread = threading.Thread(target=_sync_loop, name="catalog-sync", daemon=True)
     thread.start()
