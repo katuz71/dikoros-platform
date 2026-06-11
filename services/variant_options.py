@@ -160,6 +160,29 @@ def _is_porcini_group(article: str, parent_article: str) -> bool:
     return article.startswith("ГБ-") and (article == "ГБ-01С" or parent_article == "ГБ-01С")
 
 
+def _infer_weight_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
+    article = _normalized_article(item)
+    code = _strip_short_year_suffix(_article_code(article))
+    if not article:
+        return None
+
+    weight_match = re.match(r"(?:0?)(50|100|200)(?:С|СП|СМ|ЕС|ЕСП|ЕСМ|СЛ|СЛП|ЛС|ЛСП)", code)
+    if weight_match:
+        return f"{weight_match.group(1)} г"
+
+    one_gram_patterns = [
+        r"0?[12](?:С|СП|СМ|ЕС|ЕСП|ЕСМ|ЛС|ЛСП|ЛСМ)",
+        r"0?2Л(?:С|СП|СМ)",
+        r"Л(?:С|СП|СМ)",
+    ]
+    if any(re.fullmatch(pattern, code) for pattern in one_gram_patterns):
+        return "1 г"
+
+    if not allow_group_default:
+        return None
+    return None
+
+
 def _infer_format_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
     article = _normalized_article(item)
     parent_article = _normalized_parent_article(item)
@@ -173,8 +196,12 @@ def _infer_format_from_article(item: dict, *, allow_group_default: bool = False)
         if re.fullmatch(r"(?:0?[12]|50|100)С2?", code):
             return "цілі"
 
-    if not allow_group_default:
-        return None
+    if allow_group_default:
+        if re.search(r"(?:СП|СМ|ЕСП|ЕСМ|ЛСП|ЛСМ)$", code):
+            return "порошок"
+        if re.search(r"(?:С|ЕС|ЛС)$", code):
+            return "цілі"
+
     return None
 
 
@@ -263,6 +290,11 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         if value:
             options[key] = value
 
+    if not options.get(OPTION_WEIGHT):
+        inferred_weight = _infer_weight_from_article(item)
+        if inferred_weight:
+            options[OPTION_WEIGHT] = inferred_weight
+
     if not options.get(OPTION_FORMAT):
         inferred_format = _infer_format_from_article(item)
         if inferred_format:
@@ -272,6 +304,12 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         inferred_sort = _infer_sort_from_article(item)
         if inferred_sort:
             options[OPTION_SORT] = inferred_sort
+
+    if not options.get(OPTION_YEAR):
+        suffix_year = _short_year_from_article(item)
+        if suffix_year:
+            options[OPTION_YEAR] = suffix_year
+
     return options
 
 
@@ -296,9 +334,10 @@ def _visible_keys(raw_options: list[dict[str, str]]) -> list[str]:
             keys.append(key)
 
     for key in UNIQUENESS_OPTION_ORDER:
+        values = {options.get(key) for options in raw_options if options.get(key)}
         if not _has_duplicates(raw_options, keys):
             break
-        if key not in keys and any(options.get(key) for options in raw_options):
+        if key not in keys and len(values) > 1:
             keys.append(key)
 
     if _has_duplicates(raw_options, keys):
@@ -316,9 +355,14 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
         article = _article(group_item)
         group_rows.append((article, raw, group_item))
 
+    group_has_weight = any(raw.get(OPTION_WEIGHT) for _, raw, _ in group_rows)
     group_has_format = any(raw.get(OPTION_FORMAT) for _, raw, _ in group_rows)
     group_has_sort = any(raw.get(OPTION_SORT) for _, raw, _ in group_rows)
     for _, raw, group_item in group_rows:
+        if group_has_weight and not raw.get(OPTION_WEIGHT):
+            inferred_weight = _infer_weight_from_article(group_item, allow_group_default=True)
+            if inferred_weight:
+                raw[OPTION_WEIGHT] = inferred_weight
         if group_has_format and not raw.get(OPTION_FORMAT):
             inferred_format = _infer_format_from_article(group_item, allow_group_default=True)
             if inferred_format:
@@ -327,6 +371,12 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
             inferred_sort = _infer_sort_from_article(group_item, allow_group_default=True)
             if inferred_sort:
                 raw[OPTION_SORT] = inferred_sort
+
+    group_has_year = any(raw.get(OPTION_YEAR) for _, raw, _ in group_rows)
+    if group_has_year:
+        for _, raw, group_item in group_rows:
+            if not raw.get(OPTION_YEAR):
+                raw[OPTION_YEAR] = _short_year_from_article(group_item) or "2024"
 
     year_buckets: defaultdict[tuple[tuple[str, str], ...], list[tuple[dict[str, str], dict]]] = defaultdict(list)
     for _, raw, group_item in group_rows:
