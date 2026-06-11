@@ -22,6 +22,7 @@ BASE_OPTION_ORDER = [
     OPTION_VOLUME,
     OPTION_CONCENTRATION,
     OPTION_TASTE,
+    OPTION_YEAR,
     OPTION_FORMAT,
     OPTION_SORT,
 ]
@@ -137,7 +138,7 @@ def _extract_sort(text: str) -> str | None:
 
 
 def _extract_year(text: str) -> str | None:
-    match = re.search(r"\b(2024|2025)\b", text)
+    match = re.search(r"\b(20\d{2})\b", text)
     return match.group(1) if match else None
 
 

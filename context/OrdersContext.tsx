@@ -166,7 +166,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      const productsUrl = `${API_URL}/products?limit=500&status=available`;
+      // Horoshop catalog is the source of truth: load all grouped products.
+      // Availability is displayed/blocked in UI, but products must not disappear.
+      const productsUrl = `${API_URL}/products?limit=500`;
       console.log("🔥 TRYING TO FETCH:", productsUrl);
       
       const controller = new AbortController();
@@ -214,7 +216,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      setProducts(availableProducts);
+      setProducts(productsArray);
     } catch (error: any) {
       console.error("🔥 FETCH ERROR:", error);
       console.error("Error fetching products:", error);

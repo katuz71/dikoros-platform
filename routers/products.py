@@ -182,8 +182,11 @@ def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
 
     formatted_variants = [_format_variant(item) for item in ordered]
 
+    # Horoshop is the source of truth: the card price must stay equal to
+    # the primary/catalog variant price. minPrice is metadata only and must
+    # not override the visible product card price.
     main_variant["variants"] = formatted_variants
-    main_variant["price"] = min_price
+    main_variant["price"] = _as_float(main_variant.get("price"))
     main_variant["minPrice"] = min_price
     main_variant["old_price"] = max_old_price if max_old_price > 0 else None
     main_variant["option_names"] = _option_names_from_variants(formatted_variants) or main_variant.get("option_names") or ("\u0412\u0430\u0440\u0456\u0430\u043d\u0442" if len(formatted_variants) > 1 else main_variant.get("option_names"))
