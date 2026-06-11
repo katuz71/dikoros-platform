@@ -137,6 +137,40 @@ def _extract_sort(text: str) -> str | None:
     return None
 
 
+def _infer_red_amanita_cap_sort(item: dict) -> str | None:
+    """Infer missing sort for the Horoshop red amanita cap group.
+
+    Horoshop exports the МХМЧ-01С group with sort encoded in article codes.
+    Some base 50/100/200 g variants omit "1 сорт" in mod_title, while 2-sort,
+    elite and лом variants include the value explicitly. Without this guarded
+    SKU inference the app treats valid 1-sort weights as unavailable.
+    """
+    article = _clean(item.get("article") or item.get("sku") or item.get("id")).upper().replace(" ", "")
+    parent_article = _clean(item.get("parent_article") or "").upper().replace(" ", "")
+
+    if article != "МХМЧ-01С" and parent_article != "МХМЧ-01С":
+        return None
+    if not article.startswith("МХМЧ-"):
+        return None
+
+    code = article.split("-", 1)[1]
+    if code.endswith("24"):
+        code = code[:-2]
+
+    if code.endswith("СЛ"):
+        return "Лом"
+    if code.endswith("ЕСП") or code.endswith("ЕС"):
+        return "Еліт"
+
+    base = code[:-1] if code.endswith("П") else code
+    if re.fullmatch(r"(?:0?2|52|102|202)С", base):
+        return "2 сорт"
+    if re.fullmatch(r"(?:0?1|50|100|200)С", base):
+        return "1 сорт"
+
+    return None
+
+
 def _extract_year(text: str) -> str | None:
     match = re.search(r"\b(20\d{2})\b", text)
     return match.group(1) if match else None
@@ -189,6 +223,11 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         value = extractor(text)
         if value:
             options[key] = value
+
+    if not options.get(OPTION_SORT):
+        inferred_sort = _infer_red_amanita_cap_sort(item)
+        if inferred_sort:
+            options[OPTION_SORT] = inferred_sort
 
     return options
 
