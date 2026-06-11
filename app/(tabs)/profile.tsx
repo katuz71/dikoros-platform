@@ -798,21 +798,16 @@ export default function ProfileScreen() {
     const totalSpent = profile?.total_spent || 0;
     
     // Визначаємо поточний рівень кешбеку згідно з таблицею умов
-    let currentPercent = 0;
-    let nextLevel = 2000;
-    let nextPercent = 5;
+    let currentPercent = 5;
+    let nextLevel = 5000;
+    let nextPercent = 10;
     let prevLevel = 0;
 
-    if (totalSpent < 2000) {
-      currentPercent = 0;
-      nextLevel = 2000;
-      nextPercent = 5;
-      prevLevel = 0;
-    } else if (totalSpent < 5000) {
+    if (totalSpent < 5000) {
       currentPercent = 5;
       nextLevel = 5000;
       nextPercent = 10;
-      prevLevel = 2000;
+      prevLevel = 0;
     } else if (totalSpent < 10000) {
       currentPercent = 10;
       nextLevel = 10000;
