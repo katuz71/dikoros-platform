@@ -642,13 +642,35 @@ export default function ProfileScreen() {
     else setTimeout(() => setRefreshing(false), 1000);
   }, [phone]);
 
-  // 4. Поделиться
+  // 4. Реферальная ссылка
   const handleShare = async () => {
     try {
-      await Share.share({
-        message: `Привіт! Тримай від мене 50 грн на покупки в Dikoros UA! \nВкажи мій номер ${phone} при замовленні.`,
+      const accessToken = await AsyncStorage.getItem('accessToken');
+
+      if (!accessToken) {
+        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб запросити друга.');
+        setShowLoginModal(true);
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/referral/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-    } catch (error: any) { console.log(error.message); }
+      const referral = await res.json().catch(() => null);
+
+      if (!res.ok || !referral?.web_link) {
+        throw new Error(referral?.detail || 'Referral link unavailable');
+      }
+
+      await Share.share({
+        message: referral.message || `Запрошую тебе в DikorosUA 🍄\nЗа реєстрацію отримаєш 150 грн бонусами.\nМоє реферальне посилання: ${referral.web_link}`,
+        url: referral.web_link,
+        title: 'Запрошення в DikorosUA',
+      });
+    } catch (error) {
+      console.log(error?.message || error);
+      Alert.alert('Помилка', 'Не вдалося створити реферальне посилання. Спробуйте ще раз.');
+    }
   };
 
   const openLink = (url: string) => Linking.openURL(url).catch(() => {});
@@ -1002,8 +1024,7 @@ export default function ProfileScreen() {
                     <Text style={[styles.th, {flex: 1}]}>Сума покупок</Text>
                     <Text style={[styles.th, {width: 60, textAlign: 'right'}]}>%</Text>
                 </View>
-                <View style={styles.tr}><Text style={styles.td}>0 - 1 999 ₴</Text><Text style={styles.tdR}>0%</Text></View>
-                <View style={styles.tr}><Text style={styles.td}>2 000 - 4 999 ₴</Text><Text style={styles.tdR}>5%</Text></View>
+                <View style={styles.tr}><Text style={styles.td}>0 - 4 999 ₴</Text><Text style={styles.tdR}>5%</Text></View>
                 <View style={styles.tr}><Text style={styles.td}>5 000 - 9 999 ₴</Text><Text style={styles.tdR}>10%</Text></View>
                 <View style={styles.tr}><Text style={styles.td}>10 000 - 24 999 ₴</Text><Text style={styles.tdR}>15%</Text></View>
                 <View style={[styles.tr, {borderBottomWidth:0}]}><Text style={styles.td}>від 25 000 ₴</Text><Text style={styles.tdR}>20%</Text></View>
