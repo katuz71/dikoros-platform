@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
-
+from collections import Counter, defaultdict
 
 OPTION_PACKING = "Фасування"
 OPTION_WEIGHT = "Вага"
@@ -27,20 +26,8 @@ BASE_OPTION_ORDER = [
     OPTION_SORT,
 ]
 
-UNIQUENESS_OPTION_ORDER = [
-    OPTION_SORT,
-    OPTION_YEAR,
-    OPTION_FORMAT,
-]
-
-SKU_SUFFIX_TRANSLATION = str.maketrans(
-    {
-        "C": "С",
-        "E": "Е",
-        "M": "М",
-        "P": "П",
-    }
-)
+UNIQUENESS_OPTION_ORDER = [OPTION_SORT, OPTION_YEAR, OPTION_FORMAT]
+SKU_SUFFIX_TRANSLATION = str.maketrans({"C": "С", "E": "Е", "M": "М", "P": "П"})
 
 
 def _localized_value(value: object, default: str = "") -> str:
@@ -61,9 +48,7 @@ def _decimal(value: str) -> str:
 
 
 def _plural_capsules(amount: int) -> str:
-    if amount == 1:
-        return "капсула"
-    return "капсул"
+    return "капсула" if amount == 1 else "капсул"
 
 
 def _plural_tiles(amount: int) -> str:
@@ -80,7 +65,6 @@ def _extract_packing(text: str) -> str | None:
     match = re.search(r"(?<!\w)(\d+)\s*(капсул\w*|плит\w*)\b", text, re.IGNORECASE)
     if not match:
         return None
-
     amount = int(match.group(1))
     unit = match.group(2).lower()
     if unit.startswith("капсул"):
@@ -89,11 +73,7 @@ def _extract_packing(text: str) -> str | None:
 
 
 def _extract_weight(text: str) -> str | None:
-    match = re.search(
-        r"(?<![\w])(\d+(?:[,.]\d+)?)\s*(грамів|грама|грам|гр|г)\b",
-        text,
-        re.IGNORECASE,
-    )
+    match = re.search(r"(?<![\w])(\d+(?:[,.]\d+)?)\s*(грамів|грама|грам|гр|г)\b", text, re.IGNORECASE)
     if not match:
         return None
     return f"{_decimal(match.group(1))} г"
@@ -160,29 +140,36 @@ def _article_code(article: str) -> str:
 
 
 def _strip_short_year_suffix(code: str) -> str:
-    # Horoshop uses 24/25 suffixes in SKU for year/harvest batches.
-    # Do not strip other trailing numbers: they are often weights, e.g. 50/100/200.
-    if code.endswith("24") or code.endswith("25"):
+    if code.endswith(("23", "24", "25")):
         return code[:-2]
     return code
 
 
-def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
-    """Infer missing sort only for Horoshop dried mushroom groups that use sort SKUs.
+def _short_year_from_article(item: dict) -> str | None:
+    article = _normalized_article(item)
+    code = _article_code(article)
+    match = re.search(r"(23|24|25)$", code)
+    return f"20{match.group(1)}" if match else None
 
-    Some Horoshop variants omit "1 сорт" in mod_title, while the same group has
-    other variants with explicit sort values. In those groups the base SKU suffix
-    is the source of truth: С/СП/СМ without elite/лом/2-sort marker means 1 сорт.
-    """
+
+def _semantic_year_key(options: dict[str, str]) -> tuple[tuple[str, str], ...]:
+    return tuple(sorted((k, v) for k, v in options.items() if k not in (OPTION_ARTICLE, OPTION_YEAR) and v))
+
+
+def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
     article = _normalized_article(item)
     parent_article = _normalized_parent_article(item)
     code = _strip_short_year_suffix(_article_code(article))
-
     if not article:
         return None
 
-    # Guarded legacy rule for the red amanita cap group already verified against
-    # Horoshop raw export. It can run without group context for direct parser tests.
+    if article.startswith("ГБ-") and (article == "ГБ-01С" or parent_article == "ГБ-01С"):
+        if re.fullmatch(r"0?2С(?:П)?", code) or re.fullmatch(r"(?:50|100)С(?:П)?2", code):
+            return "2 сорт"
+        if re.fullmatch(r"0?1С(?:П)?", code) or re.fullmatch(r"(?:50|100)С(?:П)?", code):
+            return "1 сорт"
+        return None
+
     if article.startswith("МХМЧ-") and (article == "МХМЧ-01С" or parent_article == "МХМЧ-01С"):
         if code.endswith("СЛ"):
             return "Лом"
@@ -198,26 +185,14 @@ def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -
     if not allow_group_default:
         return None
 
-    # Generic guarded rule for dried mushroom groups where at least one sibling
-    # already has a sort value. This covers SKU families like СК, ЛН and МХМКС.
     if code.endswith("СЛ"):
         return "Лом"
     if code.endswith("ЕСП") or code.endswith("ЕС"):
         return "Еліт"
-
-    # Explicit 2-sort patterns: 02С, 52С, 102С, 202С and their powder variants.
-    explicit_second_sort = re.fullmatch(r"(?:0?2|52|102|202)С(?:П|М)?", code)
-    if explicit_second_sort:
+    if re.fullmatch(r"(?:0?2|52|102|202)С(?:П|М)?", code):
         return "2 сорт"
-
-    # Base/default sort patterns when the group already uses sort options.
-    base_first_sort = re.fullmatch(
-        r"(?:0?1С(?:П|М)?|0?1С(?:П|М)?\d+|50С(?:П|М)?|100С(?:П|М)?|200С(?:П|М)?)",
-        code,
-    )
-    if base_first_sort:
+    if re.fullmatch(r"(?:0?1С(?:П|М)?|0?1С(?:П|М)?\d+|50С(?:П|М)?|100С(?:П|М)?|200С(?:П|М)?)", code):
         return "1 сорт"
-
     return None
 
 
@@ -245,20 +220,12 @@ def _extract_taste(text: str) -> str | None:
 
 
 def _item_text(item: dict) -> str:
-    return _clean(
-        " ".join(
-            [
-                _localized_value(item.get("mod_title") or {}),
-                _localized_value(item.get("title") or {}),
-            ]
-        )
-    )
+    return _clean(" ".join([_localized_value(item.get("mod_title") or {}), _localized_value(item.get("title") or {})]))
 
 
 def _raw_variant_options(item: dict) -> dict[str, str]:
     text = _item_text(item)
     options: dict[str, str] = {}
-
     extractors = [
         (OPTION_PACKING, _extract_packing),
         (OPTION_WEIGHT, _extract_weight),
@@ -278,7 +245,6 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         inferred_sort = _infer_sort_from_article(item)
         if inferred_sort:
             options[OPTION_SORT] = inferred_sort
-
     return options
 
 
@@ -291,8 +257,7 @@ def _combo(options: dict[str, str], keys: list[str]) -> tuple[str, ...]:
 
 
 def _has_duplicates(raw_options: list[dict[str, str]], keys: list[str]) -> bool:
-    combos = [_combo(options, keys) for options in raw_options]
-    counts = Counter(combos)
+    counts = Counter(_combo(options, keys) for options in raw_options)
     return any(count > 1 for count in counts.values())
 
 
@@ -311,12 +276,10 @@ def _visible_keys(raw_options: list[dict[str, str]]) -> list[str]:
 
     if _has_duplicates(raw_options, keys):
         keys.append(OPTION_ARTICLE)
-
     return keys
 
 
 def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]:
-    """Return JSON-compatible structured options for one Horoshop variant."""
     group = group_items or [item]
     raw_by_article: dict[str, dict[str, str]] = {}
     group_rows: list[tuple[str, dict[str, str], dict]] = []
@@ -327,13 +290,31 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
         group_rows.append((article, raw, group_item))
 
     group_has_sort = any(raw.get(OPTION_SORT) for _, raw, _ in group_rows)
-
-    raw_options: list[dict[str, str]] = []
-    for article, raw, group_item in group_rows:
+    for _, raw, group_item in group_rows:
         if group_has_sort and not raw.get(OPTION_SORT):
             inferred_sort = _infer_sort_from_article(group_item, allow_group_default=True)
             if inferred_sort:
                 raw[OPTION_SORT] = inferred_sort
+
+    year_buckets: defaultdict[tuple[tuple[str, str], ...], list[tuple[dict[str, str], dict]]] = defaultdict(list)
+    for _, raw, group_item in group_rows:
+        key = _semantic_year_key(raw)
+        if key:
+            year_buckets[key].append((raw, group_item))
+
+    for rows in year_buckets.values():
+        if len(rows) < 2:
+            continue
+        has_year_marker = any(_short_year_from_article(group_item) or raw.get(OPTION_YEAR) for raw, group_item in rows)
+        if not has_year_marker:
+            continue
+        for raw, group_item in rows:
+            if raw.get(OPTION_YEAR):
+                continue
+            raw[OPTION_YEAR] = _short_year_from_article(group_item) or "2024"
+
+    raw_options: list[dict[str, str]] = []
+    for article, raw, _ in group_rows:
         if article:
             raw[OPTION_ARTICLE] = article
         raw_by_article[article] = raw
@@ -342,9 +323,4 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
     current_article = _article(item)
     current_raw = raw_by_article.get(current_article) or _raw_variant_options(item)
     keys = _visible_keys(raw_options)
-
-    return {
-        key: current_raw[key]
-        for key in keys
-        if current_raw.get(key)
-    }
+    return {key: current_raw[key] for key in keys if current_raw.get(key)}
