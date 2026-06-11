@@ -33,6 +33,15 @@ UNIQUENESS_OPTION_ORDER = [
     OPTION_FORMAT,
 ]
 
+SKU_SUFFIX_TRANSLATION = str.maketrans(
+    {
+        "C": "С",
+        "E": "Е",
+        "M": "М",
+        "P": "П",
+    }
+)
+
 
 def _localized_value(value: object, default: str = "") -> str:
     if isinstance(value, dict):
@@ -132,7 +141,7 @@ def _extract_sort(text: str) -> str | None:
         return "1 сорт"
     if re.search(r"\b2\s*сорт\b", lower, re.IGNORECASE):
         return "2 сорт"
-    if re.search(r"\bлом", lower, re.IGNORECASE):
+    if re.search(r"\bлом\b", lower, re.IGNORECASE):
         return "Лом"
     return None
 
@@ -146,7 +155,8 @@ def _normalized_parent_article(item: dict) -> str:
 
 
 def _article_code(article: str) -> str:
-    return article.split("-", 1)[1] if "-" in article else article
+    code = article.split("-", 1)[1] if "-" in article else article
+    return code.translate(SKU_SUFFIX_TRANSLATION)
 
 
 def _strip_short_year_suffix(code: str) -> str:
