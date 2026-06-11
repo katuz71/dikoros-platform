@@ -14,6 +14,9 @@ interface ProductCardProps {
     image_url?: string;
     badge?: string;
     category?: string;
+    variants?: any[] | string;
+    minPrice?: number;
+    unit?: string;
   };
   displayPrice?: string;
   onPress: () => void;
@@ -22,6 +25,47 @@ interface ProductCardProps {
   isFavorite: boolean;
   style?: StyleProp<ViewStyle>;
 }
+
+const formatPrice = (price: number) => `${Number(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
+
+const clean = (value: any) => String(value ?? '').trim().replace(/^"+|"+$/g, '').replace(/\s+/g, ' ');
+
+const parseVariants = (value: any): any[] => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+const getVariantLabel = (variant: any) => {
+  return clean(variant?.name || variant?.variant || variant?.variant_name || variant?.title || variant?.size || variant?.pack_size || variant?.packSize);
+};
+
+const getVariantPrice = (variant: any, fallback: number) => {
+  const raw = Number(variant?.price ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+};
+
+const getVariantOldPrice = (variant: any, fallback: number | null) => {
+  const raw = Number(variant?.old_price ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+};
+
+const pickDisplayVariant = (item: any) => {
+  const variants = parseVariants(item?.variants);
+  if (!variants.length) return null;
+
+  const withRealPrice = variants.find((variant) => getVariantPrice(variant, 0) > 0);
+  return withRealPrice || variants[0] || null;
+};
 
 export default function ProductCard({ 
   item,
@@ -33,12 +77,17 @@ export default function ProductCard({
   style
 }: ProductCardProps) {
   const safeName = item.name || '';
-  const safePrice = typeof item.price === 'number' ? item.price : 0;
-  const safeOldPrice = typeof item.old_price === 'number' ? item.old_price : null;
-  const hasDiscount = safeOldPrice !== null && safeOldPrice > safePrice;
+  const basePrice = typeof item.price === 'number' ? item.price : 0;
+  const displayVariant = pickDisplayVariant(item);
+  const exactPrice = getVariantPrice(displayVariant, basePrice);
+  const safeOldPrice = getVariantOldPrice(displayVariant, typeof item.old_price === 'number' ? item.old_price : null);
+  const hasDiscount = safeOldPrice !== null && safeOldPrice > exactPrice;
   const safeBadge = item.badge || null;
   const hasImage = !!(item.picture || item.image || item.image_url);
   const isDefaultGridCard = !style;
+  const normalizedDisplayPrice = clean(displayPrice).toLowerCase();
+  const shouldUseExternalDisplayPrice = !!displayPrice && !normalizedDisplayPrice.startsWith('від');
+  const resolvedDisplayPrice = shouldUseExternalDisplayPrice ? displayPrice : formatPrice(exactPrice);
 
   return (
     <TouchableOpacity 
@@ -87,11 +136,11 @@ export default function ProductCard({
         <View style={styles.bottomRow}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              {displayPrice || `${safePrice} ₴`}
+              {resolvedDisplayPrice}
             </Text>
             {hasDiscount && (
               <Text style={styles.oldPrice}>
-                {safeOldPrice} ₴
+                {formatPrice(safeOldPrice)}
               </Text>
             )}
           </View>
