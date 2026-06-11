@@ -244,6 +244,18 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     return deduped;
   };
 
+  const isVariantAvailable = (row: any) => {
+    const raw = row?.raw || row || {};
+    const status = clean(raw?.status || product?.status).toLowerCase();
+    const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии'];
+    if (status && disabledStatuses.some(s => status.includes(s))) return false;
+
+    const stockRaw = raw?.stock ?? raw?.remains ?? raw?.quantity ?? raw?.qty;
+    if (stockRaw === undefined || stockRaw === null || stockRaw === '') return true;
+    const stock = Number(stockRaw);
+    return !Number.isFinite(stock) || stock > 0;
+  };
+
   const images = getAllImages(product);
   const slideImages = React.useMemo(() => {
     const cleaned = (images || [])
@@ -258,6 +270,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   }, [slideImages]);
 
   const productTextTabs = splitProductText();
+  const activeAvailable = activeRow ? isVariantAvailable(activeRow) : isVariantAvailable(product);
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
@@ -286,8 +299,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         {/* Status & Reviews */}
         <View style={styles.statsRow}>
           <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>В наявності</Text>
+            <View style={[styles.statusDot, !activeAvailable && styles.statusDotDisabled]} />
+            <Text style={[styles.statusText, !activeAvailable && styles.statusTextDisabled]}>
+              {activeAvailable ? 'В наявності' : 'Немає в наявності'}
+            </Text>
           </View>
           
           <View style={styles.ratingRow}>
@@ -339,6 +354,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                     const isSel = clean(selectedOptions[ik]) === clean(val);
 
                     const isAvailable = variantRows.some((row: any) => {
+                      if (!isVariantAvailable(row)) return false;
                       return internalKeys.every((key) => {
                         const expected = key === ik ? val : selectedOptions[key];
                         if (!expected) return true;
@@ -403,8 +419,12 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           )}
 
         {/* Add to Cart Button */}
-        <TouchableOpacity style={styles.addToCartBtn} onPress={onAddToCart}>
-          <Text style={styles.addToCartText}>В кошик</Text>
+        <TouchableOpacity
+          style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
+          onPress={onAddToCart}
+          disabled={!activeAvailable}
+        >
+          <Text style={styles.addToCartText}>{activeAvailable ? 'В кошик' : 'Немає в наявності'}</Text>
         </TouchableOpacity>
 
         {/* Similar Products */}
@@ -471,7 +491,9 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   statusBadge: { flexDirection: 'row', alignItems: 'center' },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50', marginRight: 6 },
+  statusDotDisabled: { backgroundColor: '#9CA3AF' },
   statusText: { color: '#4CAF50', fontSize: 13, fontWeight: '500' },
+  statusTextDisabled: { color: '#6B7280' },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   stars: { flexDirection: 'row', marginRight: 8 },
   reviewCount: { color: '#666', fontSize: 12 },
@@ -507,6 +529,7 @@ const styles = StyleSheet.create({
   bulletDot: { width: 16, color: '#10b981', lineHeight: 22, fontSize: 16 },
   bulletText: { flex: 1, color: '#4b5563', lineHeight: 22, fontSize: 15 },
   addToCartBtn: { backgroundColor: '#2E7D32', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
   addToCartText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' },
