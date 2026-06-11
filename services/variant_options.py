@@ -156,6 +156,28 @@ def _semantic_year_key(options: dict[str, str]) -> tuple[tuple[str, str], ...]:
     return tuple(sorted((k, v) for k, v in options.items() if k not in (OPTION_ARTICLE, OPTION_YEAR) and v))
 
 
+def _is_porcini_group(article: str, parent_article: str) -> bool:
+    return article.startswith("ГБ-") and (article == "ГБ-01С" or parent_article == "ГБ-01С")
+
+
+def _infer_format_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
+    article = _normalized_article(item)
+    parent_article = _normalized_parent_article(item)
+    code = _strip_short_year_suffix(_article_code(article))
+    if not article:
+        return None
+
+    if _is_porcini_group(article, parent_article):
+        if re.fullmatch(r"(?:0?[12]|50|100)СП2?", code):
+            return "приправа"
+        if re.fullmatch(r"(?:0?[12]|50|100)С2?", code):
+            return "цілі"
+
+    if not allow_group_default:
+        return None
+    return None
+
+
 def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
     article = _normalized_article(item)
     parent_article = _normalized_parent_article(item)
@@ -163,7 +185,7 @@ def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -
     if not article:
         return None
 
-    if article.startswith("ГБ-") and (article == "ГБ-01С" or parent_article == "ГБ-01С"):
+    if _is_porcini_group(article, parent_article):
         if re.fullmatch(r"0?2С(?:П)?", code) or re.fullmatch(r"(?:50|100)С(?:П)?2", code):
             return "2 сорт"
         if re.fullmatch(r"0?1С(?:П)?", code) or re.fullmatch(r"(?:50|100)С(?:П)?", code):
@@ -241,6 +263,11 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         if value:
             options[key] = value
 
+    if not options.get(OPTION_FORMAT):
+        inferred_format = _infer_format_from_article(item)
+        if inferred_format:
+            options[OPTION_FORMAT] = inferred_format
+
     if not options.get(OPTION_SORT):
         inferred_sort = _infer_sort_from_article(item)
         if inferred_sort:
@@ -289,8 +316,13 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
         article = _article(group_item)
         group_rows.append((article, raw, group_item))
 
+    group_has_format = any(raw.get(OPTION_FORMAT) for _, raw, _ in group_rows)
     group_has_sort = any(raw.get(OPTION_SORT) for _, raw, _ in group_rows)
     for _, raw, group_item in group_rows:
+        if group_has_format and not raw.get(OPTION_FORMAT):
+            inferred_format = _infer_format_from_article(group_item, allow_group_default=True)
+            if inferred_format:
+                raw[OPTION_FORMAT] = inferred_format
         if group_has_sort and not raw.get(OPTION_SORT):
             inferred_sort = _infer_sort_from_article(group_item, allow_group_default=True)
             if inferred_sort:
