@@ -195,6 +195,7 @@ def fix_db_schema():
     c.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS external_id TEXT")
     # User: Nova Poshta branch (warehouse) and Ukrposhta address
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer TEXT")
     # Orders: delivery type and Ukrposhta address
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_method TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
