@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 SYNC_INTERVAL_SECONDS = 60 * 60
 INITIAL_SYNC_DELAY_SECONDS = 60
+SYNC_RETRY_ATTEMPTS = 3
+SYNC_RETRY_DELAY_SECONDS = 5 * 60
 _started = False
 
 
@@ -25,12 +27,32 @@ def _has_horoshop_credentials() -> bool:
     )
 
 
+def _run_sync_with_retries() -> dict:
+    last_error: Exception | None = None
+
+    for attempt in range(1, SYNC_RETRY_ATTEMPTS + 1):
+        try:
+            return asyncio.run(sync_catalog_from_horoshop())
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Hourly Horoshop catalog sync attempt %s/%s failed: %s",
+                attempt,
+                SYNC_RETRY_ATTEMPTS,
+                exc,
+            )
+            if attempt < SYNC_RETRY_ATTEMPTS:
+                time.sleep(SYNC_RETRY_DELAY_SECONDS)
+
+    raise RuntimeError(f"Hourly Horoshop catalog sync failed after retries: {last_error}")
+
+
 def _sync_loop() -> None:
     time.sleep(INITIAL_SYNC_DELAY_SECONDS)
 
     while True:
         try:
-            result = asyncio.run(sync_catalog_from_horoshop())
+            result = _run_sync_with_retries()
             logger.info("Hourly Horoshop catalog sync completed: %s", result)
         except Exception as exc:
             logger.exception("Hourly Horoshop catalog sync failed: %s", exc)
