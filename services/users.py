@@ -6,6 +6,10 @@ import re
 from typing import Optional
 
 
+DEFAULT_CASHBACK_PERCENT = 5
+MAX_CASHBACK_PERCENT = 100
+
+
 def clean_warehouse_value(value: Optional[str]) -> Optional[str]:
     """Remove delivery provider prefixes before storing warehouse/address values."""
     if not value or not isinstance(value, str):
@@ -77,12 +81,23 @@ def migrate_phone_references(conn, old_phone: str, new_phone: str) -> None:
     cur.execute("UPDATE app_users SET phone = ? WHERE phone = ?", (new_clean, old_clean))
 
 
+def normalize_cashback_percent(value: Optional[int | float | str], default: int = DEFAULT_CASHBACK_PERCENT) -> int:
+    """Clamp manually-entered cashback percent to a safe integer range."""
+    if value is None or value == "":
+        return default
+
+    try:
+        percent = int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+    return max(0, min(MAX_CASHBACK_PERCENT, percent))
+
+
 def calculate_cashback_percent(total_spent: float) -> int:
-    """Calculate cashback percent from lifetime spend."""
-    if total_spent < 2000:
-        return 0
+    """Calculate cashback percent from lifetime spend; base cashback is 5%."""
     if total_spent < 5000:
-        return 5
+        return DEFAULT_CASHBACK_PERCENT
     if total_spent < 10000:
         return 10
     if total_spent < 25000:
