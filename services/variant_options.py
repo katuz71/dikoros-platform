@@ -132,40 +132,80 @@ def _extract_sort(text: str) -> str | None:
         return "1 сорт"
     if re.search(r"\b2\s*сорт\b", lower, re.IGNORECASE):
         return "2 сорт"
-    if re.search(r"\bлом\b", lower, re.IGNORECASE):
+    if re.search(r"\bлом", lower, re.IGNORECASE):
         return "Лом"
     return None
 
 
-def _infer_red_amanita_cap_sort(item: dict) -> str | None:
-    """Infer missing sort for the Horoshop red amanita cap group.
+def _normalized_article(item: dict) -> str:
+    return _clean(item.get("article") or item.get("sku") or item.get("id")).upper().replace(" ", "")
 
-    Horoshop exports the МХМЧ-01С group with sort encoded in article codes.
-    Some base 50/100/200 g variants omit "1 сорт" in mod_title, while 2-sort,
-    elite and лом variants include the value explicitly. Without this guarded
-    SKU inference the app treats valid 1-sort weights as unavailable.
+
+def _normalized_parent_article(item: dict) -> str:
+    return _clean(item.get("parent_article") or "").upper().replace(" ", "")
+
+
+def _article_code(article: str) -> str:
+    return article.split("-", 1)[1] if "-" in article else article
+
+
+def _strip_short_year_suffix(code: str) -> str:
+    # Horoshop uses 24/25 suffixes in SKU for year/harvest batches.
+    # Do not strip other trailing numbers: they are often weights, e.g. 50/100/200.
+    if code.endswith("24") or code.endswith("25"):
+        return code[:-2]
+    return code
+
+
+def _infer_sort_from_article(item: dict, *, allow_group_default: bool = False) -> str | None:
+    """Infer missing sort only for Horoshop dried mushroom groups that use sort SKUs.
+
+    Some Horoshop variants omit "1 сорт" in mod_title, while the same group has
+    other variants with explicit sort values. In those groups the base SKU suffix
+    is the source of truth: С/СП/СМ without elite/лом/2-sort marker means 1 сорт.
     """
-    article = _clean(item.get("article") or item.get("sku") or item.get("id")).upper().replace(" ", "")
-    parent_article = _clean(item.get("parent_article") or "").upper().replace(" ", "")
+    article = _normalized_article(item)
+    parent_article = _normalized_parent_article(item)
+    code = _strip_short_year_suffix(_article_code(article))
 
-    if article != "МХМЧ-01С" and parent_article != "МХМЧ-01С":
+    if not article:
         return None
-    if not article.startswith("МХМЧ-"):
+
+    # Guarded legacy rule for the red amanita cap group already verified against
+    # Horoshop raw export. It can run without group context for direct parser tests.
+    if article.startswith("МХМЧ-") and (article == "МХМЧ-01С" or parent_article == "МХМЧ-01С"):
+        if code.endswith("СЛ"):
+            return "Лом"
+        if code.endswith("ЕСП") or code.endswith("ЕС"):
+            return "Еліт"
+        base = code[:-1] if code.endswith("П") else code
+        if re.fullmatch(r"(?:0?2|52|102|202)С", base):
+            return "2 сорт"
+        if re.fullmatch(r"(?:0?1|50|100|200)С", base):
+            return "1 сорт"
         return None
 
-    code = article.split("-", 1)[1]
-    if code.endswith("24"):
-        code = code[:-2]
+    if not allow_group_default:
+        return None
 
+    # Generic guarded rule for dried mushroom groups where at least one sibling
+    # already has a sort value. This covers SKU families like СК, ЛН and МХМКС.
     if code.endswith("СЛ"):
         return "Лом"
     if code.endswith("ЕСП") or code.endswith("ЕС"):
         return "Еліт"
 
-    base = code[:-1] if code.endswith("П") else code
-    if re.fullmatch(r"(?:0?2|52|102|202)С", base):
+    # Explicit 2-sort patterns: 02С, 52С, 102С, 202С and their powder variants.
+    explicit_second_sort = re.fullmatch(r"(?:0?2|52|102|202)С(?:П|М)?", code)
+    if explicit_second_sort:
         return "2 сорт"
-    if re.fullmatch(r"(?:0?1|50|100|200)С", base):
+
+    # Base/default sort patterns when the group already uses sort options.
+    base_first_sort = re.fullmatch(
+        r"(?:0?1С(?:П|М)?|0?1С(?:П|М)?\d+|50С(?:П|М)?|100С(?:П|М)?|200С(?:П|М)?)",
+        code,
+    )
+    if base_first_sort:
         return "1 сорт"
 
     return None
@@ -225,7 +265,7 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
             options[key] = value
 
     if not options.get(OPTION_SORT):
-        inferred_sort = _infer_red_amanita_cap_sort(item)
+        inferred_sort = _infer_sort_from_article(item)
         if inferred_sort:
             options[OPTION_SORT] = inferred_sort
 
@@ -269,11 +309,21 @@ def build_variant_options(item: dict, group_items: list[dict]) -> dict[str, str]
     """Return JSON-compatible structured options for one Horoshop variant."""
     group = group_items or [item]
     raw_by_article: dict[str, dict[str, str]] = {}
-    raw_options: list[dict[str, str]] = []
+    group_rows: list[tuple[str, dict[str, str], dict]] = []
 
     for group_item in group:
         raw = _raw_variant_options(group_item)
         article = _article(group_item)
+        group_rows.append((article, raw, group_item))
+
+    group_has_sort = any(raw.get(OPTION_SORT) for _, raw, _ in group_rows)
+
+    raw_options: list[dict[str, str]] = []
+    for article, raw, group_item in group_rows:
+        if group_has_sort and not raw.get(OPTION_SORT):
+            inferred_sort = _infer_sort_from_article(group_item, allow_group_default=True)
+            if inferred_sort:
+                raw[OPTION_SORT] = inferred_sort
         if article:
             raw[OPTION_ARTICLE] = article
         raw_by_article[article] = raw
