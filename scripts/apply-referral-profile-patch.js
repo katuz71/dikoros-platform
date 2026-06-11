@@ -24,7 +24,7 @@ const newShare = `  // 4. Реферальная ссылка
         return;
       }
 
-      const res = await fetch(\`${API_URL}/api/referral/me\`, {
+      const res = await fetch(\`\${API_URL}/api/referral/me\`, {
         headers: { Authorization: \`Bearer \${accessToken}\` },
       });
       const referral = await res.json().catch(() => null);
