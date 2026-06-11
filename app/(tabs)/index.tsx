@@ -767,8 +767,10 @@ export default function Index() {
   // Render Product Item
   const renderProductItem = ({ item }: { item: Product }) => {
     const isFavorite = favorites.some(fav => fav.id === item?.id);
-    // Horoshop is the source of truth: show exact card price, not "від minPrice".
-    const displayPrice = formatPrice(Number(item.price || 0));
+    // Display "from X UAH" if multiple variants exist
+    const displayPrice = item.variants && item.variants.length > 1 && item.minPrice
+        ? `від ${formatPrice(item.minPrice)}`
+        : formatPrice(item.price);
         
     return (
       <ProductCard
