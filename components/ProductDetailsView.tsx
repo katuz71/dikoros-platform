@@ -1,4 +1,4 @@
-import { getImageUrl } from '@/utils/image';
+﻿import { getImageUrl } from '@/utils/image';
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -128,8 +128,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       .map(line => line.trim())
       .filter(Boolean);
 
-    const skladWords = ['склад', 'інгредієнт'];
-    const usageWords = ['застосування', 'використання', 'прийом', 'дозування', 'вживати', 'наносити', 'зовнішнього', 'внутрішнього'];
+    const skladWords = ['СЃРєР»Р°Рґ', 'С–РЅРіСЂРµРґС–С”РЅС‚'];
+    const usageWords = ['Р·Р°СЃС‚РѕСЃСѓРІР°РЅРЅСЏ', 'РІРёРєРѕСЂРёСЃС‚Р°РЅРЅСЏ', 'РїСЂРёР№РѕРј', 'РґРѕР·СѓРІР°РЅРЅСЏ', 'РІР¶РёРІР°С‚Рё', 'РЅР°РЅРѕСЃРёС‚Рё', 'Р·РѕРІРЅС–С€РЅСЊРѕРіРѕ', 'РІРЅСѓС‚СЂС–С€РЅСЊРѕРіРѕ'];
 
     const findLines = (words: string[]) => {
       return lines
@@ -146,26 +146,26 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
     return {
       desc: source || '?',
-      composition: compositionField || extractedComposition || 'Інформація про склад не вказана.',
-      usage: usageField || extractedUsage || 'Спосіб використання не вказаний.',
+      composition: compositionField || extractedComposition || 'Р†РЅС„РѕСЂРјР°С†С–СЏ РїСЂРѕ СЃРєР»Р°Рґ РЅРµ РІРєР°Р·Р°РЅР°.',
+      usage: usageField || extractedUsage || 'РЎРїРѕСЃС–Р± РІРёРєРѕСЂРёСЃС‚Р°РЅРЅСЏ РЅРµ РІРєР°Р·Р°РЅРёР№.',
     };
   };
 
   const toDisplayText = (value: any) => {
     const s = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-    return s.length > 0 ? s : '—';
+    return s.length > 0 ? s : 'вЂ”';
   };
 
   const renderStructuredText = (raw: any) => {
     const text = toDisplayText(raw);
     const lines = String(text || '').split(/\r?\n/);
     const headings = new Set([
-      'Опис',
-      'Переваги',
-      'Характеристики',
-      'Як використовувати',
-      'Зберігання',
-      'Важливо',
+      'РћРїРёСЃ',
+      'РџРµСЂРµРІР°РіРё',
+      'РҐР°СЂР°РєС‚РµСЂРёСЃС‚РёРєРё',
+      'РЇРє РІРёРєРѕСЂРёСЃС‚РѕРІСѓРІР°С‚Рё',
+      'Р—Р±РµСЂС–РіР°РЅРЅСЏ',
+      'Р’Р°Р¶Р»РёРІРѕ',
     ]);
 
     return (
@@ -187,7 +187,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           if (trimmed.startsWith('- ')) {
             return (
               <View key={`b-${idx}`} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>{'•'}</Text>
+                <Text style={styles.bulletDot}>{'вЂў'}</Text>
                 <Text style={styles.bulletText}>{trimmed.slice(2)}</Text>
               </View>
             );
@@ -247,7 +247,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const isVariantAvailable = (row: any) => {
     const raw = row?.raw || row || {};
     const status = clean(raw?.status || product?.status).toLowerCase();
-    const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии'];
+    const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'РІС–РґСЃСѓС‚РЅС–Р№', 'РЅРµРјР°С” РІ РЅР°СЏРІРЅРѕСЃС‚С–', 'РЅРµС‚ РІ РЅР°Р»РёС‡РёРё'];
     if (status && disabledStatuses.some(s => status.includes(s))) return false;
 
     const stockRaw = raw?.remains ?? raw?.quantity ?? raw?.qty ?? raw?.balance ?? raw?.stock;
@@ -261,7 +261,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const cleaned = (images || [])
       .map((u: any) => String(u ?? '').trim())
       .filter((u: string) => u && u !== 'null' && u !== 'undefined');
-    return cleaned.length > 0 ? cleaned : ['']; // '' -> getImageUrl('') вернёт placeholder
+    return cleaned.length > 0 ? cleaned : ['']; // '' -> getImageUrl('') РІРµСЂРЅС‘С‚ placeholder
   }, [images]);
 
   // Normalize to final URLs once to keep ordering stable.
@@ -274,7 +274,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      {/* 1. Фото товара (Carousel start) */}
+      {/* 1. Р¤РѕС‚Рѕ С‚РѕРІР°СЂР° (Carousel start) */}
       <View style={{ height: 320, width: Dimensions.get('window').width }}>
         <ScrollView key={`${String(product?.id ?? '')}:${String(product?.image ?? '')}`} horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
             {slideImagesFull.map((img: string, i: number) => {
@@ -301,7 +301,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           <View style={styles.statusBadge}>
             <View style={[styles.statusDot, !activeAvailable && styles.statusDotDisabled]} />
             <Text style={[styles.statusText, !activeAvailable && styles.statusTextDisabled]}>
-              {activeAvailable ? 'В наявності' : 'Немає в наявності'}
+              {activeAvailable ? 'Р’ РЅР°СЏРІРЅРѕСЃС‚С–' : 'РќРµРјР°С” РІ РЅР°СЏРІРЅРѕСЃС‚С–'}
             </Text>
           </View>
           
@@ -311,7 +311,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 <Ionicons key={s} name="star" size={14} color={s <= averageRating ? "#FFD700" : "#E5E7EB"} />
               ))}
             </View>
-            <Text style={styles.reviewCount}>{totalReviews} відгуки</Text>
+            <Text style={styles.reviewCount}>{totalReviews} РІС–РґРіСѓРєРё</Text>
           </View>
         </View>
 
@@ -330,15 +330,15 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         <View style={styles.trustBadges}>
           <View style={styles.badgeItem}>
             <Ionicons name="shield-checkmark-outline" size={22} color="#10b981" />
-            <Text style={styles.badgeText}>100% Оригінал</Text>
+            <Text style={styles.badgeText}>100% РћСЂРёРіС–РЅР°Р»</Text>
           </View>
           <View style={styles.badgeItem}>
             <Ionicons name="rocket-outline" size={22} color="#059669" />
-            <Text style={styles.badgeText}>Швидка доставка</Text>
+            <Text style={styles.badgeText}>РЁРІРёРґРєР° РґРѕСЃС‚Р°РІРєР°</Text>
           </View>
           <View style={styles.badgeItem}>
             <Ionicons name="leaf-outline" size={22} color="#059669" />
-            <Text style={styles.badgeText}>Еко продукт</Text>
+            <Text style={styles.badgeText}>Р•РєРѕ РїСЂРѕРґСѓРєС‚</Text>
           </View>
         </View>
 
@@ -362,7 +362,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                       });
                     });
 
-                    if (!isAvailable) return null;
 
                     return (
                       <TouchableOpacity
@@ -406,7 +405,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
               style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
             >
               <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-                {t === 'desc' ? 'Опис' : t === 'ingr' ? 'Склад' : 'Використання'}
+                {t === 'desc' ? 'РћРїРёСЃ' : t === 'ingr' ? 'РЎРєР»Р°Рґ' : 'Р’РёРєРѕСЂРёСЃС‚Р°РЅРЅСЏ'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -426,13 +425,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           onPress={onAddToCart}
           disabled={!activeAvailable}
         >
-          <Text style={styles.addToCartText}>{activeAvailable ? 'В кошик' : 'Немає в наявності'}</Text>
+          <Text style={styles.addToCartText}>{activeAvailable ? 'Р’ РєРѕС€РёРє' : 'РќРµРјР°С” РІ РЅР°СЏРІРЅРѕСЃС‚С–'}</Text>
         </TouchableOpacity>
 
         {/* Similar Products */}
         {similarProducts.length > 0 && (
           <View style={styles.similarSection}>
-            <Text style={styles.sectionTitle}>Схожі товари</Text>
+            <Text style={styles.sectionTitle}>РЎС…РѕР¶С– С‚РѕРІР°СЂРё</Text>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false} 
@@ -456,9 +455,9 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
         {/* Reviews Section Wrapper */}
         <View style={styles.reviewsHeader}>
-          <Text style={styles.sectionTitle}>Відгуки</Text>
+          <Text style={styles.sectionTitle}>Р’С–РґРіСѓРєРё</Text>
           <TouchableOpacity onPress={onWriteReview} style={styles.writeReviewBtn}>
-            <Text style={styles.writeReviewText}>Написати</Text>
+            <Text style={styles.writeReviewText}>РќР°РїРёСЃР°С‚Рё</Text>
           </TouchableOpacity>
         </View>
 
@@ -478,7 +477,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           ))
         ) : (
           <View style={styles.emptyReviews}>
-            <Text style={styles.emptyReviewsText}>Поки немає відгуків</Text>
+            <Text style={styles.emptyReviewsText}>РџРѕРєРё РЅРµРјР°С” РІС–РґРіСѓРєС–РІ</Text>
           </View>
         )}
       </View>
