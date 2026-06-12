@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "DikorosUA",
     "slug": "dikorosua",
@@ -15,7 +15,7 @@
     "android": {
       "package": "com.dikorosua.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 34,
+      "versionCode": 37,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "INTERNET",
