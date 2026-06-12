@@ -1,4 +1,4 @@
-﻿"""Dynamic catalog API for mobile app home/catalog screens."""
+"""Dynamic catalog API for mobile app home/catalog screens."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ from services.products import normalize_product_row
 
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
+
+HOME_SECTION_LIMIT = 32
 
 
 PRODUCT_COLUMNS = """
@@ -77,17 +79,21 @@ def _product_group_key(product: dict) -> str:
     Horoshop exports variants as separate SKUs. On the app home screen those
     variants must be shown as one product card, not as repeated cards.
     """
-    name = str(product.get("name") or "").strip().casefold()
-    category = str(product.get("category") or "").strip().casefold()
-    if name:
-        return f"name:{category}:{name}"
-
     parent_sku = str(product.get("parent_sku") or "").strip()
     if parent_sku:
         return f"parent:{parent_sku}"
 
-    sku = str(product.get("sku") or product.get("id") or "").strip()
-    return f"sku:{sku}"
+    sku = str(product.get("sku") or "").strip()
+    if sku:
+        return f"sku:{sku}"
+
+    product_id = str(product.get("id") or "").strip()
+    if product_id:
+        return f"id:{product_id}"
+
+    name = str(product.get("name") or "").strip().casefold()
+    category = str(product.get("category") or "").strip().casefold()
+    return f"name:{category}:{name}"
 
 
 def _dedupe_products(products: list[dict], limit: int | None = None) -> list[dict]:
@@ -106,6 +112,16 @@ def _dedupe_products(products: list[dict], limit: int | None = None) -> list[dic
             break
 
     return result
+
+
+def _merge_deduped_products(*product_lists: list[dict], limit: int = HOME_SECTION_LIMIT) -> list[dict]:
+    merged: list[dict] = []
+
+    for products in product_lists:
+        for product in products or []:
+            merged.append(product)
+
+    return _dedupe_products(merged, limit=limit)
 
 
 def _rows_to_products(rows):
@@ -296,21 +312,40 @@ def _fetch_promotion_fallback(limit: int = 50):
     )
 
 
+def _fetch_new_fallback(limit: int = 50):
+    return _fetch_products(
+        where_sql="AND COALESCE(is_new, FALSE) = TRUE",
+        order_sql="ORDER BY COALESCE(home_new_order, sort_order, 2147483647), id DESC",
+        limit=limit,
+    )
+
+
 @router.get("/home")
 async def get_catalog_home():
     domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
     async with httpx.AsyncClient(timeout=60.0) as client:
         sections = await _fetch_homepage_sections(client, domain)
 
-        hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=50)
-        promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=50)
-        new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=50)
+        live_hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=HOME_SECTION_LIMIT)
+        live_promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=HOME_SECTION_LIMIT)
+        live_new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=HOME_SECTION_LIMIT)
 
-    if not hits:
-        hits = _fetch_home_hit_products(limit=50) or _fetch_hit_fallback(limit=50)
-
-    if not promotions:
-        promotions = _fetch_promotion_fallback(limit=50)
+    hits = _merge_deduped_products(
+        live_hits,
+        _fetch_home_hit_products(limit=HOME_SECTION_LIMIT),
+        _fetch_hit_fallback(limit=HOME_SECTION_LIMIT),
+        limit=HOME_SECTION_LIMIT,
+    )
+    promotions = _merge_deduped_products(
+        live_promotions,
+        _fetch_promotion_fallback(limit=HOME_SECTION_LIMIT),
+        limit=HOME_SECTION_LIMIT,
+    )
+    new_products = _merge_deduped_products(
+        live_new_products,
+        _fetch_new_fallback(limit=HOME_SECTION_LIMIT),
+        limit=HOME_SECTION_LIMIT,
+    )
 
     return {
         # Banners are loaded by the app through /banners. Keeping them out of
@@ -339,13 +374,7 @@ def get_catalog_promotions(limit: int = 32):
 
 @router.get("/new")
 def get_catalog_new(limit: int = 32):
-    return {
-        "products": _fetch_products(
-            where_sql="AND COALESCE(is_new, FALSE) = TRUE",
-            order_sql="ORDER BY COALESCE(home_new_order, sort_order, 2147483647), id DESC",
-            limit=limit,
-        )
-    }
+    return {"products": _fetch_new_fallback(limit=limit)}
 
 
 @router.get("/categories")
