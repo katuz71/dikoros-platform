@@ -308,7 +308,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
               AND COALESCE(status, '') != 'out_of_stock'
             ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
-        cur.execute(items_sql, tuple(group_keys))
+        cur.execute(items_sql, tuple(group_keys + EXCLUDED_APP_CATEGORY_PARAMS))
         all_rows = cur.fetchall()
         
         groups_dict = {}
