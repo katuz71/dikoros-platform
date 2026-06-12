@@ -103,7 +103,6 @@ def _format_variant(product: dict) -> dict:
         "status": status,
         "remains": remains,
         "stock": 1 if status in ("available", "in_stock") else 0,
-        "remains": product.get("remains"),
         "image": product.get("image"),
         "images": product.get("images"),
         "parent_sku": product.get("parent_sku"),
@@ -308,7 +307,7 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
             WHERE {PRODUCT_GROUP_EXPR} IN ({placeholders})
             ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
-        cur.execute(items_sql, tuple(group_keys + EXCLUDED_APP_CATEGORY_PARAMS))
+        cur.execute(items_sql, tuple(group_keys))
         all_rows = cur.fetchall()
         
         groups_dict = {}
