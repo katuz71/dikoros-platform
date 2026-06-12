@@ -110,15 +110,13 @@ type Product = {
   variationGroups?: any[]; // For multi-dimensional variations
 };
 
-type CategorySortType = 'popular' | 'asc' | 'desc' | 'new' | 'promo' | 'available';
+type CategorySortType = 'popular' | 'asc' | 'desc' | 'new';
 
 const CATEGORY_SORT_OPTIONS: { key: CategorySortType; label: string }[] = [
   { key: 'popular', label: 'Популярні' },
-  { key: 'asc', label: 'Дешевші' },
-  { key: 'desc', label: 'Дорожчі' },
+  { key: 'asc', label: 'Спочатку дешевші' },
+  { key: 'desc', label: 'Спочатку дорожчі' },
   { key: 'new', label: 'Новинки' },
-  { key: 'promo', label: 'Акції' },
-  { key: 'available', label: 'В наявності' },
 ];
 
 const asArray = (value: any) => (Array.isArray(value) ? value : []);
@@ -164,9 +162,42 @@ const isCatalogUnavailableStatus = (value: any) => {
   return CATALOG_UNAVAILABLE_STATUSES.some(item => status.includes(item));
 };
 
+const getValidCatalogPrice = (value: any) => {
+  const price = Number(value ?? 0);
+  return Number.isFinite(price) && price > 0 ? price : 0;
+};
+
 const getCatalogProductPrice = (product: any) => {
-  const price = Number(product?.minPrice ?? product?.price ?? 0);
-  return Number.isFinite(price) ? price : 0;
+  const minPrice = getValidCatalogPrice(product?.minPrice);
+  if (minPrice > 0) return minPrice;
+
+  const price = getValidCatalogPrice(product?.price);
+  if (price > 0) return price;
+
+  const variantPrices = parseMaybeJsonArray(product?.variants)
+    .map((variant: any) => getValidCatalogPrice(variant?.price))
+    .filter((variantPrice: number) => variantPrice > 0);
+
+  return variantPrices.length ? Math.min(...variantPrices) : 0;
+};
+
+const getCatalogSourceOrder = (product: any) => {
+  const orderKeys = [
+    'category_sort_order',
+    'horoshop_order',
+    'position',
+    'sort_order',
+    'home_hit_order',
+    'home_new_order',
+    'home_promotion_order',
+  ];
+
+  for (const key of orderKeys) {
+    const order = Number(product?.[key]);
+    if (Number.isFinite(order)) return order;
+  }
+
+  return Number.MAX_SAFE_INTEGER;
 };
 
 const isCatalogProductAvailable = (product: any) => {
@@ -192,6 +223,21 @@ const isCatalogPromoProduct = (product: any) => {
   if (Number.isFinite(discount) && discount > 0) return true;
   if (product?.is_promotion || product?.promotion || product?.promo) return true;
   if (Number.isFinite(Number(product?.home_promotion_order))) return true;
+
+  const variants = parseMaybeJsonArray(product?.variants);
+  if (variants.some((variant: any) => {
+    const variantPrice = getValidCatalogPrice(variant?.price);
+    const variantOldPrice = getValidCatalogPrice(variant?.old_price);
+    const variantDiscount = Number(variant?.discount ?? 0);
+
+    return (
+      (variantOldPrice > variantPrice && variantPrice > 0)
+      || (Number.isFinite(variantDiscount) && variantDiscount > 0)
+      || Boolean(variant?.is_promotion || variant?.promotion || variant?.promo)
+    );
+  })) {
+    return true;
+  }
 
   return false;
 };
@@ -529,6 +575,11 @@ export default function Index() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categoryViewOpen, setCategoryViewOpen] = useState(false);
   const [sortType, setSortType] = useState<CategorySortType>('popular');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [priceFrom, setPriceFrom] = useState('');
+  const [priceTo, setPriceTo] = useState('');
+  const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [onlyPromo, setOnlyPromo] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -1354,11 +1405,14 @@ export default function Index() {
       if (variantChildIds.has(Number(product?.id))) return false;
       if (!name || name.toLowerCase() === 'без назви') return false;
       if (!Number.isFinite(price) || price <= 0) return false;
-      if (!isCatalogProductAvailable(product)) return false;
 
       return true;
     });
   }, [safeProductsRaw, variantChildIds]);
+
+  const homeFallbackProducts = useMemo(() => {
+    return safeProducts.filter(isCatalogProductAvailable);
+  }, [safeProducts]);
 
   // Derive only root categories from products for the home screen
   const derivedCategories = useMemo(() => {
@@ -1396,24 +1450,23 @@ export default function Index() {
 
   // Фильтрация товаров по поисковому запросу и категории
   const getSortedProducts = () => {
-    let result = safeProducts.filter(p => 
-      p?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const minPrice = Number(priceFrom.replace(',', '.'));
+    const maxPrice = Number(priceTo.replace(',', '.'));
 
-    // Filter by root category so parent category includes child-category products
-    if (selectedCategory) {
-      result = result.filter(p => categoryMatches(p?.category, selectedCategory));
-    }
+    let result = safeProducts.filter(p => {
+      const productName = String(p?.name ?? '').toLowerCase();
+      const price = getCatalogProductPrice(p);
 
-    if (sortType === 'available') {
-      return result.filter(isCatalogProductAvailable);
-    }
+      if (normalizedSearch && !productName.includes(normalizedSearch)) return false;
+      if (selectedCategory && !categoryMatches(p?.category, selectedCategory)) return false;
+      if (onlyAvailable && !isCatalogProductAvailable(p)) return false;
+      if (onlyPromo && !isCatalogPromoProduct(p)) return false;
+      if (Number.isFinite(minPrice) && minPrice > 0 && price < minPrice) return false;
+      if (Number.isFinite(maxPrice) && maxPrice > 0 && price > maxPrice) return false;
 
-    if (sortType === 'promo') {
-      return result
-        .filter(isCatalogPromoProduct)
-        .sort((a, b) => getHomeSectionOrder(a, 'home_promotion_order') - getHomeSectionOrder(b, 'home_promotion_order'));
-    }
+      return true;
+    });
 
     if (sortType === 'new') {
       return [...result].sort((a, b) => {
@@ -1421,6 +1474,10 @@ export default function Index() {
         const bOrder = getHomeSectionOrder(b, 'home_new_order');
 
         if (aOrder !== bOrder) return aOrder - bOrder;
+
+        const aIsNew = (a as any)?.is_new ? 1 : 0;
+        const bIsNew = (b as any)?.is_new ? 1 : 0;
+        if (aIsNew !== bIsNew) return bIsNew - aIsNew;
 
         return Number(b?.id ?? 0) - Number(a?.id ?? 0);
       });
@@ -1432,23 +1489,34 @@ export default function Index() {
       return [...result].sort((a, b) => getCatalogProductPrice(b) - getCatalogProductPrice(a));
     }
 
-    return result; // 'popular' - порядок по умолчанию
+    if (sortType === 'popular' && result.some(product => getCatalogSourceOrder(product) !== Number.MAX_SAFE_INTEGER)) {
+      return [...result].sort((a, b) => getCatalogSourceOrder(a) - getCatalogSourceOrder(b));
+    }
+
+    return result; // 'popular' keeps Horoshop/API source order when no explicit order exists
   };
   
   const filteredProducts = getSortedProducts();
+  const activeSortLabel = CATEGORY_SORT_OPTIONS.find(option => option.key === sortType)?.label || 'Популярні';
+  const categoryFilterSummary = [
+    `${filteredProducts.length} товарів`,
+    activeSortLabel,
+    onlyAvailable ? 'В наявності' : null,
+    onlyPromo ? 'Акційні' : null,
+  ].filter(Boolean).join(' · ');
 
   const fallbackHitProducts = sortByHomeSectionOrder(
-    safeProducts.filter((p: any) => p?.home_hit_order != null && Number.isFinite(Number(p.home_hit_order))),
+    homeFallbackProducts.filter((p: any) => p?.home_hit_order != null && Number.isFinite(Number(p.home_hit_order))),
     'home_hit_order'
   ).slice(0, 16);
 
   const fallbackPromoProducts = sortByHomeSectionOrder(
-    safeProducts.filter((p: any) => p?.home_promotion_order != null && Number.isFinite(Number(p.home_promotion_order))),
+    homeFallbackProducts.filter((p: any) => p?.home_promotion_order != null && Number.isFinite(Number(p.home_promotion_order))),
     'home_promotion_order'
   ).slice(0, 16);
 
   const fallbackNewProducts = sortByHomeSectionOrder(
-    safeProducts.filter((p: any) => p?.home_new_order != null && Number.isFinite(Number(p.home_new_order))),
+    homeFallbackProducts.filter((p: any) => p?.home_new_order != null && Number.isFinite(Number(p.home_new_order))),
     'home_new_order'
   ).slice(0, 16);
 
@@ -1692,6 +1760,9 @@ export default function Index() {
               <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)} style={{ padding: 8 }}>
                 <Ionicons name="search" size={24} color="#111" />
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ padding: 8 }}>
+                <Ionicons name="options-outline" size={25} color="#111" />
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={{ padding: 8 }}>
                 <Ionicons name="heart" size={24} color="red" />
               </TouchableOpacity>
@@ -1701,40 +1772,30 @@ export default function Index() {
             </View>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 14, gap: 8 }}
-          >
-            {CATEGORY_SORT_OPTIONS.map((option) => {
-              const active = sortType === option.key;
+          {isSearchVisible && (
+            <View style={{ paddingHorizontal: 4, marginBottom: 12 }}>
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Пошук у категорії"
+                placeholderTextColor="#9CA3AF"
+                style={{
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  paddingHorizontal: 14,
+                  color: '#111827',
+                  fontSize: 15,
+                }}
+              />
+            </View>
+          )}
 
-              return (
-                <TouchableOpacity
-                  key={option.key}
-                  onPress={() => setSortType(option.key)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 999,
-                    backgroundColor: active ? '#2E7D32' : '#FFFFFF',
-                    borderWidth: 1,
-                    borderColor: active ? '#2E7D32' : '#E5E7EB',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: active ? '#FFFFFF' : '#111827',
-                      fontSize: 13,
-                      fontWeight: '800',
-                    }}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '700', marginBottom: 12, paddingHorizontal: 4 }}>
+            {categoryFilterSummary}
+          </Text>
 
           <FlatList
             data={filteredProducts}
@@ -1744,6 +1805,12 @@ export default function Index() {
             columnWrapperStyle={{ justifyContent: 'space-between', gap: 0 }}
             contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 0 }}
             showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>∅</Text>
+                <Text style={styles.emptyStateMessage}>Товарів за цими фільтрами не знайдено</Text>
+              </View>
+            }
           />
         </View>
       )}
@@ -1925,6 +1992,168 @@ export default function Index() {
 
         </ScrollView>
       )}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={filterModalVisible && categoryViewOpen}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.45)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setFilterModalVisible(false)}
+            style={{ flex: 1 }}
+          />
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingHorizontal: 20,
+            paddingTop: 16,
+            paddingBottom: 28,
+            maxHeight: '86%',
+          }}>
+            <View style={{ alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ width: 42, height: 4, borderRadius: 999, backgroundColor: '#D1D5DB' }} />
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: '#111827' }}>Фільтр</Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Сортування</Text>
+              <View style={{ gap: 6, marginBottom: 22 }}>
+                {CATEGORY_SORT_OPTIONS.map((option) => {
+                  const active = sortType === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      onPress={() => setSortType(option.key)}
+                      style={{
+                        minHeight: 44,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderRadius: 12,
+                        paddingHorizontal: 12,
+                        backgroundColor: active ? '#E8F5E9' : '#F9FAFB',
+                        borderWidth: 1,
+                        borderColor: active ? '#2E7D32' : '#EEF0F2',
+                      }}
+                    >
+                      <Text style={{ color: '#111827', fontSize: 15, fontWeight: active ? '900' : '700' }}>
+                        {option.label}
+                      </Text>
+                      <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={20} color={active ? '#2E7D32' : '#9CA3AF'} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Ціна</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
+                <TextInput
+                  value={priceFrom}
+                  onChangeText={setPriceFrom}
+                  placeholder="Від"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  style={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    backgroundColor: '#F9FAFB',
+                    paddingHorizontal: 12,
+                    color: '#111827',
+                    fontSize: 15,
+                    fontWeight: '700',
+                  }}
+                />
+                <TextInput
+                  value={priceTo}
+                  onChangeText={setPriceTo}
+                  placeholder="До"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  style={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    backgroundColor: '#F9FAFB',
+                    paddingHorizontal: 12,
+                    color: '#111827',
+                    fontSize: 15,
+                    fontWeight: '700',
+                  }}
+                />
+              </View>
+
+              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Наявність та пропозиції</Text>
+              <View style={{ gap: 8, marginBottom: 24 }}>
+                <TouchableOpacity
+                  onPress={() => setOnlyAvailable(prev => !prev)}
+                  style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                >
+                  <Ionicons name={onlyAvailable ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyAvailable ? '#2E7D32' : '#6B7280'} />
+                  <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки в наявності</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setOnlyPromo(prev => !prev)}
+                  style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                >
+                  <Ionicons name={onlyPromo ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyPromo ? '#2E7D32' : '#6B7280'} />
+                  <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки акційні</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 10, paddingTop: 8 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSortType('popular');
+                  setPriceFrom('');
+                  setPriceTo('');
+                  setOnlyAvailable(true);
+                  setOnlyPromo(false);
+                }}
+                style={{
+                  flex: 0.85,
+                  height: 50,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#D1D5DB',
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <Text style={{ color: '#111827', fontSize: 15, fontWeight: '900' }}>Скинути</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                style={{
+                  flex: 1.15,
+                  height: 50,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#2E7D32',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>Показати {filteredProducts.length}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {/* SUCCESS ORDER MODAL */}
       <Modal animationType="fade" transparent={true} visible={successVisible}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
