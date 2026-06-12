@@ -362,6 +362,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                       });
                     });
 
+                    if (!isAvailable) return null;
 
                     return (
                       <TouchableOpacity
