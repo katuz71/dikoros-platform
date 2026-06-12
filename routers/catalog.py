@@ -371,30 +371,6 @@ async def get_catalog_home():
     }
 
 
-@router.get("/home/debug")
-async def get_catalog_home_debug():
-    domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        sections = await _fetch_homepage_sections(client, domain)
-        mapped_hits, unresolved_hits = await _map_products_by_home_refs(sections.get("hit", []), client, domain)
-        mapped_promotions, unresolved_promotions = await _map_products_by_home_refs(sections.get("promotion", []), client, domain)
-        mapped_new, unresolved_new = await _map_products_by_home_refs(sections.get("new", []), client, domain)
-
-    return {
-        "raw_sections": {
-            "hit": len(sections.get("hit", [])),
-            "promotion": len(sections.get("promotion", [])),
-            "new": len(sections.get("new", [])),
-        },
-        "mapped_sections": {
-            "hit": len(mapped_hits),
-            "promotion": len(mapped_promotions),
-            "new": len(mapped_new),
-        },
-        "unresolved": unresolved_hits + unresolved_promotions + unresolved_new,
-    }
-
-
 @router.get("/hits")
 async def get_catalog_hits(limit: int = 32):
     products = await _fetch_live_home_hits(limit=limit)
