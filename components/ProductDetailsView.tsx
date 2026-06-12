@@ -366,15 +366,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                     return (
                       <TouchableOpacity
                         key={val}
-                        disabled={!isAvailable}
+                        disabled={false}
                         onPress={() => {
-                          if (!isAvailable) return;
                           applyOptionChange(ik, val);
                         }}
                         style={[
                           styles.optionBtn,
                           isSel && styles.optionBtnActive,
-                          !isAvailable && styles.optionBtnDisabled,
                         ]}
                       >
                         <Text

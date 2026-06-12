@@ -25,6 +25,16 @@ PRODUCT_SELECT_FIELDS = """
 
 PRODUCT_GROUP_EXPR = "COALESCE(NULLIF(parent_sku, ''), NULLIF(sku, ''), CAST(id AS TEXT))"
 
+VISIBLE_PRODUCT_CONDITIONS = [
+    "name IS NOT NULL",
+    "TRIM(name) != ''",
+    "LOWER(TRIM(name)) != 'без назви'",
+    "price IS NOT NULL",
+    "price > 0",
+]
+
+VISIBLE_PRODUCT_WHERE_SQL = " AND ".join(VISIBLE_PRODUCT_CONDITIONS)
+
 
 def _as_float(value: object, default: float = 0.0) -> float:
     try:
@@ -211,8 +221,16 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Categories for filter
-    cur.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''")
+    # Categories for filter: only categories that contain visible Horoshop products.
+    cur.execute(f"""
+        SELECT DISTINCT category
+        FROM products
+        WHERE category IS NOT NULL
+          AND TRIM(category) != ''
+          AND {VISIBLE_PRODUCT_WHERE_SQL}
+          AND COALESCE(status, '') != 'out_of_stock'
+        ORDER BY category ASC
+    """)
     all_categories = []
     for r in cur.fetchall():
         if isinstance(r, dict):
@@ -224,16 +242,19 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
             
     all_categories = [c for c in all_categories if c]
     
-    where_clauses = []
+    where_clauses = VISIBLE_PRODUCT_CONDITIONS.copy()
     params = []
     if category:
         where_clauses.append("category = ?")
         params.append(category)
     if status:
         if status in ('in_stock', 'available'):
-            where_clauses.append("status != 'out_of_stock'")
+            where_clauses.append("COALESCE(status, '') != 'out_of_stock'")
         elif status == 'out_of_stock':
             where_clauses.append("status = 'out_of_stock'")
+    else:
+        where_clauses.append("COALESCE(status, '') != 'out_of_stock'")
+
     if search:
         search_term = f"%{search}%"
         where_clauses.append("(name ILIKE ? OR sku ILIKE ?)")
@@ -282,6 +303,8 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
             SELECT {PRODUCT_SELECT_FIELDS}
             FROM products 
             WHERE {PRODUCT_GROUP_EXPR} IN ({placeholders})
+              AND {VISIBLE_PRODUCT_WHERE_SQL}
+              AND COALESCE(status, '') != 'out_of_stock'
             ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
         cur.execute(items_sql, tuple(group_keys))
