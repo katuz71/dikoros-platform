@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 from html import unescape
@@ -18,6 +19,7 @@ from services.products import normalize_product_row
 
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
+logger = logging.getLogger(__name__)
 
 
 PRODUCT_COLUMNS = """
@@ -227,9 +229,22 @@ async def _fetch_products_by_home_refs(
     domain: str,
     limit: int | None = None,
 ):
+    products, unresolved = await _map_products_by_home_refs(refs, client, domain, limit=limit)
+    if unresolved:
+        logger.warning("Unresolved Horoshop homepage refs: %s", unresolved)
+    return products
+
+
+async def _map_products_by_home_refs(
+    refs: list[HomepageProductRef],
+    client: httpx.AsyncClient,
+    domain: str,
+    limit: int | None = None,
+) -> tuple[list[dict], list[dict]]:
     conn = get_db_connection()
     try:
         products = []
+        unresolved = []
         visible_sql = """
             AND name IS NOT NULL
             AND TRIM(name) != ''
@@ -241,6 +256,7 @@ async def _fetch_products_by_home_refs(
 
         for ref in refs:
             row = None
+            resolved_sku = None
             if ref.external_id:
                 row = conn.execute(
                     f"SELECT {PRODUCT_COLUMNS} FROM products WHERE external_id = ? {visible_sql} LIMIT 1",
@@ -259,11 +275,18 @@ async def _fetch_products_by_home_refs(
                         (resolved_sku,),
                     ).fetchone()
             if not row:
+                unresolved.append({
+                    "section": ref.section,
+                    "external_id": ref.external_id,
+                    "sku": ref.sku,
+                    "href": ref.href,
+                    "resolved_sku": resolved_sku,
+                })
                 continue
 
             products.append(_compact_product(normalize_product_row(dict(row))))
 
-        return _dedupe_products(products, limit=limit)
+        return _dedupe_products(products, limit=limit), unresolved
     finally:
         conn.close()
 
@@ -335,6 +358,30 @@ async def get_catalog_home():
         "hits": hits,
         "promotions": promotions,
         "new_products": new_products,
+    }
+
+
+@router.get("/home/debug")
+async def get_catalog_home_debug():
+    domain = os.getenv("HOROSHOP_DOMAIN") or "dikoros-ua.com"
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        sections = await _fetch_homepage_sections(client, domain)
+        mapped_hits, unresolved_hits = await _map_products_by_home_refs(sections.get("hit", []), client, domain)
+        mapped_promotions, unresolved_promotions = await _map_products_by_home_refs(sections.get("promotion", []), client, domain)
+        mapped_new, unresolved_new = await _map_products_by_home_refs(sections.get("new", []), client, domain)
+
+    return {
+        "raw_sections": {
+            "hit": len(sections.get("hit", [])),
+            "promotion": len(sections.get("promotion", [])),
+            "new": len(sections.get("new", [])),
+        },
+        "mapped_sections": {
+            "hit": len(mapped_hits),
+            "promotion": len(mapped_promotions),
+            "new": len(mapped_new),
+        },
+        "unresolved": unresolved_hits + unresolved_promotions + unresolved_new,
     }
 
 

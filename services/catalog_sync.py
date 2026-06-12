@@ -167,7 +167,9 @@ class HomepageSectionsParser(HTMLParser):
             return
 
         if tag == "a" and self.current_card and attrs.get("href"):
-            self.current_card.href = attrs.get("href")
+            href = attrs.get("href")
+            if href and not self.current_card.href and not href.startswith("#") and not href.startswith("javascript:"):
+                self.current_card.href = href
             return
 
         if tag == "img" and self.current_card:
@@ -286,6 +288,12 @@ async def _fetch_homepage_sections(
     parser.feed(response.text)
     parser._append_current_card()
     await _fetch_inactive_homepage_tabs(client, domain, response.text, parser.products)
+    logger.info(
+        "Horoshop homepage refs: hit=%s promotion=%s new=%s",
+        len(parser.products.get("hit", [])),
+        len(parser.products.get("promotion", [])),
+        len(parser.products.get("new", [])),
+    )
     return parser.products
 
 
@@ -339,6 +347,13 @@ def _extract_special_offer_tab_requests(html: str) -> list[tuple[str, str, str, 
         if not isinstance(settings_storage, dict):
             settings_storage = {}
 
+        logger.info(
+            "Horoshop SpecialOffers config: token=%s activeBlock=%s settingsStorage=%s",
+            token,
+            active_block,
+            settings_storage,
+        )
+
         token_marker = f'id="special_offers_{token}"'
         token_pos = html.find(token_marker)
         block_html = html[token_pos:] if token_pos >= 0 else html
@@ -352,11 +367,18 @@ def _extract_special_offer_tab_requests(html: str) -> list[tuple[str, str, str, 
         )
         for tab_match in tab_pattern.finditer(block_html):
             rel = unescape(tab_match.group(1)).strip()
-            if not rel or rel == active_block:
-                continue
-
             title = re.sub(r"<[^>]+>", " ", tab_match.group(2))
             section = _home_section_from_rel_or_title(rel, title)
+            logger.info(
+                "Horoshop SpecialOffers tab: token=%s rel=%s title=%s section=%s active=%s",
+                token,
+                rel,
+                _normalize_home_section_text(title),
+                section,
+                rel == active_block,
+            )
+            if not rel or rel == active_block:
+                continue
             if not section:
                 continue
 
@@ -380,7 +402,12 @@ async def _fetch_inactive_homepage_tabs(
             response = await client.post(
                 f"https://{domain}/_widget/special_offers/block/{rel}/",
                 data=data,
-                headers={**HOROSHOP_PAGE_HEADERS, "X-Requested-With": "XMLHttpRequest"},
+                headers={
+                    **HOROSHOP_PAGE_HEADERS,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": f"https://{domain}/",
+                    "Origin": f"https://{domain}",
+                },
             )
             payload = response.json()
         except (httpx.HTTPError, ValueError):
@@ -392,10 +419,23 @@ async def _fetch_inactive_homepage_tabs(
             continue
 
         tab_html = payload.get("response", {}).get("html") or payload.get("html") or ""
+        if not tab_html:
+            logger.warning("Horoshop homepage tab %s/%s returned no html: %s", token, rel, payload)
+            continue
+
         parser = HomepageSectionsParser(default_section=section)
         parser.feed(str(tab_html))
         parser._append_current_card()
-        products[section].extend(parser.products.get(section, []))
+        refs = parser.products.get(section, [])
+        logger.info(
+            "Horoshop inactive homepage tab fetched: token=%s rel=%s section=%s html_len=%s refs=%s",
+            token,
+            rel,
+            section,
+            len(str(tab_html)),
+            len(refs),
+        )
+        products[section].extend(refs)
 
 
 def _row_value(row: object, key: str, index: int = 0) -> object:
