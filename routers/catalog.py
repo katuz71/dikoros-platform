@@ -19,8 +19,6 @@ from services.products import normalize_product_row
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
-HOME_SECTION_LIMIT = 32
-
 
 PRODUCT_COLUMNS = """
     id, name, price, discount, image, images, category, pack_sizes,
@@ -112,16 +110,6 @@ def _dedupe_products(products: list[dict], limit: int | None = None) -> list[dic
             break
 
     return result
-
-
-def _merge_deduped_products(*product_lists: list[dict], limit: int = HOME_SECTION_LIMIT) -> list[dict]:
-    merged: list[dict] = []
-
-    for products in product_lists:
-        for product in products or []:
-            merged.append(product)
-
-    return _dedupe_products(merged, limit=limit)
 
 
 def _rows_to_products(rows):
@@ -237,29 +225,37 @@ async def _fetch_products_by_home_refs(
     refs: list[HomepageProductRef],
     client: httpx.AsyncClient,
     domain: str,
-    limit: int = 50,
+    limit: int | None = None,
 ):
     conn = get_db_connection()
     try:
         products = []
+        visible_sql = """
+            AND name IS NOT NULL
+            AND TRIM(name) != ''
+            AND LOWER(TRIM(name)) != 'без назви'
+            AND COALESCE(status, '') != 'out_of_stock'
+            AND price IS NOT NULL
+            AND price > 0
+        """
 
         for ref in refs:
             row = None
             if ref.external_id:
                 row = conn.execute(
-                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE external_id = ? LIMIT 1",
+                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE external_id = ? {visible_sql} LIMIT 1",
                     (ref.external_id,),
                 ).fetchone()
             if not row and ref.sku:
                 row = conn.execute(
-                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? LIMIT 1",
+                    f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? {visible_sql} LIMIT 1",
                     (ref.sku,),
                 ).fetchone()
             if not row and ref.href:
                 resolved_sku = await _resolve_ref_sku_from_href(client, domain, ref)
                 if resolved_sku:
                     row = conn.execute(
-                        f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? LIMIT 1",
+                        f"SELECT {PRODUCT_COLUMNS} FROM products WHERE sku = ? {visible_sql} LIMIT 1",
                         (resolved_sku,),
                     ).fetchone()
             if not row:
@@ -326,26 +322,9 @@ async def get_catalog_home():
     async with httpx.AsyncClient(timeout=60.0) as client:
         sections = await _fetch_homepage_sections(client, domain)
 
-        live_hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain, limit=HOME_SECTION_LIMIT)
-        live_promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain, limit=HOME_SECTION_LIMIT)
-        live_new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain, limit=HOME_SECTION_LIMIT)
-
-    hits = _merge_deduped_products(
-        live_hits,
-        _fetch_home_hit_products(limit=HOME_SECTION_LIMIT),
-        _fetch_hit_fallback(limit=HOME_SECTION_LIMIT),
-        limit=HOME_SECTION_LIMIT,
-    )
-    promotions = _merge_deduped_products(
-        live_promotions,
-        _fetch_promotion_fallback(limit=HOME_SECTION_LIMIT),
-        limit=HOME_SECTION_LIMIT,
-    )
-    new_products = _merge_deduped_products(
-        live_new_products,
-        _fetch_new_fallback(limit=HOME_SECTION_LIMIT),
-        limit=HOME_SECTION_LIMIT,
-    )
+        hits = await _fetch_products_by_home_refs(sections.get("hit", []), client, domain)
+        promotions = await _fetch_products_by_home_refs(sections.get("promotion", []), client, domain)
+        new_products = await _fetch_products_by_home_refs(sections.get("new", []), client, domain)
 
     return {
         # Banners are loaded by the app through /banners. Keeping them out of

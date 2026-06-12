@@ -35,6 +35,32 @@ HOME_SECTION_COLUMNS = {
     "promotion": "home_promotion_order",
 }
 
+HOME_SECTION_REL_ALIASES = {
+    "hits": "hit",
+    "hit": "hit",
+    "popular": "hit",
+    "global_action": "promotion",
+    "promotion": "promotion",
+    "promotions": "promotion",
+    "sale": "promotion",
+    "discount": "promotion",
+    "discounts": "promotion",
+    "novelties": "new",
+    "new": "new",
+    "new_products": "new",
+}
+
+HOME_SECTION_TITLE_ALIASES = {
+    "хіти": "hit",
+    "хіти продажу": "hit",
+    "популярне": "hit",
+    "акції": "promotion",
+    "акційні товари": "promotion",
+    "розпродаж": "promotion",
+    "новинки": "new",
+    "нові товари": "new",
+}
+
 
 @dataclass
 class HomepageProductRef:
@@ -63,15 +89,31 @@ def _extract_sku_from_alt(value: str | None) -> str | None:
     return candidate
 
 
+def _normalize_home_section_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", unescape(value or "")).strip().casefold()
+
+
+def _home_section_from_rel_or_title(rel: str | None = None, title: str | None = None) -> str | None:
+    rel_key = _normalize_home_section_text(rel)
+    if rel_key in HOME_SECTION_REL_ALIASES:
+        return HOME_SECTION_REL_ALIASES[rel_key]
+
+    title_key = _normalize_home_section_text(re.sub(r"<[^>]+>", " ", title or ""))
+    return HOME_SECTION_TITLE_ALIASES.get(title_key)
+
+
 class HomepageSectionsParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, default_section: str | None = None) -> None:
         super().__init__(convert_charrefs=True)
         self.products: dict[str, list[HomepageProductRef]] = {
             "hit": [],
             "new": [],
             "promotion": [],
         }
-        self.current_section: str | None = None
+        self.default_section = default_section
+        self.current_section: str | None = default_section
+        self.latest_active_tab_section: str | None = None
+        self.current_tab: dict[str, object] | None = None
         self.special_content_index = 0
         self.special_depth: int | None = None
         self.current_card: HomepageProductRef | None = None
@@ -83,11 +125,23 @@ class HomepageSectionsParser(HTMLParser):
         if self.special_depth is not None:
             self.special_depth += 1
 
+        if tag == "div" and _class_contains(attrs, "catalogTabs"):
+            self.latest_active_tab_section = None
+
+        if tag == "li" and attrs.get("rel") and "catalogTabs-nav-i" in attrs.get("class", ""):
+            self.current_tab = {
+                "rel": attrs.get("rel"),
+                "active": _class_contains(attrs, "__active"),
+                "text": [],
+            }
+
         if tag == "div" and _class_contains(attrs, "catalogTabs-content") and _class_contains(attrs, "j-special-offers-content"):
             self.special_content_index += 1
             self._append_current_card()
 
-            if self.special_content_index == 1:
+            if self.latest_active_tab_section:
+                self.current_section = self.latest_active_tab_section
+            elif self.special_content_index == 1:
                 self.current_section = "hit"
             elif self.special_content_index == 2:
                 self.current_section = "new"
@@ -121,13 +175,27 @@ class HomepageSectionsParser(HTMLParser):
             if sku:
                 self.current_card.sku = sku
 
+    def handle_data(self, data: str) -> None:
+        if self.current_tab is not None:
+            text = self.current_tab.get("text")
+            if isinstance(text, list):
+                text.append(data)
+
     def handle_endtag(self, tag: str) -> None:
+        if tag == "li" and self.current_tab is not None:
+            rel = str(self.current_tab.get("rel") or "")
+            text = "".join(str(part) for part in self.current_tab.get("text") or [])
+            section = _home_section_from_rel_or_title(rel, text)
+            if bool(self.current_tab.get("active")) and section:
+                self.latest_active_tab_section = section
+            self.current_tab = None
+
         if self.special_depth is not None:
             self.special_depth -= 1
             if self.special_depth <= 0:
                 self._append_current_card()
                 self.special_depth = None
-                self.current_section = None
+                self.current_section = self.default_section
 
     def _append_current_card(self) -> None:
         if not self.current_card:
@@ -217,6 +285,7 @@ async def _fetch_homepage_sections(
     parser = HomepageSectionsParser()
     parser.feed(response.text)
     parser._append_current_card()
+    await _fetch_inactive_homepage_tabs(client, domain, response.text, parser.products)
     return parser.products
 
 
@@ -249,6 +318,84 @@ async def _resolve_ref_sku_from_href(
         return None
 
     return _extract_product_page_sku(html)
+
+
+def _extract_special_offer_tab_requests(html: str) -> list[tuple[str, str, str, dict]]:
+    requests: list[tuple[str, str, str, dict]] = []
+    configs = re.finditer(r"SpecialOffers\.init\((\{.*?\})\);", html, re.DOTALL)
+
+    for match in configs:
+        try:
+            config = json.loads(match.group(1))
+        except json.JSONDecodeError:
+            continue
+
+        token = str(config.get("token") or "").strip()
+        if not token:
+            continue
+
+        active_block = str(config.get("activeBlock") or config.get("active_block") or "").strip()
+        settings_storage = config.get("settingsStorage") or {}
+        if not isinstance(settings_storage, dict):
+            settings_storage = {}
+
+        token_marker = f'id="special_offers_{token}"'
+        token_pos = html.find(token_marker)
+        block_html = html[token_pos:] if token_pos >= 0 else html
+        next_block = block_html.find('id="special_offers_', len(token_marker))
+        if next_block > 0:
+            block_html = block_html[:next_block]
+
+        tab_pattern = re.compile(
+            r"<li\b(?=[^>]*\bj-special-offers-tab\b)(?=[^>]*\brel=[\"']([^\"']+)[\"'])[^>]*>(.*?)</li>",
+            re.DOTALL | re.IGNORECASE,
+        )
+        for tab_match in tab_pattern.finditer(block_html):
+            rel = unescape(tab_match.group(1)).strip()
+            if not rel or rel == active_block:
+                continue
+
+            title = re.sub(r"<[^>]+>", " ", tab_match.group(2))
+            section = _home_section_from_rel_or_title(rel, title)
+            if not section:
+                continue
+
+            requests.append((section, token, rel, settings_storage))
+
+    return requests
+
+
+async def _fetch_inactive_homepage_tabs(
+    client: httpx.AsyncClient,
+    domain: str,
+    html: str,
+    products: dict[str, list[HomepageProductRef]],
+) -> None:
+    for section, token, rel, settings_storage in _extract_special_offer_tab_requests(html):
+        data = {"token": token}
+        for key, value in settings_storage.items():
+            data[f"settingsStorage[{key}]"] = str(value)
+
+        try:
+            response = await client.post(
+                f"https://{domain}/_widget/special_offers/block/{rel}/",
+                data=data,
+                headers={**HOROSHOP_PAGE_HEADERS, "X-Requested-With": "XMLHttpRequest"},
+            )
+            payload = response.json()
+        except (httpx.HTTPError, ValueError):
+            logger.warning("Failed to fetch Horoshop homepage tab %s/%s", token, rel)
+            continue
+
+        if payload.get("status") != "OK":
+            logger.warning("Horoshop homepage tab %s/%s returned %s", token, rel, payload)
+            continue
+
+        tab_html = payload.get("response", {}).get("html") or payload.get("html") or ""
+        parser = HomepageSectionsParser(default_section=section)
+        parser.feed(str(tab_html))
+        parser._append_current_card()
+        products[section].extend(parser.products.get(section, []))
 
 
 def _row_value(row: object, key: str, index: int = 0) -> object:
