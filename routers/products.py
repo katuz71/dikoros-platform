@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -34,6 +35,24 @@ VISIBLE_PRODUCT_CONDITIONS = [
 ]
 
 VISIBLE_PRODUCT_WHERE_SQL = " AND ".join(VISIBLE_PRODUCT_CONDITIONS)
+
+CATEGORY_SQL_EXPR = "REPLACE(REPLACE(REPLACE(TRIM(category), ' / ', '/'), '/ ', '/'), ' /', '/')"
+
+
+def _normalize_category(value: object) -> str:
+    text = " ".join(str(value or "").strip().split())
+    return re.sub(r"\s*/\s*", "/", text)
+
+
+def _category_filter_sql(category: str) -> tuple[str, list[str]]:
+    normalized = _normalize_category(category)
+    if not normalized:
+        return "", []
+
+    if "/" in normalized:
+        return f"{CATEGORY_SQL_EXPR} = ?", [normalized]
+
+    return f"({CATEGORY_SQL_EXPR} = ? OR {CATEGORY_SQL_EXPR} LIKE ?)", [normalized, f"{normalized}/%"]
 
 
 def _as_float(value: object, default: float = 0.0) -> float:
@@ -247,8 +266,10 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
     where_clauses = VISIBLE_PRODUCT_CONDITIONS.copy()
     params = []
     if category:
-        where_clauses.append("category = ?")
-        params.append(category)
+        category_sql, category_params = _category_filter_sql(category)
+        if category_sql:
+            where_clauses.append(category_sql)
+            params.extend(category_params)
     if status:
         if status in ('in_stock', 'available'):
             where_clauses.append("COALESCE(status, '') != 'out_of_stock'")

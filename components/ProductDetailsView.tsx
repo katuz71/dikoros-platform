@@ -267,6 +267,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   const productTextTabs = splitProductText();
   const activeAvailable = activeRow ? isVariantAvailable(activeRow) : isVariantAvailable(product);
+  const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
@@ -314,6 +315,9 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         {/* Title and Price */}
         <View style={styles.titleSection}>
           <Text style={styles.productTitle}>{product.name}</Text>
+          {!!displaySku && (
+            <Text style={styles.skuText}>Артикул: {displaySku}</Text>
+          )}
           <View style={styles.priceRow}>
             <Text style={styles.priceText}>{formatPrice(currentPrice)}</Text>
             {!!oldPrice && oldPrice > currentPrice && (
@@ -494,6 +498,7 @@ const styles = StyleSheet.create({
   reviewCount: { color: '#666', fontSize: 12 },
   titleSection: { marginBottom: 20 },
   productTitle: { fontSize: 26, fontWeight: '800', color: '#1a1a1a', marginBottom: 8, letterSpacing: -0.5 },
+  skuText: { color: '#6B7280', fontSize: 13, fontWeight: '600', marginBottom: 10 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceText: { fontSize: 28, fontWeight: '700', color: '#000' },
   oldPriceText: { textDecorationLine: 'line-through', color: '#9ca3af', fontSize: 18, fontWeight: '500' },

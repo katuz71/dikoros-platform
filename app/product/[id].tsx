@@ -297,6 +297,7 @@ export default function ProductScreen() {
       rows.push({
         raw: v,
         rowId: variantIdentity(v),
+        sku: clean(v?.sku),
         options,
         price: Number(v?.price ?? 0) || product.price || 0,
         old_price: Number(v?.old_price ?? 0) || undefined

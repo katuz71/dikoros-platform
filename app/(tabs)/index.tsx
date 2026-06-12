@@ -137,8 +137,16 @@ const sortByHomeSectionOrder = <T extends Product>(
   return [...items].sort((a, b) => getHomeSectionOrder(a, key) - getHomeSectionOrder(b, key));
 };
 
+const normalizeCategory = (value: any) => {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s*(?:>|›|»|→)\s*/g, '/')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ');
+};
+
 const getRootCategoryName = (value: any) => {
-  const raw = String(value ?? '').trim().replace(/\s+/g, ' ');
+  const raw = normalizeCategory(value);
   if (!raw) return '';
 
   const separators = ['/', '>', '›', '»', '→'];
@@ -151,6 +159,20 @@ const getRootCategoryName = (value: any) => {
   });
 
   return root.replace(/\s+/g, ' ');
+};
+
+const categoryMatches = (productCategory: any, selectedCategory: any) => {
+  const product = normalizeCategory(productCategory);
+  const selected = normalizeCategory(selectedCategory);
+  if (!selected) return true;
+  if (!product) return false;
+  if (product === selected) return true;
+  if (selected.includes('/')) return false;
+  return product.startsWith(`${selected}/`);
+};
+
+const categoryNameFromHome = (category: any) => {
+  return normalizeCategory(category?.name ?? category?.title ?? category?.label ?? category);
 };
 
 const normalizeSelectOption = (option: any) => {
@@ -1266,7 +1288,18 @@ export default function Index() {
   }, [safeProductsRaw]);
 
   const safeProducts = useMemo(() => {
-    return safeProductsRaw.filter((product: any) => !variantChildIds.has(Number(product?.id)));
+    return safeProductsRaw.filter((product: any) => {
+      const name = String(product?.name ?? '').trim();
+      const status = String(product?.status ?? '').trim().toLowerCase();
+      const price = Number(product?.price ?? 0);
+
+      if (variantChildIds.has(Number(product?.id))) return false;
+      if (!name || name.toLowerCase() === 'без назви') return false;
+      if (!Number.isFinite(price) || price <= 0) return false;
+      if (status === 'out_of_stock') return false;
+
+      return true;
+    });
   }, [safeProductsRaw, variantChildIds]);
 
   // Derive only root categories from products for the home screen
@@ -1283,6 +1316,26 @@ export default function Index() {
     return SITE_CATEGORY_ORDER.filter(cat => categorySet.has(cat));
   }, [safeProducts]);
 
+  const catalogCategories = useMemo(() => {
+    const categorySet = new Set<string>();
+
+    homeCategories.forEach(category => {
+      const rootCategory = getRootCategoryName(categoryNameFromHome(category));
+      if (rootCategory) {
+        categorySet.add(rootCategory);
+      }
+    });
+
+    if (categorySet.size === 0) return derivedCategories;
+
+    const ordered = SITE_CATEGORY_ORDER.filter(cat => categorySet.has(cat));
+    const extra = Array.from(categorySet)
+      .filter(cat => !SITE_CATEGORY_ORDER.includes(cat))
+      .sort((a, b) => a.localeCompare(b));
+
+    return [...ordered, ...extra];
+  }, [homeCategories, derivedCategories]);
+
   // Фильтрация товаров по поисковому запросу и категории
   const getSortedProducts = () => {
     let result = safeProducts.filter(p => 
@@ -1291,13 +1344,13 @@ export default function Index() {
 
     // Filter by root category so parent category includes child-category products
     if (selectedCategory) {
-      result = result.filter(p => getRootCategoryName(p?.category) === selectedCategory);
+      result = result.filter(p => categoryMatches(p?.category, selectedCategory));
     }
 
     if (sortType === 'asc') {
-      return result.sort((a, b) => a.price - b.price);
+      return [...result].sort((a, b) => a.price - b.price);
     } else if (sortType === 'desc') {
-      return result.sort((a, b) => b.price - a.price);
+      return [...result].sort((a, b) => b.price - a.price);
     }
     return result; // 'popular' - порядок по умолчанию (id)
   };
@@ -1510,7 +1563,7 @@ export default function Index() {
                 Акції
               </Text>
             </TouchableOpacity>
-            {derivedCategories.map((cat, index) => (
+            {catalogCategories.map((cat, index) => (
               <TouchableOpacity
                 key={index}
                 onPress={() => {
