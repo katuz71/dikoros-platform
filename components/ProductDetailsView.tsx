@@ -250,7 +250,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии'];
     if (status && disabledStatuses.some(s => status.includes(s))) return false;
 
-    const stockRaw = raw?.stock ?? raw?.remains ?? raw?.quantity ?? raw?.qty;
+    const stockRaw = raw?.remains ?? raw?.quantity ?? raw?.qty ?? raw?.balance ?? raw?.stock;
     if (stockRaw === undefined || stockRaw === null || stockRaw === '') return true;
     const stock = Number(stockRaw);
     return !Number.isFinite(stock) || stock > 0;
@@ -361,6 +361,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                         return clean(row.options[key]) === clean(expected);
                       });
                     });
+
+                    if (!isAvailable) return null;
 
                     return (
                       <TouchableOpacity
