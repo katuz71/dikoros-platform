@@ -68,6 +68,7 @@ class HomepageProductRef:
     sku: str | None = None
     external_id: str | None = None
     href: str | None = None
+    title: str | None = None
 
 
 def _class_contains(attrs: dict[str, str], value: str) -> bool:
@@ -87,6 +88,31 @@ def _extract_sku_from_alt(value: str | None) -> str | None:
     if "-" not in candidate:
         return None
     return candidate
+
+
+def _clean_text_value(value: object) -> str:
+    return re.sub(r"\s+", " ", unescape(str(value or ""))).strip()
+
+
+def _is_placeholder_title(value: object) -> bool:
+    text = _clean_text_value(value).casefold()
+    return not text or text in {"без назви", "без названия", "no name"}
+
+
+def _extract_title_from_home_attr(value: str | None, sku: str | None = None) -> str | None:
+    text = _clean_text_value(value)
+    if not text:
+        return None
+
+    text = re.split(r"\s+—\s*Dikoros", text, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+    trailing_sku = sku or _extract_sku_from_alt(text)
+    if trailing_sku and text.casefold().endswith(trailing_sku.casefold()):
+        text = text[: -len(trailing_sku)].strip(" -—,")
+
+    text = re.sub(r"\s+фото$", "", text, flags=re.IGNORECASE).strip(" -—,")
+    if _is_placeholder_title(text):
+        return None
+    return text
 
 
 def _normalize_home_section_text(value: str | None) -> str:
@@ -163,6 +189,9 @@ class HomepageSectionsParser(HTMLParser):
             self.current_card = HomepageProductRef(
                 section=self.current_section,
                 external_id=attrs.get("data-id"),
+                title=_extract_title_from_home_attr(
+                    attrs.get("data-title") or attrs.get("title") or attrs.get("aria-label")
+                ),
             )
             return
 
@@ -170,12 +199,20 @@ class HomepageSectionsParser(HTMLParser):
             href = attrs.get("href")
             if href and not self.current_card.href and not href.startswith("#") and not href.startswith("javascript:"):
                 self.current_card.href = href
+            if not self.current_card.title:
+                self.current_card.title = _extract_title_from_home_attr(
+                    attrs.get("title") or attrs.get("aria-label"),
+                    self.current_card.sku,
+                )
             return
 
         if tag == "img" and self.current_card:
-            sku = _extract_sku_from_alt(attrs.get("alt") or attrs.get("title"))
+            image_text = attrs.get("alt") or attrs.get("title")
+            sku = _extract_sku_from_alt(image_text)
             if sku:
                 self.current_card.sku = sku
+            if not self.current_card.title:
+                self.current_card.title = _extract_title_from_home_attr(image_text, self.current_card.sku)
 
     def handle_data(self, data: str) -> None:
         if self.current_tab is not None:
@@ -220,6 +257,58 @@ def _localized_value(value: object, default: str = "") -> str:
     if isinstance(value, dict):
         return str(value.get("ua") or value.get("ru") or value.get("en") or default)
     return str(value or default)
+
+
+def _first_localized_text(value: object) -> str:
+    if isinstance(value, dict):
+        for key in ("ua", "uk", "ru", "en", "default"):
+            text = _first_localized_text(value.get(key))
+            if not _is_placeholder_title(text):
+                return text
+        for key in ("title", "name", "caption", "mod_title"):
+            text = _first_localized_text(value.get(key))
+            if not _is_placeholder_title(text):
+                return text
+        for key in ("value", "text", "label"):
+            text = _first_localized_text(value.get(key))
+            if not _is_placeholder_title(text):
+                return text
+        for nested_value in value.values():
+            text = _first_localized_text(nested_value)
+            if not _is_placeholder_title(text):
+                return text
+        return ""
+    if isinstance(value, list):
+        for item in value:
+            text = _first_localized_text(item)
+            if not _is_placeholder_title(text):
+                return text
+        return ""
+    if isinstance(value, (bool, int, float)):
+        return ""
+    return _clean_text_value(value)
+
+
+def _safe_product_title(item: dict) -> str:
+    for key in ("title", "name", "caption", "mod_title"):
+        text = _first_localized_text(item.get(key))
+        if not _is_placeholder_title(text):
+            return text
+
+    parent = item.get("parent") if isinstance(item.get("parent"), dict) else {}
+    for key in ("title", "name", "caption", "mod_title"):
+        text = _first_localized_text(parent.get(key))
+        if not _is_placeholder_title(text):
+            return text
+
+    for key, value in item.items():
+        lowered = str(key).casefold()
+        if "title" in lowered or "name" in lowered or "caption" in lowered:
+            text = _first_localized_text(value)
+            if not _is_placeholder_title(text):
+                return text
+
+    return "Без назви"
 
 
 def _parse_float(value: object, default: float = 0.0) -> float:
@@ -629,7 +718,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 variant_options_json = json.dumps(variant_options, ensure_ascii=False) if variant_options else None
 
                 variant_name = _localized_value(item.get("mod_title") or {})
-                title = _localized_value(item.get("title") or {}, "Без назви")
+                title = _safe_product_title(item)
                 description = _localized_value(item.get("description") or {})
 
                 parent_obj = item.get("parent") or {}

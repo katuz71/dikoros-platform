@@ -73,6 +73,17 @@ def _compact_products(products: list[dict]) -> list[dict]:
     return [_compact_product(product) for product in products]
 
 
+def _is_missing_product_name(value: object) -> bool:
+    text = str(value or "").strip().casefold()
+    return not text or text == "без назви"
+
+
+def _hydrate_home_product_name(product: dict, ref: HomepageProductRef) -> dict:
+    if _is_missing_product_name(product.get("name")) and ref.title:
+        product["name"] = ref.title
+    return product
+
+
 def _product_group_key(product: dict) -> str:
     """Stable dedupe key for carousel cards.
 
@@ -246,9 +257,6 @@ async def _map_products_by_home_refs(
         products = []
         unresolved = []
         visible_sql = """
-            AND name IS NOT NULL
-            AND TRIM(name) != ''
-            AND LOWER(TRIM(name)) != 'без назви'
             AND COALESCE(status, '') != 'out_of_stock'
             AND price IS NOT NULL
             AND price > 0
@@ -280,11 +288,13 @@ async def _map_products_by_home_refs(
                     "external_id": ref.external_id,
                     "sku": ref.sku,
                     "href": ref.href,
+                    "title": ref.title,
                     "resolved_sku": resolved_sku,
                 })
                 continue
 
-            products.append(_compact_product(normalize_product_row(dict(row))))
+            product = _compact_product(normalize_product_row(dict(row)))
+            products.append(_hydrate_home_product_name(product, ref))
 
         return _dedupe_products(products, limit=limit), unresolved
     finally:
