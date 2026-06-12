@@ -110,6 +110,17 @@ type Product = {
   variationGroups?: any[]; // For multi-dimensional variations
 };
 
+type CategorySortType = 'popular' | 'asc' | 'desc' | 'new' | 'promo' | 'available';
+
+const CATEGORY_SORT_OPTIONS: { key: CategorySortType; label: string }[] = [
+  { key: 'popular', label: 'Популярні' },
+  { key: 'asc', label: 'Дешевші' },
+  { key: 'desc', label: 'Дорожчі' },
+  { key: 'new', label: 'Новинки' },
+  { key: 'promo', label: 'Акції' },
+  { key: 'available', label: 'В наявності' },
+];
+
 const asArray = (value: any) => (Array.isArray(value) ? value : []);
 
 const parseMaybeJsonArray = (value: any) => {
@@ -135,6 +146,54 @@ const sortByHomeSectionOrder = <T extends Product>(
   key: 'home_hit_order' | 'home_new_order' | 'home_promotion_order'
 ) => {
   return [...items].sort((a, b) => getHomeSectionOrder(a, key) - getHomeSectionOrder(b, key));
+};
+
+const CATALOG_UNAVAILABLE_STATUSES = [
+  'out_of_stock',
+  'not_available',
+  'unavailable',
+  'disabled',
+  'відсутній',
+  'немає в наявності',
+  'нет в наличии',
+];
+
+const isCatalogUnavailableStatus = (value: any) => {
+  const status = String(value ?? '').trim().toLowerCase();
+  if (!status) return false;
+  return CATALOG_UNAVAILABLE_STATUSES.some(item => status.includes(item));
+};
+
+const getCatalogProductPrice = (product: any) => {
+  const price = Number(product?.minPrice ?? product?.price ?? 0);
+  return Number.isFinite(price) ? price : 0;
+};
+
+const isCatalogProductAvailable = (product: any) => {
+  if (!product) return false;
+  if (isCatalogUnavailableStatus(product?.status)) return false;
+
+  const variants = parseMaybeJsonArray(product?.variants);
+  if (variants.length === 0) return true;
+
+  return variants.some((variant: any) => {
+    if (isCatalogUnavailableStatus(variant?.status ?? variant?.raw?.status)) return false;
+    const price = Number(variant?.price ?? product?.price ?? 0);
+    return Number.isFinite(price) && price > 0;
+  });
+};
+
+const isCatalogPromoProduct = (product: any) => {
+  const price = getCatalogProductPrice(product);
+  const oldPrice = Number(product?.old_price ?? 0);
+  const discount = Number(product?.discount ?? 0);
+
+  if (Number.isFinite(oldPrice) && oldPrice > price && price > 0) return true;
+  if (Number.isFinite(discount) && discount > 0) return true;
+  if (product?.is_promotion || product?.promotion || product?.promo) return true;
+  if (Number.isFinite(Number(product?.home_promotion_order))) return true;
+
+  return false;
 };
 
 const normalizeCategory = (value: any) => {
@@ -469,7 +528,7 @@ export default function Index() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categoryViewOpen, setCategoryViewOpen] = useState(false);
-  const [sortType, setSortType] = useState<'popular' | 'asc' | 'desc'>('popular');
+  const [sortType, setSortType] = useState<CategorySortType>('popular');
   const [successVisible, setSuccessVisible] = useState(false);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -1290,13 +1349,12 @@ export default function Index() {
   const safeProducts = useMemo(() => {
     return safeProductsRaw.filter((product: any) => {
       const name = String(product?.name ?? '').trim();
-      const status = String(product?.status ?? '').trim().toLowerCase();
-      const price = Number(product?.price ?? 0);
+      const price = getCatalogProductPrice(product);
 
       if (variantChildIds.has(Number(product?.id))) return false;
       if (!name || name.toLowerCase() === 'без назви') return false;
       if (!Number.isFinite(price) || price <= 0) return false;
-      if (status === 'out_of_stock') return false;
+      if (!isCatalogProductAvailable(product)) return false;
 
       return true;
     });
@@ -1347,12 +1405,34 @@ export default function Index() {
       result = result.filter(p => categoryMatches(p?.category, selectedCategory));
     }
 
-    if (sortType === 'asc') {
-      return [...result].sort((a, b) => a.price - b.price);
-    } else if (sortType === 'desc') {
-      return [...result].sort((a, b) => b.price - a.price);
+    if (sortType === 'available') {
+      return result.filter(isCatalogProductAvailable);
     }
-    return result; // 'popular' - порядок по умолчанию (id)
+
+    if (sortType === 'promo') {
+      return result
+        .filter(isCatalogPromoProduct)
+        .sort((a, b) => getHomeSectionOrder(a, 'home_promotion_order') - getHomeSectionOrder(b, 'home_promotion_order'));
+    }
+
+    if (sortType === 'new') {
+      return [...result].sort((a, b) => {
+        const aOrder = getHomeSectionOrder(a, 'home_new_order');
+        const bOrder = getHomeSectionOrder(b, 'home_new_order');
+
+        if (aOrder !== bOrder) return aOrder - bOrder;
+
+        return Number(b?.id ?? 0) - Number(a?.id ?? 0);
+      });
+    }
+
+    if (sortType === 'asc') {
+      return [...result].sort((a, b) => getCatalogProductPrice(a) - getCatalogProductPrice(b));
+    } else if (sortType === 'desc') {
+      return [...result].sort((a, b) => getCatalogProductPrice(b) - getCatalogProductPrice(a));
+    }
+
+    return result; // 'popular' - порядок по умолчанию
   };
   
   const filteredProducts = getSortedProducts();
@@ -1620,6 +1700,41 @@ export default function Index() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 14, gap: 8 }}
+          >
+            {CATEGORY_SORT_OPTIONS.map((option) => {
+              const active = sortType === option.key;
+
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  onPress={() => setSortType(option.key)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: active ? '#2E7D32' : '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: active ? '#2E7D32' : '#E5E7EB',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: active ? '#FFFFFF' : '#111827',
+                      fontSize: 13,
+                      fontWeight: '800',
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           <FlatList
             data={filteredProducts}
