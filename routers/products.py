@@ -89,6 +89,7 @@ def _option_names_from_variants(variants: list[dict]) -> str | None:
 def _format_variant(product: dict) -> dict:
     old_price = _as_float(product.get("old_price"))
     status = product.get("status")
+    remains = product.get("remains")
     options = _parse_variant_options(product.get("variant_options"))
     return {
         "id": product.get("id"),
@@ -100,6 +101,7 @@ def _format_variant(product: dict) -> dict:
         "old_price": old_price if old_price > 0 else None,
         "discount": product.get("discount") or 0,
         "status": status,
+        "remains": remains,
         "stock": 1 if status in ("available", "in_stock") else 0,
         "remains": product.get("remains"),
         "image": product.get("image"),
@@ -304,8 +306,6 @@ async def get_products_paginated(page: int = 1, limit: int = 50, category: str =
             SELECT {PRODUCT_SELECT_FIELDS}
             FROM products 
             WHERE {PRODUCT_GROUP_EXPR} IN ({placeholders})
-              AND {VISIBLE_PRODUCT_WHERE_SQL}
-              AND COALESCE(status, '') != 'out_of_stock'
             ORDER BY COALESCE(sort_order, 2147483647), id DESC
         """
         cur.execute(items_sql, tuple(group_keys + EXCLUDED_APP_CATEGORY_PARAMS))

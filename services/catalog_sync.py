@@ -166,6 +166,21 @@ def _old_price_from_discount(price: float, discount_percent: float) -> float:
     return round(price / (1 - discount_percent / 100), 2)
 
 
+def _parse_remains(item: dict, status: str) -> int:
+    for key in ("remains", "quantity", "qty", "stock", "balance", "rest"):
+        value = item.get(key)
+        if isinstance(value, dict):
+            value = value.get("value") or value.get("amount") or value.get("quantity")
+        if value is None or value == "":
+            continue
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            continue
+
+    return 0 if status == "out_of_stock" else 1
+
+
 async def _export_catalog_products(
     client: httpx.AsyncClient,
     domain: str,
@@ -339,6 +354,7 @@ def _mark_stale_horoshop_products_out_of_stock(cur, active_skus: set[str]) -> in
         f"""
         UPDATE products
         SET status = 'out_of_stock',
+            remains = 0,
             is_hit = FALSE,
             is_new = FALSE,
             is_promotion = FALSE,
@@ -442,6 +458,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 presence_obj = item.get("presence") or {}
                 if presence_obj.get("id") == 2:
                     status = "out_of_stock"
+                remains = _parse_remains(item, status)
 
                 img_list = item.get("images") or []
                 img = img_list[0] if img_list else ""
@@ -472,6 +489,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         """
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
+                            remains = ?,
                             description = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
@@ -483,6 +501,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             price,
                             category,
                             status,
+                            remains,
                             description,
                             img,
                             images_str,
@@ -504,11 +523,11 @@ async def sync_catalog_from_horoshop() -> dict:
                         """
                         INSERT INTO products (
                             sku, name, price, category, status, description,
-                            image, images, parent_sku, variant_name, external_id,
+                            remains, image, images, parent_sku, variant_name, external_id,
                             variant_options, is_hit, is_promotion, is_new,
                             old_price, discount, sort_order
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -517,6 +536,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             category,
                             status,
                             description,
+                            remains,
                             img,
                             images_str,
                             parent_sku,

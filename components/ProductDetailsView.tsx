@@ -249,11 +249,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const status = clean(raw?.status || product?.status).toLowerCase();
     const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'РІС–РґСЃСѓС‚РЅС–Р№', 'РЅРµРјР°С” РІ РЅР°СЏРІРЅРѕСЃС‚С–', 'РЅРµС‚ РІ РЅР°Р»РёС‡РёРё'];
     if (status && disabledStatuses.some(s => status.includes(s))) return false;
-
-    const stockRaw = raw?.remains ?? raw?.quantity ?? raw?.qty ?? raw?.balance ?? raw?.stock;
-    if (stockRaw === undefined || stockRaw === null || stockRaw === '') return true;
-    const stock = Number(stockRaw);
-    return !Number.isFinite(stock) || stock > 0;
+    return true;
   };
 
   const images = getAllImages(product);

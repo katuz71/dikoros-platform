@@ -325,8 +325,8 @@ export default function ProductScreen() {
 
     const isAvailable = (row: any) => {
       const status = clean(row?.raw?.status).toLowerCase();
-      if (status) return status === 'available' || status === 'in_stock';
-      return Number(row?.raw?.stock ?? row?.raw?.remains ?? 1) > 0;
+      return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
+        .some(value => status.includes(value));
     };
 
     const selectedStillMatches = selectedVariantRowId
@@ -505,7 +505,13 @@ export default function ProductScreen() {
       return;
     }
 
-    const firstRow = variantRows[0];
+    const isDefaultRowAvailable = (row: any) => {
+      const raw = row?.raw || {};
+      const status = clean(raw?.status).toLowerCase();
+      return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
+        .some(value => status.includes(value));
+    };
+    const firstRow = variantRows.find(isDefaultRowAvailable) || variantRows[0];
 
     setSelectedOptions(prev => {
       const next: Record<string, string> = {};
