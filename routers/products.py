@@ -101,6 +101,7 @@ def _format_variant(product: dict) -> dict:
         "discount": product.get("discount") or 0,
         "status": status,
         "stock": 1 if status in ("available", "in_stock") else 0,
+        "remains": product.get("remains"),
         "image": product.get("image"),
         "images": product.get("images"),
         "parent_sku": product.get("parent_sku"),
