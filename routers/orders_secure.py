@@ -1,7 +1,8 @@
-"""Secure checkout route used before the legacy orders router.
+"""Checkout route used before the legacy orders router.
 
-This route intentionally does not create a user account during checkout.
-Registration/login must happen through SMS verification first.
+Authenticated users can use profile data and bonuses. Guests can also complete
+checkout without creating an account; guest checkout never creates a user and
+never allows bonus usage.
 """
 
 from __future__ import annotations
@@ -10,13 +11,14 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from db import DATABASE_URL, get_db_connection
 from models.schemas import OrderRequest
-from services.auth import get_current_user_phone
+from services.auth import get_optional_current_user_phone
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
 from services.users import clean_warehouse_value, normalize_phone
@@ -39,7 +41,7 @@ def _send_order_created_push_task(push_token: str, order_id: int) -> None:
 async def create_order_secure(
     order: OrderRequest,
     background_tasks: BackgroundTasks,
-    current_user_phone: str = Depends(get_current_user_phone),
+    current_user_phone: Optional[str] = Depends(get_optional_current_user_phone),
 ):
     conn = None
     try:
@@ -47,58 +49,71 @@ async def create_order_secure(
         cur = conn.cursor()
 
         clean_phone = normalize_phone(order.phone)
-        user_phone = normalize_phone(order.user_phone) if order.user_phone else clean_phone
-        token_phone = normalize_phone(current_user_phone)
+        requested_user_phone = normalize_phone(order.user_phone) if order.user_phone else clean_phone
+        token_phone = normalize_phone(current_user_phone) if current_user_phone else None
+        is_authenticated_checkout = bool(token_phone)
+        user_phone = token_phone or requested_user_phone or clean_phone
 
-        if token_phone != user_phone:
+        if token_phone and token_phone != requested_user_phone:
             raise HTTPException(status_code=403, detail="Order user does not match authenticated user")
 
-        user = cur.execute("SELECT * FROM users WHERE phone=?", (user_phone,)).fetchone()
-        user_dict = dict(user) if user else None
-        available_bonus_balance = int((user_dict or {}).get("bonus_balance") or 0)
-        is_verified_user = bool(user_dict and user_dict.get("phone_verified"))
+        user = None
+        user_dict = None
+        available_bonus_balance = 0
 
-        if not is_verified_user:
-            raise HTTPException(status_code=401, detail="SMS login is required before checkout")
+        if is_authenticated_checkout:
+            user = cur.execute("SELECT * FROM users WHERE phone=?", (user_phone,)).fetchone()
+            user_dict = dict(user) if user else None
+            available_bonus_balance = int((user_dict or {}).get("bonus_balance") or 0)
+            is_verified_user = bool(user_dict and user_dict.get("phone_verified"))
 
-        if order.use_bonuses and order.bonus_used > available_bonus_balance:
-            raise HTTPException(status_code=400, detail="Not enough bonus balance")
+            if not is_verified_user:
+                raise HTTPException(status_code=401, detail="SMS login is required before checkout")
+
+            if order.use_bonuses and order.bonus_used > available_bonus_balance:
+                raise HTTPException(status_code=400, detail="Not enough bonus balance")
+        else:
+            if order.use_bonuses or order.bonus_used:
+                raise HTTPException(status_code=401, detail="Login is required to use bonuses")
+            order.use_bonuses = False
+            order.bonus_used = 0
 
         update_fields = []
         update_values = []
 
-        if order.name:
-            update_fields.append("name = ?")
-            update_values.append(order.name)
+        if is_authenticated_checkout:
+            if order.name:
+                update_fields.append("name = ?")
+                update_values.append(order.name)
 
-        if order.city:
-            update_fields.append("city = ?")
-            update_values.append(order.city)
+            if order.city:
+                update_fields.append("city = ?")
+                update_values.append(order.city)
 
-        is_ukrposhta = (order.delivery_method or "").strip().lower() == "ukrposhta"
-        if is_ukrposhta and order.warehouse:
-            cleaned_ukr = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
-            update_fields.append("user_ukrposhta = ?")
-            update_values.append(cleaned_ukr)
-        elif order.warehouse:
-            cleaned_wh = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
-            update_fields.append("warehouse = ?")
-            update_values.append(cleaned_wh)
+            is_ukrposhta = (order.delivery_method or "").strip().lower() == "ukrposhta"
+            if is_ukrposhta and order.warehouse:
+                cleaned_ukr = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
+                update_fields.append("user_ukrposhta = ?")
+                update_values.append(cleaned_ukr)
+            elif order.warehouse:
+                cleaned_wh = clean_warehouse_value(order.warehouse) or order.warehouse.strip()
+                update_fields.append("warehouse = ?")
+                update_values.append(cleaned_wh)
 
-        if order.email:
-            update_fields.append("email = ?")
-            update_values.append(order.email)
+            if order.email:
+                update_fields.append("email = ?")
+                update_values.append(order.email)
 
-        if order.contact_preference:
-            update_fields.append("contact_preference = ?")
-            update_values.append(order.contact_preference)
+            if order.contact_preference:
+                update_fields.append("contact_preference = ?")
+                update_values.append(order.contact_preference)
 
-        if update_fields:
-            update_values.append(user_phone)
-            cur.execute(
-                f"UPDATE users SET {', '.join(update_fields)} WHERE phone = ?",
-                tuple(update_values),
-            )
+            if update_fields:
+                update_values.append(user_phone)
+                cur.execute(
+                    f"UPDATE users SET {', '.join(update_fields)} WHERE phone = ?",
+                    tuple(update_values),
+                )
 
         items_json = json.dumps([
             {
@@ -116,7 +131,7 @@ async def create_order_secure(
 
         warehouse_for_order = (clean_warehouse_value(order.warehouse) or order.warehouse or "").strip()
         delivery_method = (order.delivery_method or "nova_poshta").strip().lower()
-        is_ukrposhta_order = delivery_method == "ukrposhta"
+        is_ukrposhta_order = delivery_method == "ukrposhta_branch"
         order_warehouse = warehouse_for_order if not is_ukrposhta_order else ""
         order_user_ukrposhta = warehouse_for_order if is_ukrposhta_order else ""
 
@@ -154,9 +169,7 @@ async def create_order_secure(
         order_id = (row or {}).get("id")
         conn.commit()
 
-        # Current checkout payment methods are postpaid/bank_transfer/paypal_request.
-        # Bonuses are deducted immediately for these non-card orders.
-        if order.use_bonuses and order.bonus_used > 0 and order.payment_method != "card":
+        if is_authenticated_checkout and order.use_bonuses and order.bonus_used > 0 and order.payment_method != "card":
             cur.execute(
                 "UPDATE users SET bonus_balance = GREATEST(bonus_balance - ?, 0) WHERE phone = ?",
                 (order.bonus_used, user_phone),
@@ -168,7 +181,7 @@ async def create_order_secure(
         conn = None
 
         _push_token = (push_token or "").strip()
-        if not _push_token and user_phone:
+        if not _push_token and is_authenticated_checkout and user_phone:
             conn_reopen = get_db_connection()
             user_row = conn_reopen.execute("SELECT push_token FROM users WHERE phone = ?", (user_phone,)).fetchone()
             conn_reopen.close()
@@ -201,6 +214,7 @@ async def create_order_secure(
             "delivery_method": delivery_method,
             "bonus_used": order.bonus_used,
             "bonus_balance": available_bonus_balance,
+            "guest_checkout": not is_authenticated_checkout,
             "return_url": order.return_url or "",
             "comment": order.comment or order.comments or order.note or "",
             "comments": order.comment or order.comments or order.note or "",
@@ -241,6 +255,7 @@ async def create_order_secure(
             "comment_present": bool(order_data.get("comment") or order_data.get("comments")),
             "bonus_used": order_data.get("bonus_used"),
             "bonus_balance_present": order_data.get("bonus_balance") is not None,
+            "guest_checkout": order_data.get("guest_checkout"),
             "items_count": len(order_data.get("items") or []),
             "totalPrice": order_data.get("totalPrice"),
         }
@@ -253,7 +268,7 @@ async def create_order_secure(
             "order_id": order_id,
             "message": "Замовлення успішно створено",
             "account_created": False,
-            "guest_checkout": False,
+            "guest_checkout": not is_authenticated_checkout,
         }
 
         if order.payment_method == "card" and float(order.totalPrice or 0) > 0:
@@ -273,6 +288,7 @@ async def create_order_secure(
                 "redirectUrl": order.return_url or "https://dikoros.ua",
             }
 
+            page_url = None
             try:
                 async with httpx.AsyncClient() as client:
                     mono_resp = await client.post(
@@ -293,7 +309,7 @@ async def create_order_secure(
 
             response_data["pageUrl"] = page_url
 
-        if order.payment_method == "cash":
+        if order.payment_method != "card":
             try:
                 order_items = json.loads(items_json or "[]")
                 await track_analytics_event(
@@ -308,6 +324,7 @@ async def create_order_secure(
                         "num_items": sum(int(item.get("quantity") or 1) for item in order_items),
                         "items": order_items,
                         "payment_method": order.payment_method,
+                        "guest_checkout": not is_authenticated_checkout,
                     },
                     {
                         "phone": user_phone or clean_phone,
@@ -316,7 +333,7 @@ async def create_order_secure(
                     },
                 )
             except Exception as analytics_err:
-                logger.warning("Cash purchase analytics failed: %s", analytics_err)
+                logger.warning("Purchase analytics failed: %s", analytics_err)
 
         return response_data
 
