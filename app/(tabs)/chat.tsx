@@ -9,9 +9,11 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -92,6 +94,23 @@ const repairTextEncoding = (value?: unknown): string => {
   text = decodeLiteralUnicodeEscapes(text);
   text = repairMojibakePairs(text);
   return text.replace(/\uFFFD/g, '').trim();
+};
+
+const isManagerContactMessage = (value?: unknown) => {
+  const text = repairTextEncoding(value).toLowerCase();
+  return (
+    text.includes('зв’язатися з менеджером можна так') ||
+    text.includes("зв'язатися з менеджером можна так") ||
+    text.includes('viber://chat?number=') ||
+    text.includes('https://t.me/dikorosua') ||
+    text.includes('email: dikorosua@gmail.com')
+  );
+};
+
+const openContactUrl = (url: string) => {
+  Linking.openURL(url).catch((error) => {
+    console.warn('Open contact URL failed:', error);
+  });
 };
 
 const formatPrice = (price?: number) => {
@@ -320,14 +339,77 @@ export default function ChatScreen() {
     );
   };
 
+  const renderManagerContactsCard = () => (
+    <View style={styles.contactCard}>
+      <View style={styles.contactHeaderRow}>
+        <View style={styles.contactIconMain}>
+          <Ionicons name="chatbubbles" size={22} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.contactTitle}>Зв’язатися з менеджером</Text>
+          <Text style={styles.contactSubtitle}>Оберіть зручний спосіб зв’язку</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('tel:+380632526824')}>
+        <View style={styles.contactButtonIcon}>
+          <Ionicons name="call" size={19} color="#2E7D32" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.contactButtonTitle}>Телефон</Text>
+          <Text style={styles.contactButtonValue}>(063) 25 26 8 24</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('viber://chat?number=%2B380632526824')}>
+        <View style={styles.contactButtonIcon}>
+          <Ionicons name="chatbox-ellipses" size={19} color="#2E7D32" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.contactButtonTitle}>Viber</Text>
+          <Text style={styles.contactButtonValue}>Написати у Viber</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('https://t.me/Dikorosua')}>
+        <View style={styles.contactButtonIcon}>
+          <Ionicons name="paper-plane" size={19} color="#2E7D32" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.contactButtonTitle}>Telegram</Text>
+          <Text style={styles.contactButtonValue}>@Dikorosua</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('mailto:dikorosua@gmail.com')}>
+        <View style={styles.contactButtonIcon}>
+          <Ionicons name="mail" size={19} color="#2E7D32" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.contactButtonTitle}>Email</Text>
+          <Text style={styles.contactButtonValue}>dikorosua@gmail.com</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </TouchableOpacity>
+    </View>
+  );
+
   const renderItem = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
+    const isContactMessage = !isUser && isManagerContactMessage(item.text);
 
     return (
       <View style={{ alignItems: isUser ? 'flex-end' : 'flex-start', marginVertical: 5 }}>
-        <View style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
-          <Text style={isUser ? styles.userText : styles.botText}>{repairTextEncoding(item.text)}</Text>
-        </View>
+        {isContactMessage ? (
+          renderManagerContactsCard()
+        ) : (
+          <View style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
+            <Text style={isUser ? styles.userText : styles.botText}>{repairTextEncoding(item.text)}</Text>
+          </View>
+        )}
 
         {!isUser && !!item.products?.length && (
           <View style={styles.productsWrap}>
@@ -524,8 +606,78 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  contactCard: {
+    width: '88%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E4EFE5',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  contactHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  contactIconMain: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#2E7D32',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactTitle: {
+    color: '#111827',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  contactSubtitle: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 58,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#F7FBF7',
+    borderRadius: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E3F1E3',
+  },
+  contactButtonIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  contactButtonTitle: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  contactButtonValue: {
+    color: '#4B5563',
+    fontSize: 13,
+    marginTop: 2,
+  },
   header: {
-    height: 60,
+    minHeight: Platform.OS === 'android' ? 86 : 70,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8,
+    paddingBottom: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
