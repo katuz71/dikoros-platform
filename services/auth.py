@@ -75,17 +75,33 @@ def verify_telegram_hash(data: Dict[str, Any], received_hash: str) -> bool:
     return hmac.compare_digest(computed_hash, received_hash)
 
 
+def _decode_bearer_subject(authorization: Optional[str]) -> Optional[str]:
+    if not authorization or not authorization.strip().startswith("Bearer "):
+        return None
+    token = authorization.strip()[7:]
+    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    subject = payload.get("sub")
+    return str(subject) if subject else None
+
+
 def get_current_user_phone(authorization: Optional[str] = Header(None, alias="Authorization")) -> str:
     """Read and validate Bearer JWT; return payload subject."""
-    if not authorization or not authorization.strip().startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authorization")
-    token = authorization.strip()[7:]
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        subject = payload.get("sub")
-        if not subject:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return str(subject)
+        subject = _decode_bearer_subject(authorization)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not subject:
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization")
+    return subject
+
+
+def get_optional_current_user_phone(authorization: Optional[str] = Header(None, alias="Authorization")) -> Optional[str]:
+    """Return JWT subject when a valid Bearer token is present; otherwise allow guest flow."""
+    try:
+        return _decode_bearer_subject(authorization)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
