@@ -45,10 +45,6 @@ const parseVariants = (value: any): any[] => {
   return [];
 };
 
-const getVariantLabel = (variant: any) => {
-  return clean(variant?.name || variant?.variant || variant?.variant_name || variant?.title || variant?.size || variant?.pack_size || variant?.packSize);
-};
-
 const getVariantPrice = (variant: any, fallback: number) => {
   const raw = Number(variant?.price ?? 0);
   return Number.isFinite(raw) && raw > 0 ? raw : fallback;
@@ -259,14 +255,15 @@ const styles = StyleSheet.create({
   },
   oldPrice: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#6B7280',
     textDecorationLine: 'line-through',
+    marginTop: 2,
   },
   cartButton: {
     backgroundColor: '#2E7D32',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
