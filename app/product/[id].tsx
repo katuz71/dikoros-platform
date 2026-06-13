@@ -1,4 +1,4 @@
-﻿import { ProductDetailsView } from '@/components/ProductDetailsView';
+import { ProductDetailsView } from '@/components/ProductDetailsView';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';
@@ -27,6 +27,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFavoritesStore } from '../../store/favoritesStore';
+
+const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
+const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
+
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams();
@@ -63,8 +67,6 @@ export default function ProductScreen() {
   const cartCount = cartItems.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
 
   // --- Helpers ---
-  const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
-  const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
   
   const formatPrice = (price: number) => {
     return `${(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₴`;
@@ -312,7 +314,7 @@ export default function ProductScreen() {
     });
 
     return { optionKeys: oKeys, internalKeys: iKeys, variantRows: rows, matrix: m };
-  }, [product, variantIdentity]);
+  }, [product]);
 
   // Current match
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
