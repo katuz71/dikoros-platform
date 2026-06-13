@@ -1,4 +1,5 @@
 import { FloatingChatButton } from '@/components/FloatingChatButton';
+import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
 import { API_URL } from '@/config/api';
 import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -101,6 +102,7 @@ export default function Layout() {
               <Stack.Screen name="profile-info" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
+            <WelcomeBonusModal />
           </View>
         </CartProvider>
       </OrdersProvider>
