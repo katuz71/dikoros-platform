@@ -56,7 +56,7 @@ export default function ProfileScreen() {
   const [smsSent, setSmsSent] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -649,16 +649,13 @@ const [loading, setLoading] = useState(false);
         <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
         <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
         <GridBtn icon="heart-outline" label="Мої списки" onPress={() => router.push('/(tabs)/favorites')} />
-        <GridBtn icon="mail-outline" label="Повідомлення" onPress={() => Alert.alert('Повідомлення', 'Поки немає нових повідомлень')} />
         <GridBtn icon="person-outline" label="Інформація" onPress={openInfoModal} />
-        <GridBtn icon="globe-outline" label="UA | UAH" onPress={() => Alert.alert('Мова та валюта', 'Зараз доступно: UA / UAH')} />
       </View>
 
       {/* СПИСКИ МЕНЮ */}
       <MenuSection title="Бонуси та знижки">
-        <MenuItem label="Мої винагороди" onPress={() => Alert.alert('Мої винагороди', `Доступні бонуси: ${profile?.bonus_balance || 0} ₴`)} />
+        <MenuItem label="Мої винагороди" onPress={() => setModalVisible(true)} />
         <MenuItem label="Бонуси на покупки" onPress={() => setModalVisible(true)} />
-        <MenuItem label="Знижки та акції" isLast onPress={() => Alert.alert('Знижки та акції', 'Акційні товари доступні на головній сторінці')} />
       </MenuSection>
 
       <MenuSection title="Моя активність">
@@ -667,17 +664,13 @@ const [loading, setLoading] = useState(false);
       </MenuSection>
 
       <MenuSection title="Налаштування">
-        <MenuItem label="Налаштування сповіщень" onPress={() => Alert.alert('Налаштування сповіщень', 'Поки немає додаткових налаштувань')} />
         <MenuItem label="Прив’язати Google" onPress={handleGoogleLinkStart} />
-        <MenuItem label="Керування пристроями" onPress={() => Alert.alert('Керування пристроями', 'Поточний пристрій активний')} />
         <MenuItem label="Видалити акаунт" color="#D32F2F" isLast onPress={handleDeleteAccount} />
       </MenuSection>
 
             <MenuSection title="Інформація">
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
-        <MenuItem label="Блогери" onPress={() => Alert.alert('Блогери', 'Для співпраці напишіть у підтримку')} />
-        <MenuItem label="Партнерська програма" onPress={() => Alert.alert('Партнерська програма', 'Партнерська програма скоро буде доступна')} />
         <MenuItem label="Рейтинг та відгуки" isLast onPress={() => setReviewsModalVisible(true)} />
       </MenuSection>
 
@@ -723,9 +716,15 @@ const [loading, setLoading] = useState(false);
           <Text style={styles.primaryBtnText}>Увійти / Створити акаунт</Text>
         </TouchableOpacity>
       </View>
-
-      {renderCommonMenu()}
-      </ScrollView>
+      <MenuSection title="Інформація">
+        <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
+        <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
+        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
+        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
+        <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
+        <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
+      </MenuSection>      </ScrollView>
     </View>
   );
 
@@ -1117,5 +1116,6 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
 
 
