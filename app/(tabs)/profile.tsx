@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
@@ -88,7 +89,6 @@ export default function ProfileScreen() {
         handleGoogleSocialLogin(idToken);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse, googleAuthMode]);
 
   const canonicalizePhone = (value: string) => {
@@ -560,7 +560,6 @@ export default function ProfileScreen() {
     setRefreshing(true);
     if (phone) fetchData(phone);
     else setTimeout(() => setRefreshing(false), 1000);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone]);
 
   // 4. Реферальная ссылка
