@@ -1,4 +1,4 @@
-import { API_URL } from '@/config/api';
+﻿import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -579,12 +579,7 @@ export default function ProfileScreen() {
       Alert.alert('Увага', 'Спочатку увійдіть в акаунт');
       return;
     }
-    setInfoName(profile.name || '');
-    setInfoCity(profile.city || '');
-    setInfoWarehouse(profile.warehouse || '');
-    setInfoEmail(profile.email || '');
-    setInfoContactPreference(profile.contact_preference || 'call');
-    setInfoModalVisible(true);
+    router.push('/profile-info' as any);
   };
 
   const saveUserInfo = async () => {
@@ -1234,3 +1229,4 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
