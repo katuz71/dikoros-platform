@@ -42,35 +42,82 @@ interface Message {
   quickReplies?: string[];
 }
 
+const CHAT_STORAGE_VERSION = '20260613_encoding_v2';
+const CHAT_STORAGE_VERSION_KEY = 'chat_storage_version';
+
 const INITIAL_QUICK_REPLIES = [
-  '\u0429\u043e \u0442\u0430\u043a\u0435 \u043c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0438\u043d\u0433?',
-  '\u0414\u043b\u044f \u0444\u043e\u043a\u0443\u0441\u0443 \u0442\u0430 \u0435\u043d\u0435\u0440\u0433\u0456\u0457',
-  '\u0414\u043b\u044f \u0441\u043f\u043e\u043a\u043e\u044e \u0442\u0430 \u0441\u043d\u0443',
-  '\u041d\u0430\u0431\u043e\u0440\u0438 \u0434\u043b\u044f \u0441\u0442\u0430\u0440\u0442\u0443',
-  '\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0443\u0441\u0456\u0445 \u0433\u0440\u0438\u0431\u0456\u0432',
+  'Що таке мікродозинг?',
+  'Для фокусу та енергії',
+  'Для спокою та сну',
+  'Набори для старту',
+  'Каталог усіх грибів',
 ];
 
 const INITIAL_WELCOME_MESSAGE: Message = {
   id: 'welcome',
-  text: '\u041f\u0440\u0438\u0432\u0456\u0442! \u042f \u0435\u043a\u0441\u043f\u0435\u0440\u0442 Dikoros. \u0414\u043e\u043f\u043e\u043c\u043e\u0436\u0443 \u043f\u0456\u0434\u0456\u0431\u0440\u0430\u0442\u0438 \u0433\u0440\u0438\u0431\u0438, \u0432\u0456\u0442\u0430\u043c\u0456\u043d\u0438 \u0447\u0438 \u0442\u0440\u0430\u0432\u0438 \u043f\u0456\u0434 \u0432\u0430\u0448\u0443 \u043f\u043e\u0442\u0440\u0435\u0431\u0443. \u0429\u043e \u0448\u0443\u043a\u0430\u0454\u043c\u043e?',
+  text: 'Привіт! Я експерт Dikoros. Допоможу підібрати гриби, вітаміни чи трави під вашу потребу. Що шукаємо?',
   sender: 'bot',
   quickReplies: INITIAL_QUICK_REPLIES,
 };
 
+const mojibakePairs: Record<string, string> = {
+  'Рђ': 'А', 'Р‘': 'Б', 'Р’': 'В', 'Р“': 'Г', 'Р”': 'Д', 'Р•': 'Е', 'Р–': 'Ж', 'Р—': 'З',
+  'Р˜': 'И', 'Р™': 'Й', 'Рљ': 'К', 'Р›': 'Л', 'Рњ': 'М', 'Рќ': 'Н', 'Рћ': 'О', 'Рџ': 'П',
+  'Р ': 'Р', 'РЎ': 'С', 'Рў': 'Т', 'РЈ': 'У', 'Р¤': 'Ф', 'РҐ': 'Х', 'Р¦': 'Ц', 'Р§': 'Ч',
+  'РЁ': 'Ш', 'Р©': 'Щ', 'РЄ': 'Ъ', 'Р«': 'Ы', 'Р¬': 'Ь', 'Р­': 'Э', 'Р®': 'Ю', 'РЇ': 'Я',
+  'Р°': 'а', 'Р±': 'б', 'РІ': 'в', 'Рі': 'г', 'Рґ': 'д', 'Рµ': 'е', 'Р¶': 'ж', 'Р·': 'з',
+  'Рё': 'и', 'Р№': 'й', 'Рє': 'к', 'Р»': 'л', 'Рј': 'м', 'РЅ': 'н', 'Рѕ': 'о', 'Рї': 'п',
+  'СЂ': 'р', 'СЃ': 'с', 'С‚': 'т', 'Сѓ': 'у', 'С„': 'ф', 'С…': 'х', 'С†': 'ц', 'С‡': 'ч',
+  'С€': 'ш', 'С‰': 'щ', 'СЉ': 'ъ', 'С‹': 'ы', 'СЊ': 'ь', 'СЌ': 'э', 'СЋ': 'ю', 'СЏ': 'я',
+  'РЃ': 'Ё', 'С‘': 'ё', 'Р„': 'Є', 'С”': 'є', 'Р†': 'І', 'С–': 'і', 'Р‡': 'Ї', 'С—': 'ї',
+  'Тђ': 'Ґ', 'Т‘': 'ґ', 'вЂ™': '’', 'вЂњ': '“', 'вЂќ': '”', 'вЂ“': '–', 'вЂ”': '—', 'в„–': '№',
+};
+
+const decodeLiteralUnicodeEscapes = (value: string) => {
+  if (!/\\u[0-9a-fA-F]{4}/.test(value)) return value;
+  return value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+};
+
+const repairMojibakePairs = (value: string) => {
+  let output = value;
+  Object.entries(mojibakePairs).forEach(([bad, good]) => {
+    output = output.split(bad).join(good);
+  });
+  return output;
+};
+
+const repairTextEncoding = (value?: unknown): string => {
+  if (value === null || value === undefined) return '';
+  let text = String(value);
+  text = decodeLiteralUnicodeEscapes(text);
+  text = repairMojibakePairs(text);
+  return text.replace(/\uFFFD/g, '').trim();
+};
+
 const formatPrice = (price?: number) => {
   const safePrice = price || 0;
-  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} \u20b4`;
+  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
 };
 
 const normalizeProducts = (items: any[] = []): Product[] => {
   return items.map((item) => ({
     ...item,
     id: item.id,
-    name: item.name || item.title || '',
+    name: repairTextEncoding(item.name || item.title || ''),
+    title: repairTextEncoding(item.title || item.name || ''),
     image: item.image || item.image_url || item.picture,
     price: Number(item.price || 0),
+    currency: repairTextEncoding(item.currency || 'грн'),
+    badges: Array.isArray(item.badges) ? item.badges.map(repairTextEncoding).filter(Boolean) : [],
   }));
 };
+
+const normalizeMessage = (message: Message): Message => ({
+  ...message,
+  text: repairTextEncoding(message.text),
+  products: message.products ? normalizeProducts(message.products) : message.products,
+  quickReplies: message.quickReplies?.map(repairTextEncoding).filter(Boolean),
+});
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -91,8 +138,18 @@ export default function ChatScreen() {
     }, 100);
   }, [messages]);
 
+  const resetChatStorageForEncodingVersion = async () => {
+    const version = await AsyncStorage.getItem(CHAT_STORAGE_VERSION_KEY);
+    if (version === CHAT_STORAGE_VERSION) return;
+
+    await AsyncStorage.multiRemove(['chat_messages', 'chat_session_id']);
+    await AsyncStorage.setItem(CHAT_STORAGE_VERSION_KEY, CHAT_STORAGE_VERSION);
+  };
+
   const loadChatSession = async () => {
     try {
+      await resetChatStorageForEncodingVersion();
+
       const storedSessionId = await AsyncStorage.getItem('chat_session_id');
       const storedMessages = await AsyncStorage.getItem('chat_messages');
 
@@ -107,8 +164,9 @@ export default function ChatScreen() {
       if (storedMessages) {
         const parsed = JSON.parse(storedMessages);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
-          const lastBotWithReplies = [...parsed].reverse().find((m) => m.sender === 'bot' && m.quickReplies?.length);
+          const normalized = parsed.map(normalizeMessage);
+          setMessages(normalized);
+          const lastBotWithReplies = [...normalized].reverse().find((m) => m.sender === 'bot' && m.quickReplies?.length);
           if (lastBotWithReplies?.quickReplies) {
             setQuickReplies(lastBotWithReplies.quickReplies);
           }
@@ -121,7 +179,7 @@ export default function ChatScreen() {
 
   const persistMessages = async (nextMessages: Message[]) => {
     try {
-      await AsyncStorage.setItem('chat_messages', JSON.stringify(nextMessages.slice(-40)));
+      await AsyncStorage.setItem('chat_messages', JSON.stringify(nextMessages.map(normalizeMessage).slice(-40)));
     } catch (e) {
       console.warn('Persist chat failed:', e);
     }
@@ -130,6 +188,7 @@ export default function ChatScreen() {
   const clearChat = async () => {
     const newSessionId = `app_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await AsyncStorage.setItem('chat_session_id', newSessionId);
+    await AsyncStorage.setItem(CHAT_STORAGE_VERSION_KEY, CHAT_STORAGE_VERSION);
     await AsyncStorage.removeItem('chat_messages');
 
     setSessionId(newSessionId);
@@ -140,7 +199,7 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async (textOverride?: string) => {
-    const userMessage = (textOverride || inputText).trim();
+    const userMessage = repairTextEncoding(textOverride || inputText);
     if (!userMessage || loading) return;
 
     const userMsg: Message = {
@@ -159,7 +218,7 @@ export default function ChatScreen() {
     try {
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({
           message: userMessage,
           session_id: sessionId,
@@ -172,7 +231,9 @@ export default function ChatScreen() {
 
       const data = await response.json();
       const products = normalizeProducts(data.items || data.products || []);
-      const nextQuickReplies = Array.isArray(data.quick_replies) ? data.quick_replies : [];
+      const nextQuickReplies = Array.isArray(data.quick_replies)
+        ? data.quick_replies.map(repairTextEncoding).filter(Boolean)
+        : [];
 
       if (data.session_id && data.session_id !== sessionId) {
         setSessionId(data.session_id);
@@ -181,7 +242,7 @@ export default function ChatScreen() {
 
       const botMsg: Message = {
         id: `b_${Date.now()}`,
-        text: data.reply || data.text || data.response || '\u041d\u0430 \u0436\u0430\u043b\u044c, \u044f \u043d\u0435 \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0432 \u0437\u0430\u043f\u0438\u0442.',
+        text: repairTextEncoding(data.reply || data.text || data.response || 'На жаль, я не зрозумів запит.'),
         sender: 'bot',
         products,
         quickReplies: nextQuickReplies,
@@ -196,9 +257,9 @@ export default function ChatScreen() {
       console.error(error);
       const errorMsg: Message = {
         id: `e_${Date.now()}`,
-        text: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437 \u0430\u0431\u043e \u043d\u0430\u043f\u0438\u0448\u0456\u0442\u044c \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0443.',
+        text: 'Помилка з’єднання. Спробуйте ще раз або напишіть менеджеру.',
         sender: 'bot',
-        quickReplies: ['\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c', '\u041a\u0430\u0442\u0430\u043b\u043e\u0433'],
+        quickReplies: ['Зв’язатися з менеджером', 'Каталог'],
       };
       const nextMessages = [...messagesWithUser, errorMsg];
       setMessages(nextMessages);
@@ -210,22 +271,23 @@ export default function ChatScreen() {
   };
 
   const handleQuickReply = (reply: string) => {
-    if (reply === '\u0417\u0432\u2019\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c' || reply === "\u0417\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c") {
-      setInputText(reply);
+    const safeReply = repairTextEncoding(reply);
+    if (safeReply === 'Зв’язатися з менеджером' || safeReply === "Зв'язатися з менеджером") {
+      setInputText(safeReply);
     }
-    sendMessage(reply);
+    sendMessage(safeReply);
   };
 
   const renderProductCard = (prod: Product) => {
     const productId = String(prod.id || '');
-    const title = prod.name || prod.title || '\u0422\u043e\u0432\u0430\u0440';
+    const title = repairTextEncoding(prod.name || prod.title || 'Товар');
     const image = prod.image || prod.image_url || prod.picture;
 
     return (
       <TouchableOpacity
         key={productId || title}
         activeOpacity={0.75}
-        onPress={() => productId && router.push(`/product/${productId}`)}
+        onPress={() => productId && router.push(`/product/${productId}` as any)}
         style={styles.productCard}
       >
         <Image
@@ -239,7 +301,7 @@ export default function ChatScreen() {
             <View style={styles.badgesRow}>
               {prod.badges.slice(0, 3).map((badge) => (
                 <View key={badge} style={styles.badge}>
-                  <Text style={styles.badgeText}>{badge}</Text>
+                  <Text style={styles.badgeText}>{repairTextEncoding(badge)}</Text>
                 </View>
               ))}
             </View>
@@ -264,7 +326,7 @@ export default function ChatScreen() {
     return (
       <View style={{ alignItems: isUser ? 'flex-end' : 'flex-start', marginVertical: 5 }}>
         <View style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
-          <Text style={isUser ? styles.userText : styles.botText}>{item.text}</Text>
+          <Text style={isUser ? styles.userText : styles.botText}>{repairTextEncoding(item.text)}</Text>
         </View>
 
         {!isUser && !!item.products?.length && (
@@ -284,8 +346,8 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>\u0427\u0430\u0442 \u0437 \u0435\u043a\u0441\u043f\u0435\u0440\u0442\u043e\u043c</Text>
-          <Text style={styles.headerSubtitle}>Dikoros AI \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442</Text>
+          <Text style={styles.headerTitle}>Чат з експертом</Text>
+          <Text style={styles.headerSubtitle}>Dikoros AI консультант</Text>
         </View>
 
         <TouchableOpacity onPress={clearChat} style={styles.clearButton} activeOpacity={0.7}>
@@ -315,7 +377,7 @@ export default function ChatScreen() {
             loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#999" style={{ marginRight: 10 }} />
-                <Text style={styles.loadingText}>\u041a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0434\u0440\u0443\u043a\u0443\u0454...</Text>
+                <Text style={styles.loadingText}>Консультант друкує...</Text>
               </View>
             ) : null
           }
@@ -324,16 +386,19 @@ export default function ChatScreen() {
         {!!quickReplies.length && !loading && (
           <View style={styles.quickRepliesContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {quickReplies.map((reply) => (
-                <TouchableOpacity
-                  key={reply}
-                  style={styles.quickReply}
-                  onPress={() => handleQuickReply(reply)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.quickReplyText}>{reply}</Text>
-                </TouchableOpacity>
-              ))}
+              {quickReplies.map((reply) => {
+                const label = repairTextEncoding(reply);
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={styles.quickReply}
+                    onPress={() => handleQuickReply(label)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.quickReplyText}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -343,7 +408,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="\u0417\u0430\u043f\u0438\u0442\u0430\u0439\u0442\u0435 \u043f\u0440\u043e \u0442\u043e\u0432\u0430\u0440\u0438 \u0430\u0431\u043e \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443..."
+            placeholder="Запитайте про товари або доставку..."
             placeholderTextColor="#999"
             multiline
             maxLength={500}
