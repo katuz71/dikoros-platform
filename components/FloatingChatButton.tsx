@@ -27,7 +27,7 @@ export function FloatingChatButton({ bottomOffset = 110 }: FloatingChatButtonPro
         }),
       ])
     ).start();
-  }, []);
+  }, [scaleAnim]);
 
   return (
     <Animated.View 
@@ -70,4 +70,3 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 });
-
