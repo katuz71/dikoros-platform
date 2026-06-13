@@ -318,11 +318,11 @@ def _parse_float(value: object, default: float = 0.0) -> float:
         return default
 
 
-def _old_price_from_discount(price: float, discount_percent: float) -> float:
-    """Reconstruct regular price when Horoshop sends discount percent only."""
+def _discounted_price_from_discount(price: float, discount_percent: float) -> float:
+    """Apply Horoshop discount percent to regular catalog price."""
     if price <= 0 or discount_percent <= 0 or discount_percent >= 100:
-        return 0.0
-    return round(price / (1 - discount_percent / 100), 2)
+        return price
+    return round(price * (1 - discount_percent / 100), 2)
 
 
 def _parse_remains(item: dict, status: str) -> int:
@@ -724,11 +724,14 @@ async def sync_catalog_from_horoshop() -> dict:
                 parent_obj = item.get("parent") or {}
                 category = parent_obj.get("value") or "Загальне"
 
-                price = _parse_float(item.get("price"))
+                regular_price = _parse_float(item.get("price"))
                 discount_percent = int(_parse_float(item.get("discount")))
                 old_price = _parse_float(item.get("old_price"))
-                if old_price <= price and discount_percent > 0:
-                    old_price = _old_price_from_discount(price, discount_percent)
+                price = regular_price
+                if discount_percent > 0:
+                    price = _discounted_price_from_discount(regular_price, discount_percent)
+                    if old_price <= price:
+                        old_price = regular_price
 
                 status = "available"
                 presence_obj = item.get("presence") or {}
