@@ -7,16 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
+const OrderItem = ({ order, onPress, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={styles.cardHeader}>
       <Text style={styles.orderId}>Замовлення #{order.id}</Text>
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-         <Text style={styles.orderDate}>{order.date?.split(' ')[0]}</Text>
-         <TouchableOpacity onPress={onDelete} hitSlop={10}>
-            <Ionicons name="trash-outline" size={20} color="#FF5252" />
-         </TouchableOpacity>
-      </View>
+      <Text style={styles.orderDate}>{order.date?.split(' ')[0]}</Text>
     </View>
     <View style={styles.divider} />
     <View style={styles.cardContent}>
@@ -64,6 +59,7 @@ export default function OrdersScreen() {
       setLoading(true);
       const accessToken = await AsyncStorage.getItem('accessToken');
       if (!accessToken) {
+        setOrders([]);
         setLoading(false);
         return;
       }
@@ -102,7 +98,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: headerTopInset + 16 }]}>
+      <View style={[styles.header, { paddingTop: headerTopInset + 16 }]}> 
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -147,7 +143,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   backBtn: { padding: 5 },
-  clearBtn: { padding: 5 },
   list: { padding: 15 },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 15 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
