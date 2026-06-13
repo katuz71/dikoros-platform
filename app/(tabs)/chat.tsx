@@ -88,11 +88,22 @@ const repairMojibakePairs = (value: string) => {
   return output;
 };
 
+const stripMarkdownStars = (value: string) => {
+  return value
+    .replace(/(^|\n)\s*\*\s+/g, '$1• ')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/\*{2,}/g, '')
+    .replace(/\s+\n/g, '\n')
+    .trim();
+};
+
 const repairTextEncoding = (value?: unknown): string => {
   if (value === null || value === undefined) return '';
   let text = String(value);
   text = decodeLiteralUnicodeEscapes(text);
   text = repairMojibakePairs(text);
+  text = stripMarkdownStars(text);
   return text.replace(/\uFFFD/g, '').trim();
 };
 
@@ -111,6 +122,34 @@ const openContactUrl = (url: string) => {
   Linking.openURL(url).catch((error) => {
     console.warn('Open contact URL failed:', error);
   });
+};
+
+const openViberChat = async () => {
+  const viberUrls = [
+    'viber://chat?number=+380632526824',
+    'viber://chat?number=%2B380632526824',
+    'viber://contact?number=+380632526824',
+    'viber://contact?number=%2B380632526824',
+  ];
+
+  for (const url of viberUrls) {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch {
+      // Try the next known Viber URL format.
+    }
+  }
+
+  try {
+    await Linking.openURL(viberUrls[0]);
+  } catch (error) {
+    console.warn('Open Viber failed:', error);
+    await Linking.openURL('tel:+380632526824');
+  }
 };
 
 const formatPrice = (price?: number) => {
@@ -362,7 +401,7 @@ export default function ChatScreen() {
         <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('viber://chat?number=%2B380632526824')}>
+      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={openViberChat}>
         <View style={styles.contactButtonIcon}>
           <Ionicons name="chatbox-ellipses" size={19} color="#2E7D32" />
         </View>
