@@ -149,8 +149,8 @@ def _sort_group_variants(variants: list[dict], group_key: str, selected_id: int 
 
         return (
             primary,
-            _as_float(product.get("price")),
             int(product.get("sort_order") or 2147483647),
+            _as_float(product.get("price")),
             product_id,
         )
 
