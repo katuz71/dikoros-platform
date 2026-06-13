@@ -578,7 +578,7 @@ export default function Index() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [priceFrom, setPriceFrom] = useState('');
   const [priceTo, setPriceTo] = useState('');
-  const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [onlyPromo, setOnlyPromo] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
