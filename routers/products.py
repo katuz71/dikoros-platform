@@ -140,9 +140,11 @@ def _sort_group_variants(variants: list[dict], group_key: str, selected_id: int 
         parent_sku = str(product.get("parent_sku") or "").strip()
         product_id = int(product.get("id") or 0)
         price = _as_float(product.get("price"))
+        status = str(product.get("status") or "").strip().lower()
 
         selected_rank = 0 if selected_id and product_id == selected_id else 1
         micro_rank = 1 if has_regular_variant and price < 20 else 0
+        available_rank = 0 if status in ("available", "in_stock") else 1
 
         if sku and sku == group_key:
             primary = 0
@@ -154,6 +156,7 @@ def _sort_group_variants(variants: list[dict], group_key: str, selected_id: int 
         return (
             selected_rank,
             micro_rank,
+            available_rank,
             primary,
             int(product.get("sort_order") or 2147483647),
             price,
@@ -192,6 +195,8 @@ def _attach_group_variants(conn, product: dict) -> dict:
     selected_id = int(normalized.get("id") or 0)
     ordered = _sort_group_variants(variants, group_key, selected_id=selected_id)
     formatted_variants = [_format_variant(item) for item in ordered]
+    if formatted_variants:
+        normalized["name"] = formatted_variants[0].get("name") or normalized.get("name")
 
     min_price = min((_as_float(item.get("price")) for item in ordered), default=_as_float(normalized.get("price")))
     max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=_as_float(normalized.get("old_price")))
@@ -218,6 +223,8 @@ def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
     max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=0.0)
 
     formatted_variants = [_format_variant(item) for item in ordered]
+    if formatted_variants:
+        main_variant["name"] = formatted_variants[0].get("name") or main_variant.get("name")
 
     # Horoshop is the source of truth: the card price must stay equal to
     # the primary/catalog variant price. minPrice is metadata only and must
