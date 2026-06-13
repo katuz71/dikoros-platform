@@ -1,7 +1,7 @@
 import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -44,7 +44,7 @@ export default function NewsDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
     if (!sourceUrl) {
       setLoading(false);
       setRefreshing(false);
@@ -75,11 +75,11 @@ export default function NewsDetailScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [initialBody, initialHeading, initialImageUrl, sourceUrl]);
 
   useEffect(() => {
     loadDetail();
-  }, [sourceUrl]);
+  }, [loadDetail]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -136,78 +136,30 @@ export default function NewsDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAF8',
-    paddingTop: 48,
-  },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
   header: {
-    height: 56,
+    height: 64,
     paddingHorizontal: 16,
+    backgroundColor: '#FFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAF8',
+    justifyContent: 'space-between',
   },
   backButton: {
     width: 44,
     height: 44,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  image: {
-    width: '100%',
-    height: 220,
-    borderRadius: 14,
-    marginBottom: 18,
-    backgroundColor: '#EEF2EE',
-  },
-  date: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#2E7D32',
-    marginBottom: 8,
-  },
-  heading: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111',
-    marginBottom: 12,
-  },
-  body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#374151',
-  },
-  error: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#B91C1C',
-    marginBottom: 14,
-  },
+  headerSpacer: { width: 44 },
+  title: { fontSize: 18, fontWeight: '800', color: '#111' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  content: { padding: 16, paddingBottom: 40 },
+  card: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden' },
+  image: { width: '100%', height: 220, backgroundColor: '#EEE' },
+  date: { fontSize: 13, color: '#6B7280', paddingHorizontal: 16, paddingTop: 16 },
+  heading: { fontSize: 22, fontWeight: '900', color: '#111', paddingHorizontal: 16, paddingTop: 8 },
+  body: { fontSize: 16, lineHeight: 24, color: '#333', padding: 16 },
+  error: { color: '#B00020', marginBottom: 12, fontWeight: '700' },
 });
