@@ -899,10 +899,7 @@ export default function Index() {
   // Render Product Item
   const renderProductItem = ({ item }: { item: Product }) => {
     const isFavorite = favorites.some(fav => fav.id === item?.id);
-    // Display "from X UAH" if multiple variants exist
-    const displayPrice = item.variants && item.variants.length > 1 && item.minPrice
-        ? `від ${formatPrice(item.minPrice)}`
-        : formatPrice(item.price);
+    const displayPrice = formatPrice(item.price);
         
     return (
       <ProductCard
