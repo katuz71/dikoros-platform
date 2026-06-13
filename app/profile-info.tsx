@@ -24,6 +24,7 @@ type UserProfile = {
   name?: string;
   city?: string;
   warehouse?: string;
+  ukrposhta?: string;
   email?: string;
   contact_preference?: ContactPreference;
 };
@@ -50,6 +51,15 @@ const formatPhoneInput = (value: string) => {
   return parts.join(' ');
 };
 
+const splitFullName = (value: string) => {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    lastName: parts[0] || '',
+    firstName: parts[1] || '',
+    middleName: parts.slice(2).join(' '),
+  };
+};
+
 export default function ProfileInfoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,15 +67,20 @@ export default function ProfileInfoScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [phone, setPhone] = useState('');
-  const [infoName, setInfoName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [infoCity, setInfoCity] = useState('');
   const [infoWarehouse, setInfoWarehouse] = useState('');
+  const [infoUkrposhta, setInfoUkrposhta] = useState('');
   const [infoEmail, setInfoEmail] = useState('');
   const [infoContactPreference, setInfoContactPreference] = useState<ContactPreference>('call');
 
   useEffect(() => {
     loadUserInfo();
   }, []);
+
+  const buildFullName = () => [lastName, firstName, middleName].map(v => v.trim()).filter(Boolean).join(' ');
 
   const loadUserInfo = async () => {
     setLoading(true);
@@ -90,10 +105,15 @@ export default function ProfileInfoScreen() {
       }
 
       const user: UserProfile = await res.json();
+      const parsedName = splitFullName(user.name || '');
+
       setPhone(user.phone || storedPhone || '');
-      setInfoName(user.name || '');
+      setLastName(parsedName.lastName);
+      setFirstName(parsedName.firstName);
+      setMiddleName(parsedName.middleName);
       setInfoCity(user.city || '');
       setInfoWarehouse(user.warehouse || '');
+      setInfoUkrposhta(user.ukrposhta || '');
       setInfoEmail(user.email || '');
       setInfoContactPreference(user.contact_preference || 'call');
     } catch (e) {
@@ -117,6 +137,8 @@ export default function ProfileInfoScreen() {
         return;
       }
 
+      const fullName = buildFullName();
+
       const res = await fetch(`${API_URL}/api/user/info/me`, {
         method: 'PUT',
         headers: {
@@ -124,9 +146,10 @@ export default function ProfileInfoScreen() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          name: infoName,
+          name: fullName,
           city: infoCity,
           warehouse: infoWarehouse,
+          user_ukrposhta: infoUkrposhta,
           email: infoEmail,
           contact_preference: infoContactPreference,
         }),
@@ -137,14 +160,17 @@ export default function ProfileInfoScreen() {
         return;
       }
 
-      await AsyncStorage.setItem('userName', infoName);
+      await AsyncStorage.setItem('userName', fullName);
       await AsyncStorage.setItem(
         'savedCheckoutInfo',
         JSON.stringify({
-          name: infoName,
+          name: firstName.trim(),
+          lastName: lastName.trim(),
+          middleName: middleName.trim(),
           email: infoEmail,
           city: infoCity ? { ref: '', name: infoCity } : { ref: '', name: '' },
           warehouse: infoWarehouse ? { ref: '', name: infoWarehouse } : { ref: '', name: '' },
+          ukrposhtaWarehouse: infoUkrposhta ? { ref: '', name: infoUkrposhta } : { ref: '', name: '' },
           contact_preference: infoContactPreference,
         })
       );
@@ -162,7 +188,7 @@ export default function ProfileInfoScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}> 
+      <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }]}> 
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={26} color="#1F2937" />
         </TouchableOpacity>
@@ -191,12 +217,28 @@ export default function ProfileInfoScreen() {
               editable={false}
             />
 
-            <Text style={styles.label}>Ім’я та Прізвище</Text>
+            <Text style={styles.label}>Прізвище</Text>
             <TextInput
               style={styles.input}
-              value={infoName}
-              onChangeText={setInfoName}
-              placeholder="Іван Іванов"
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Іванов"
+            />
+
+            <Text style={styles.label}>Ім’я</Text>
+            <TextInput
+              style={styles.input}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="Іван"
+            />
+
+            <Text style={styles.label}>По батькові (не обов’язково)</Text>
+            <TextInput
+              style={styles.input}
+              value={middleName}
+              onChangeText={setMiddleName}
+              placeholder="Іванович"
             />
 
             <Text style={styles.label}>Місто</Text>
@@ -213,6 +255,14 @@ export default function ProfileInfoScreen() {
               value={infoWarehouse}
               onChangeText={setInfoWarehouse}
               placeholder="Відділення №1"
+            />
+
+            <Text style={styles.label}>Відділення Укрпошти</Text>
+            <TextInput
+              style={styles.input}
+              value={infoUkrposhta}
+              onChangeText={setInfoUkrposhta}
+              placeholder="Відділення / індекс"
             />
 
             <Text style={styles.label}>Email (не обов’язково)</Text>
@@ -264,7 +314,6 @@ export default function ProfileInfoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
   header: {
-    height: 60,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
