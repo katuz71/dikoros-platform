@@ -2,7 +2,7 @@ import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -76,13 +76,9 @@ export default function ProfileInfoScreen() {
   const [infoEmail, setInfoEmail] = useState('');
   const [infoContactPreference, setInfoContactPreference] = useState<ContactPreference>('call');
 
-  useEffect(() => {
-    loadUserInfo();
-  }, []);
-
   const buildFullName = () => [lastName, firstName, middleName].map(v => v.trim()).filter(Boolean).join(' ');
 
-  const loadUserInfo = async () => {
+  const loadUserInfo = useCallback(async () => {
     setLoading(true);
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -123,7 +119,11 @@ export default function ProfileInfoScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadUserInfo();
+  }, [loadUserInfo]);
 
   const saveUserInfo = async () => {
     if (saving) return;
