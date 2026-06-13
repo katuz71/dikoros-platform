@@ -26,6 +26,7 @@ import { API_URL } from '../config/api';
 import { useCart } from '../context/CartContext';
 
 const POPULAR_CITIES = ['Київ', 'Львів', 'Одеса', 'Дніпро', 'Харків', 'Івано-Франківськ'];
+const MIN_ORDER_AMOUNT = 200;
 
 type DeliveryMethod = 'ukrposhta_branch' | 'nova_poshta' | 'nova_poshta_international';
 type PaymentMethod = 'postpaid' | 'bank_transfer' | 'paypal_request';
@@ -82,6 +83,12 @@ export default function CheckoutScreen() {
 
   const cartTotal = Number(totalPrice || 0);
   const cartFinal = Number(finalPrice ?? totalPrice ?? 0);
+  const itemsSubtotal = (items || []).reduce(
+    (sum: number, item: any) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  );
+  const minOrderMissing = Math.max(0, MIN_ORDER_AMOUNT - itemsSubtotal);
+  const isBelowMinOrder = minOrderMissing > 0;
 
   const [name, setName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -313,6 +320,14 @@ export default function CheckoutScreen() {
       return;
     }
 
+    if (isBelowMinOrder) {
+      Alert.alert(
+        'Мінімальна сума замовлення',
+        `Мінімальне замовлення — ${formatPrice(MIN_ORDER_AMOUNT)}. Додайте товарів ще на ${formatPrice(minOrderMissing)}.`
+      );
+      return;
+    }
+
     if (!lastName.trim() || !name.trim() || !phone.trim() || !city.name || !warehouse.name) {
       Alert.alert('Увага', `Будь ласка, заповніть всі поля:\n• Прізвище\n• Ім'я\n• Телефон покупця\n• Доставка`);
       return;
@@ -494,6 +509,7 @@ export default function CheckoutScreen() {
   const bonusesToUse = canUseBonuses && useBonuses ? Math.min(bonusBalance, cartFinal) : 0;
   const finalPriceWithBonuses = Math.max(0, cartFinal - bonusesToUse);
   const allowedPaymentOptions = getAllowedPaymentOptions(deliveryMethod);
+  const submitDisabled = loading || isBelowMinOrder;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
@@ -526,6 +542,18 @@ export default function CheckoutScreen() {
               </View>
             ))}
           </View>
+
+          {isBelowMinOrder && !!items?.length && (
+            <View style={styles.minOrderNotice}>
+              <View style={styles.minOrderIconWrap}>
+                <Ionicons name="basket" size={21} color="#B45309" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.minOrderTitle}>Мінімальне замовлення — {formatPrice(MIN_ORDER_AMOUNT)}</Text>
+                <Text style={styles.minOrderText}>Додайте товарів ще на {formatPrice(minOrderMissing)}, щоб оформити покупку.</Text>
+              </View>
+            </View>
+          )}
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Контакти покупця</Text>
@@ -666,8 +694,12 @@ export default function CheckoutScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitBtnText}>ПІДТВЕРДИТИ ЗАМОВЛЕННЯ</Text>}
+          <TouchableOpacity style={[styles.submitBtn, isBelowMinOrder && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitDisabled}>
+            {loading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>{isBelowMinOrder ? `ДОДАЙТЕ ЩЕ ${formatPrice(minOrderMissing)}` : 'ПІДТВЕРДИТИ ЗАМОВЛЕННЯ'}</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -718,6 +750,10 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 20, color: '#333', textAlign: 'center' },
   guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
   guestNoticeText: { color: '#2E7D32', fontSize: 14, fontWeight: '600', flex: 1, lineHeight: 19 },
+  minOrderNotice: { backgroundColor: '#FFF7ED', borderColor: '#FDBA74', borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  minOrderIconWrap: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' },
+  minOrderTitle: { color: '#92400E', fontSize: 15, fontWeight: '900', marginBottom: 3 },
+  minOrderText: { color: '#9A3412', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 15 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, color: '#333' },
   input: { borderWidth: 1, borderColor: '#EEE', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 10, backgroundColor: '#FAFAFA' },
@@ -760,6 +796,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 20, fontWeight: 'bold' },
   totalValue: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50' },
   submitBtn: { backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: 40 },
+  submitBtnDisabled: { backgroundColor: '#A3A3A3' },
   submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
   modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
