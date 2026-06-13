@@ -25,6 +25,8 @@ from services.users import clean_warehouse_value, normalize_phone
 from services.analytics import track_analytics_event
 
 
+MIN_ORDER_AMOUNT = 200
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,13 @@ def _send_order_created_push_task(push_token: str, order_id: int) -> None:
     )
 
 
+def _calculate_items_total(order: OrderRequest) -> float:
+    total = 0.0
+    for item in order.items or []:
+        total += float(item.price or 0) * int(item.quantity or 0)
+    return total
+
+
 @router.post("/create_order")
 async def create_order_secure(
     order: OrderRequest,
@@ -45,6 +54,13 @@ async def create_order_secure(
 ):
     conn = None
     try:
+        items_total = _calculate_items_total(order)
+        if items_total < MIN_ORDER_AMOUNT:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Мінімальна сума замовлення — {MIN_ORDER_AMOUNT} грн. Додайте товарів у кошик.",
+            )
+
         conn = get_db_connection()
         cur = conn.cursor()
 
