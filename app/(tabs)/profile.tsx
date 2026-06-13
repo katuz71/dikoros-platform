@@ -724,7 +724,8 @@ export default function ProfileScreen() {
         <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
         <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
         <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
-      </MenuSection>      </ScrollView>
+      </MenuSection>
+      </ScrollView>
     </View>
   );
 
@@ -1116,6 +1117,7 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
 
 
 
