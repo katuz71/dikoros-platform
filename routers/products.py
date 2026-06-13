@@ -199,11 +199,11 @@ def _attach_group_variants(conn, product: dict) -> dict:
         normalized["name"] = formatted_variants[0].get("name") or normalized.get("name")
 
     min_price = min((_as_float(item.get("price")) for item in ordered), default=_as_float(normalized.get("price")))
-    max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=_as_float(normalized.get("old_price")))
+    selected_old_price = _as_float(ordered[0].get("old_price")) if ordered else _as_float(normalized.get("old_price"))
 
     normalized["variants"] = formatted_variants
     normalized["minPrice"] = min_price
-    normalized["old_price"] = max_old_price if max_old_price > 0 else normalized.get("old_price")
+    normalized["old_price"] = selected_old_price if selected_old_price > 0 else None
     normalized["option_names"] = _option_names_from_variants(formatted_variants) or normalized.get("option_names") or ("\u0412\u0430\u0440\u0456\u0430\u043d\u0442" if len(formatted_variants) > 1 else normalized.get("option_names"))
     normalized["status"] = "available" if any(item.get("status") == "available" for item in ordered) else normalized.get("status")
     normalized["stock"] = 1 if normalized.get("status") in ("available", "in_stock") else 0
@@ -220,7 +220,7 @@ def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
     price_sorted = sorted(ordered, key=lambda item: _as_float(item.get("price")))
 
     min_price = _as_float(price_sorted[0].get("price")) if price_sorted else _as_float(main_variant.get("price"))
-    max_old_price = max((_as_float(item.get("old_price")) for item in ordered), default=0.0)
+    selected_old_price = _as_float(main_variant.get("old_price"))
 
     formatted_variants = [_format_variant(item) for item in ordered]
     if formatted_variants:
@@ -232,7 +232,7 @@ def _build_grouped_product(group_key: str, variants: list[dict]) -> dict | None:
     main_variant["variants"] = formatted_variants
     main_variant["price"] = _as_float(main_variant.get("price"))
     main_variant["minPrice"] = min_price
-    main_variant["old_price"] = max_old_price if max_old_price > 0 else None
+    main_variant["old_price"] = selected_old_price if selected_old_price > 0 else None
     main_variant["option_names"] = _option_names_from_variants(formatted_variants) or main_variant.get("option_names") or ("\u0412\u0430\u0440\u0456\u0430\u043d\u0442" if len(formatted_variants) > 1 else main_variant.get("option_names"))
 
     if any(item.get("status") == "available" for item in ordered):
