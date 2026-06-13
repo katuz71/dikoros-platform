@@ -1,6 +1,6 @@
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Product = {
@@ -147,7 +147,7 @@ export default function HomeProductCarousel({
   onAddToCart,
   onToggleFavorite,
 }: Props) {
-  const favoriteIds = new Set(favorites.map((favorite) => favorite.id));
+  const favoriteIds = useMemo(() => new Set(favorites.map((favorite) => favorite.id)), [favorites]);
 
   const renderItem = useCallback(
     ({ item }: { item: Product }) => (
