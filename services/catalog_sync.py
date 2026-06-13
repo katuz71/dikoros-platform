@@ -349,14 +349,40 @@ async def _export_catalog_products(
     offset = 0
 
     for _ in range(MAX_EXPORT_PAGES):
-        export_response = await client.post(
-            f"https://{domain}/api/catalog/export/",
-            json={"token": token, "limit": EXPORT_PAGE_SIZE, "offset": offset},
-        )
-        export_data = export_response.json()
+        export_data = None
 
-        if export_data.get("status") != "OK":
+        for retry_idx in range(4):
+            export_response = await client.post(
+                f"https://{domain}/api/catalog/export/",
+                json={"token": token, "limit": EXPORT_PAGE_SIZE, "offset": offset},
+            )
+            export_data = export_response.json()
+
+            if export_data.get("status") == "OK":
+                break
+
+            response = export_data.get("response") or {}
+            code = response.get("code")
+            message = str(response.get("message") or "")
+
+            if code == 429 or "Retry after" in message:
+                match = re.search(r"Retry after\\s+(\\d+)", message)
+                retry_after = int(match.group(1)) if match else 60
+                wait_seconds = min(max(retry_after + 2, 5), 180)
+                logger.warning(
+                    "Horoshop export rate limited: offset=%s retry=%s wait=%ss payload=%s",
+                    offset,
+                    retry_idx + 1,
+                    wait_seconds,
+                    export_data,
+                )
+                await asyncio.sleep(wait_seconds)
+                continue
+
             raise HTTPException(status_code=400, detail=f"Horoshop export error: {export_data}")
+
+        if not export_data or export_data.get("status") != "OK":
+            raise HTTPException(status_code=400, detail=f"Horoshop export error after retries: {export_data}")
 
         page_products = export_data.get("response", {}).get("products", [])
         products.extend(page_products)
