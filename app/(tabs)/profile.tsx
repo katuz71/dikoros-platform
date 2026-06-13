@@ -1,4 +1,4 @@
-﻿import { API_URL } from '@/config/api';
+import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,13 +38,6 @@ interface UserProfile {
   contact_preference?: 'call' | 'telegram' | 'viber';
 }
 
-interface Order {
-  id: number;
-  totalPrice: number;
-  status: string;
-  date: string;
-  items: any[];
-}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -56,11 +49,9 @@ export default function ProfileScreen() {
   const [smsSent, setSmsSent] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
   
   // Reviews State
   const [userReviews, setUserReviews] = useState<any[]>([]);
@@ -97,6 +88,7 @@ export default function ProfileScreen() {
         handleGoogleSocialLogin(idToken);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse, googleAuthMode]);
 
   const canonicalizePhone = (value: string) => {
@@ -183,8 +175,8 @@ export default function ProfileScreen() {
                       setUserReviews(prev => prev.filter(r => r.id !== id));
                       Alert.alert('Успіх', 'Відгук видалено');
                   }
-              } catch (e) {
-                  Alert.alert('Помилка', 'Не вдалося видалити відгук');
+              } catch {
+                   Alert.alert('Помилка', 'Не вдалося видалити відгук');
               }
           }}
       ]);
@@ -192,13 +184,11 @@ export default function ProfileScreen() {
 
   // 2. Загрузка данных
   const fetchData = async (phoneNumber: string) => {
-    setLoading(true);
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
       if (!accessToken) {
         setProfile(null);
-        setOrders([]);
         return;
       }
 
@@ -207,16 +197,10 @@ export default function ProfileScreen() {
       });
       if (resUser.ok) setProfile(await resUser.json());
 
-      const resOrders = await fetch(`${API_URL}/api/client/orders/me`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (resOrders.ok) setOrders(await resOrders.json());
-
       fetchUserReviews();
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
@@ -558,7 +542,6 @@ export default function ProfileScreen() {
           await AsyncStorage.removeItem('accessToken');
           setPhone('');
           setProfile(null);
-          setOrders([]);
           setInputPhone('');
         } 
       }
@@ -577,6 +560,7 @@ export default function ProfileScreen() {
     setRefreshing(true);
     if (phone) fetchData(phone);
     else setTimeout(() => setRefreshing(false), 1000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone]);
 
   // 4. Реферальная ссылка
