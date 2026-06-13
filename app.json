@@ -5,7 +5,10 @@
     "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dikoros",
+    "scheme": [
+      "dikoros",
+      "com.dikorosua.app"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
