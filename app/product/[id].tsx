@@ -1,4 +1,4 @@
-import { ProductDetailsView } from '@/components/ProductDetailsView';
+﻿import { ProductDetailsView } from '@/components/ProductDetailsView';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';
@@ -312,7 +312,7 @@ export default function ProductScreen() {
     });
 
     return { optionKeys: oKeys, internalKeys: iKeys, variantRows: rows, matrix: m };
-  }, [product]);
+  }, [product, variantIdentity]);
 
   // Current match
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
@@ -894,3 +894,4 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, marginBottom: 15, fontSize: 15 },
   submitBtn: { backgroundColor: '#2E7D32', height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }
 });
+
