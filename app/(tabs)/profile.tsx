@@ -56,15 +56,7 @@ export default function ProfileScreen() {
   const [smsSent, setSmsSent] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  // Info Modal States
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [infoName, setInfoName] = useState('');
-  const [infoCity, setInfoCity] = useState('');
-  const [infoWarehouse, setInfoWarehouse] = useState(''); // 🔥 Модалка для таблицы
-  const [infoEmail, setInfoEmail] = useState('');
-  const [infoContactPreference, setInfoContactPreference] = useState<'call' | 'telegram' | 'viber'>('call');
-  
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -581,55 +573,6 @@ export default function ProfileScreen() {
     }
     router.push('/profile-info' as any);
   };
-
-  const saveUserInfo = async () => {
-    try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-
-      if (!accessToken) {
-        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб зберегти дані.');
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/api/user/info/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-            name: infoName,
-            city: infoCity,
-            warehouse: infoWarehouse,
-            email: infoEmail,
-            contact_preference: infoContactPreference
-        })
-      });
-
-      if (res.ok && profile) {
-        setProfile({ ...profile, name: infoName, city: infoCity, warehouse: infoWarehouse, email: infoEmail, contact_preference: infoContactPreference });
-        await AsyncStorage.setItem('userName', infoName);
-        
-        // Зберігаємо дані для автозаповнення при оформленні замовлення
-        await AsyncStorage.setItem('savedCheckoutInfo', JSON.stringify({ 
-          name: infoName, 
-          email: infoEmail,
-          city: infoCity ? { ref: '', name: infoCity } : { ref: '', name: '' },
-          warehouse: infoWarehouse ? { ref: '', name: infoWarehouse } : { ref: '', name: '' },
-          contact_preference: infoContactPreference
-        }));
-        
-        setInfoModalVisible(false);
-        Alert.alert('Успіх', 'Дані оновлено');
-      } else {
-        Alert.alert('Помилка', 'Не вдалося зберегти дані');
-      }
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Помилка', 'Немає з\'єднання');
-    }
-  };
-
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     if (phone) fetchData(phone);
@@ -1019,61 +962,6 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* 🔥 INFO MODAL */}
-      <Modal visible={infoModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Особиста інформація</Text>
-              <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={{marginBottom: 5, color: '#666'}}>Телефон</Text>
-            <TextInput style={[styles.input, {backgroundColor: '#f5f5f5', color: '#888'}]} value={formatPhoneInput(phone)} editable={false} />
-
-            <Text style={{marginBottom: 5, color: '#666'}}>Ім’я та Прізвище</Text>
-            <TextInput style={styles.input} value={infoName} onChangeText={setInfoName} placeholder="Іван Іванов" />
-            
-            <Text style={{marginBottom: 5, color: '#666'}}>Місто</Text>
-            <TextInput style={styles.input} value={infoCity} onChangeText={setInfoCity} placeholder="Київ" />
-
-            <Text style={{marginBottom: 5, color: '#666'}}>Відділення Нової Пошти</Text>
-            <TextInput style={styles.input} value={infoWarehouse} onChangeText={setInfoWarehouse} placeholder="Відділення №1" />
-
-            <Text style={{marginBottom: 5, color: '#666'}}>Email (не обов’язково)</Text>
-            <TextInput style={styles.input} value={infoEmail} onChangeText={setInfoEmail} placeholder="example@email.com" keyboardType="email-address" autoCapitalize="none" />
-
-            <Text style={{marginBottom: 5, color: '#666'}}>Зручний спосіб зв’язку</Text>
-            <View style={{flexDirection: 'row', gap: 8, marginBottom: 15}}>
-              <TouchableOpacity 
-                style={[styles.contactChip, infoContactPreference === 'call' && styles.contactChipActive]}
-                onPress={() => setInfoContactPreference('call')}
-              >
-                <Text style={[styles.contactChipText, infoContactPreference === 'call' && styles.contactChipTextActive]}>📞 Дзвінок</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.contactChip, infoContactPreference === 'telegram' && styles.contactChipActive]}
-                onPress={() => setInfoContactPreference('telegram')}
-              >
-                <Text style={[styles.contactChipText, infoContactPreference === 'telegram' && styles.contactChipTextActive]}>✈️ Telegram</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.contactChip, infoContactPreference === 'viber' && styles.contactChipActive]}
-                onPress={() => setInfoContactPreference('viber')}
-              >
-                <Text style={[styles.contactChipText, infoContactPreference === 'viber' && styles.contactChipTextActive]}>💬 Viber</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.loginButton} onPress={saveUserInfo}>
-              <Text style={styles.loginButtonText}>Зберегти</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* 🔥 REVIEWS MODAL */}
       <Modal visible={reviewsModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -1229,4 +1117,5 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
 
