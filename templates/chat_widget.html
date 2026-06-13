@@ -91,8 +91,36 @@
       const chatFab = document.getElementById('chat-fab'), chatWindow = document.getElementById('chat-window'), chatClose = document.getElementById('chat-close'), chatOverlay = document.getElementById('chat-overlay'), chatMessages = document.getElementById('chat-messages'), form = document.getElementById('chat-form'), input = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn'), welcomeBubble = document.getElementById('welcome-bubble');
       const sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       window.currentSessionId = sessionId;
-      const INITIAL_SUGGESTIONS = ["Що таке мікродозинг?", "Для фокусу та енергії", "Для спокою та сну", "Набори для старту", "Мухомори"];
-      const CHAT_WIDGET_VERSION = '20260605_contacts_v7';
+      const INITIAL_SUGGESTIONS = ['Що таке мікродозинг?', 'Для фокусу та енергії', 'Для спокою та сну', 'Набори для старту', 'Мухомори'];
+      const CHAT_WIDGET_VERSION = '20260613_encoding_v2';
+
+      const mojibakePairs = {
+        'Рђ':'А','Р‘':'Б','Р’':'В','Р“':'Г','Р”':'Д','Р•':'Е','Р–':'Ж','Р—':'З','Р˜':'И','Р™':'Й','Рљ':'К','Р›':'Л','Рњ':'М','Рќ':'Н','Рћ':'О','Рџ':'П','Р ':'Р','РЎ':'С','Рў':'Т','РЈ':'У','Р¤':'Ф','РҐ':'Х','Р¦':'Ц','Р§':'Ч','РЁ':'Ш','Р©':'Щ','РЄ':'Ъ','Р«':'Ы','Р¬':'Ь','Р­':'Э','Р®':'Ю','РЇ':'Я',
+        'Р°':'а','Р±':'б','РІ':'в','Рі':'г','Рґ':'д','Рµ':'е','Р¶':'ж','Р·':'з','Рё':'и','Р№':'й','Рє':'к','Р»':'л','Рј':'м','РЅ':'н','Рѕ':'о','Рї':'п','СЂ':'р','СЃ':'с','С‚':'т','Сѓ':'у','С„':'ф','С…':'х','С†':'ц','С‡':'ч','С€':'ш','С‰':'щ','СЉ':'ъ','С‹':'ы','СЊ':'ь','СЌ':'э','СЋ':'ю','СЏ':'я',
+        'РЃ':'Ё','С‘':'ё','Р„':'Є','С”':'є','Р†':'І','С–':'і','Р‡':'Ї','С—':'ї','Тђ':'Ґ','Т‘':'ґ','вЂ™':'’','вЂњ':'“','вЂќ':'”','вЂ“':'–','вЂ”':'—','в„–':'№'
+      };
+
+      function repairTextEncoding(value) {
+        if (value == null) return '';
+        var text = String(value);
+        if (/\\u[0-9a-fA-F]{4}/.test(text)) {
+          text = text.replace(/\\u([0-9a-fA-F]{4})/g, function(_, hex) { return String.fromCharCode(parseInt(hex, 16)); });
+        }
+        Object.keys(mojibakePairs).forEach(function (bad) { text = text.split(bad).join(mojibakePairs[bad]); });
+        return text.replace(/\uFFFD/g, '').trim();
+      }
+
+      function normalizeItems(items) {
+        if (!items || !items.length) return [];
+        return items.map(function(item) {
+          item.title = repairTextEncoding(item.title || item.name || '');
+          item.name = repairTextEncoding(item.name || item.title || '');
+          item.currency = repairTextEncoding(item.currency || 'грн');
+          item.badges = (item.badges || []).map(repairTextEncoding).filter(Boolean);
+          return item;
+        });
+      }
+
       try {
         if (localStorage.getItem('shopbot_widget_version') !== CHAT_WIDGET_VERSION) {
           localStorage.removeItem('shopbot_history');
@@ -110,9 +138,9 @@
         clearPlaceholder(); chatMessages.innerHTML = ''; chatHistory = [];
         for (var i = 0; i < arr.length; i++) {
           var e = arr[i];
-          if (e && e.type === 'message') appendMessage(e.role, e.text, true);
-          else if (e && e.type === 'products' && e.items && e.items.length) appendProductCards(e.items, true);
-          else if (e && e.type === 'quick_replies' && e.labels && e.labels.length) appendQuickReplies(e.labels, sendMessage, true);
+          if (e && e.type === 'message') appendMessage(e.role, repairTextEncoding(e.text), true);
+          else if (e && e.type === 'products' && e.items && e.items.length) appendProductCards(normalizeItems(e.items), true);
+          else if (e && e.type === 'quick_replies' && e.labels && e.labels.length) appendQuickReplies(e.labels.map(repairTextEncoding), sendMessage, true);
         }
         chatHistory = arr; scrollChatToBottom();
       }
@@ -140,7 +168,6 @@
       function removeTypingIndicator() { const el = document.getElementById('chat-typing-indicator'); if (el) el.remove(); }
       function stripShowProductsTag(text) { if (!text || typeof text !== 'string') return text; return text.replace(/\[SHOW_PRODUCTS[^\]]*\]/gi, '').trim().replace(/\s{2,}/g, ' '); }
 
-      // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ФОРМАТИРОВАНИЯ ---
       function renderManagerContactsBlock() {
         return [
           '<div style="display:flex;flex-direction:column;gap:10px;">',
@@ -154,56 +181,36 @@
       }
 
       function formatMessageContent(raw) {
-        var t = stripShowProductsTag(raw || '');
+        var t = stripShowProductsTag(repairTextEncoding(raw || ''));
         if (!t) return '';
 
-        if (
-          t.indexOf('Зв’язатися з менеджером можна так:') !== -1 ||
-          t.indexOf("Для зв'язку з менеджером") !== -1 ||
-          t.indexOf('viber://chat?number=') !== -1 ||
-          t.indexOf('https://t.me/Dikorosua') !== -1
-        ) {
+        if (t.indexOf('Зв’язатися з менеджером можна так:') !== -1 || t.indexOf("Для зв'язку з менеджером") !== -1 || t.indexOf('viber://chat?number=') !== -1 || t.indexOf('https://t.me/Dikorosua') !== -1) {
           return renderManagerContactsBlock();
         }
 
-        var escaped = t
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-
+        var escaped = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
         escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
-
-        escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, function (url) {
-          var clean = url.replace(/[.,;!?]+$/, '');
-          var tail = url.slice(clean.length);
-          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" class="text-emerald-700 underline">' + clean + '</a>' + tail;
-        });
-
-        escaped = escaped.replace(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi, function (email) {
-          return '<a href="mailto:' + email + '" class="text-emerald-700 underline">' + email + '</a>';
-        });
-
-        escaped = escaped.replace(/\(063\)\s*25\s*26\s*8\s*24/g, function (phone) {
-          return '<a href="tel:+380632526824" class="text-emerald-700 underline">' + phone + '</a>';
-        });
-
+        escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, function (url) { var clean = url.replace(/[.,;!?]+$/, ''); var tail = url.slice(clean.length); return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" class="text-emerald-700 underline">' + clean + '</a>' + tail; });
+        escaped = escaped.replace(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi, function (email) { return '<a href="mailto:' + email + '" class="text-emerald-700 underline">' + email + '</a>'; });
+        escaped = escaped.replace(/\(063\)\s*25\s*26\s*8\s*24/g, function (phone) { return '<a href="tel:+380632526824" class="text-emerald-700 underline">' + phone + '</a>'; });
         return escaped.replace(/\n/g, '<br>\n');
       }
 
       function appendMessage(role, text, skipSave) {
+        var safeText = repairTextEncoding(text);
         clearPlaceholder();
         const wrap = document.createElement('div'); wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
         const bubble = document.createElement('div'); bubble.className = 'max-w-[85%] px-4 py-2.5 text-sm rounded-2xl ' + (role === 'user' ? 'bg-emerald-700 text-white rounded-br-md' : 'bg-white text-slate-800 rounded-bl-md shadow-sm border border-slate-100');
-        if (role === 'user') { bubble.textContent = text; } else { const contentWrap = document.createElement('div'); contentWrap.className = 'message-content flex flex-col items-start'; contentWrap.innerHTML = formatMessageContent(text); bubble.appendChild(contentWrap); }
+        if (role === 'user') { bubble.textContent = safeText; } else { const contentWrap = document.createElement('div'); contentWrap.className = 'message-content flex flex-col items-start'; contentWrap.innerHTML = formatMessageContent(safeText); bubble.appendChild(contentWrap); }
         wrap.appendChild(bubble); chatMessages.appendChild(wrap); scrollChatToBottom();
-        if (!skipSave) { chatHistory.push({ type: 'message', role: role, text: text }); saveChatHistory(); }
+        if (!skipSave) { chatHistory.push({ type: 'message', role: role, text: safeText }); saveChatHistory(); }
       }
 
       function normalizeUrl(u) { if (u == null) return ''; u = String(u).trim(); if (!u) return ''; if (u.startsWith('//')) return window.location.protocol + u; if (u.startsWith('http://') || u.startsWith('https://')) return u; if (u.startsWith('/')) return window.location.origin + u; return window.location.origin + '/' + u.replace(/^\.\//, ''); }
 
       function appendProductCards(items, skipSave) {
+        items = normalizeItems(items);
         if (!items || !items.length) return; clearPlaceholder();
         const wrap = document.createElement('div'); wrap.className = 'flex gap-3 justify-start overflow-x-auto sm:overflow-visible flex-nowrap sm:flex-wrap pb-2 -mx-1 px-1 sm:mx-0 sm:px-0';
         items.forEach(function (item) {
@@ -212,17 +219,16 @@
           const imgSrc = normalizeUrl(imgCandidate) || '/static/logo.png';
           const img = document.createElement('img'); img.src = imgSrc; img.className = 'w-full rounded-t-2xl'; img.onerror = function () { img.onerror = null; img.src = '/static/logo.png'; img.classList.remove('object-cover'); img.classList.add('object-contain'); }; card.appendChild(img);
           const content = document.createElement('div'); content.className = 'p-3';
-          const title = document.createElement('div'); title.className = 'font-medium text-slate-800 text-sm mb-1 line-clamp-2'; title.textContent = item.title || '';
+          const title = document.createElement('div'); title.className = 'font-medium text-slate-800 text-sm mb-1 line-clamp-2'; title.textContent = item.title || item.name || '';
           const price = document.createElement('div'); price.className = 'text-emerald-600 font-semibold text-sm mb-2'; price.textContent = (item.price != null ? item.price + ' ' + (item.currency || 'грн') : '—');
           const badgesWrap = document.createElement('div'); badgesWrap.className = 'flex flex-wrap gap-1';
-          (item.badges || []).forEach(function (badge) { const b = document.createElement('span'); b.className = 'inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs'; b.textContent = badge; badgesWrap.appendChild(b); });
+          (item.badges || []).forEach(function (badge) { const b = document.createElement('span'); b.className = 'inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs'; b.textContent = repairTextEncoding(badge); badgesWrap.appendChild(b); });
           content.appendChild(title); content.appendChild(price); content.appendChild(badgesWrap);
           const baseUrl = item.url && String(item.url).trim();
           if (baseUrl) {
             const link = document.createElement('a'); link.href = baseUrl; link.target = '_blank';
-            link.addEventListener('click', function() {
-              fetch('/track-event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: window.currentSessionId || '', event_type:'product_click', product_id: String(item.id)})}).catch(function(){});
-            }); link.className = 'block text-center mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 rounded-xl transition-colors'; link.textContent = 'Детальніше';
+            link.addEventListener('click', function() { fetch('/track-event', {method:'POST', headers:{'Content-Type':'application/json; charset=utf-8'}, body: JSON.stringify({session_id: window.currentSessionId || '', event_type:'product_click', product_id: String(item.id)})}).catch(function(){}); });
+            link.className = 'block text-center mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 rounded-xl transition-colors'; link.textContent = 'Детальніше';
             content.appendChild(link);
           }
           card.appendChild(content); wrap.appendChild(card);
@@ -232,12 +238,13 @@
       }
 
       function appendQuickReplies(replies, onSend, skipSave) {
-        if (!replies || !replies.length) return; clearPlaceholder();
+        replies = (replies || []).map(repairTextEncoding).filter(Boolean);
+        if (!replies.length) return; clearPlaceholder();
         const wrap = document.createElement('div'); wrap.className = 'flex flex-wrap gap-2 justify-start';
         replies.forEach(function (label) {
           const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'px-3 py-1.5 rounded-2xl bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 text-slate-700 hover:text-emerald-800 text-sm transition-colors shadow-sm';
-          if (label && label.indexOf("Зв'язатися з менеджером") !== -1) btn.classList.add('manager-btn'); btn.textContent = label;
-          btn.addEventListener('click', function () { if (label === "Зв'язатися з менеджером") { window.location.href = 'tel:+380632526824'; return; } onSend(label); });
+          if (label && (label.indexOf("Зв'язатися з менеджером") !== -1 || label.indexOf('Зв’язатися з менеджером') !== -1)) btn.classList.add('manager-btn'); btn.textContent = label;
+          btn.addEventListener('click', function () { if (label === "Зв'язатися з менеджером" || label === 'Зв’язатися з менеджером') { window.location.href = 'tel:+380632526824'; return; } onSend(label); });
           wrap.appendChild(btn);
         });
         chatMessages.appendChild(wrap); scrollChatToBottom();
@@ -245,18 +252,29 @@
       }
 
       function parseReplyButtons(reply) {
+        reply = repairTextEncoding(reply);
         if (!reply || typeof reply !== 'string') return { text: reply || '', buttons: [] };
         const tagMatch = reply.match(/\[BUTTONS:\s*([^\]]+)\]/i); if (!tagMatch) return { text: reply.trim(), buttons: [] };
-        const buttons = tagMatch[1].trim().split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        const buttons = tagMatch[1].trim().split(',').map(function (s) { return repairTextEncoding(s); }).filter(Boolean);
         const text = reply.replace(/\[BUTTONS:\s*[^\]]+\]/gi, '').trim().replace(/\s{2,}/g, ' '); return { text: text, buttons: buttons };
       }
 
       function sendMessage(text) {
-        const t = (text || '').trim(); if (!t) return;
+        const t = repairTextEncoding(text || ''); if (!t) return;
         appendMessage('user', t); appendTypingIndicator(); scrollChatToBottom(); input.value = ''; sendBtn.disabled = true;
-        fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: t, session_id: sessionId }) })
-          .then(function (res) { return res.json(); }).then(function (data) { removeTypingIndicator(); var parsed = parseReplyButtons(data.reply || ''); if (parsed.text) appendMessage('assistant', parsed.text); if (data.items && data.items.length) appendProductCards(data.items); if (parsed.buttons && parsed.buttons.length) { appendQuickReplies(parsed.buttons, sendMessage); } else if (data.quick_replies && data.quick_replies.length) { appendQuickReplies(data.quick_replies, sendMessage); } })
-          .catch(function () { removeTypingIndicator(); appendMessage('assistant', 'Помилка з\'єднання. Спробуйте пізніше.'); }).finally(function () { sendBtn.disabled = false; });
+        fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ message: t, session_id: sessionId }) })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            removeTypingIndicator();
+            var parsed = parseReplyButtons(data.reply || data.message || '');
+            if (parsed.text) appendMessage('assistant', parsed.text);
+            var items = normalizeItems(data.items || data.products || []);
+            if (items.length) appendProductCards(items);
+            if (parsed.buttons && parsed.buttons.length) appendQuickReplies(parsed.buttons, sendMessage);
+            else if (data.quick_replies && data.quick_replies.length) appendQuickReplies(data.quick_replies, sendMessage);
+          })
+          .catch(function () { removeTypingIndicator(); appendMessage('assistant', 'Помилка з\'єднання. Спробуйте пізніше.'); })
+          .finally(function () { sendBtn.disabled = false; });
       }
 
       function initChat() {
