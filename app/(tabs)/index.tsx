@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars */
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';

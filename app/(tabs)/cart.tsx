@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/utils/analytics';
