@@ -85,8 +85,7 @@ export default function ProductCard({
   const safeBadge = item.badge || null;
   const hasImage = !!(item.picture || item.image || item.image_url);
   const isDefaultGridCard = !style;
-  const normalizedDisplayPrice = clean(displayPrice).toLowerCase();
-  const shouldUseExternalDisplayPrice = !!displayPrice && !normalizedDisplayPrice.startsWith('від');
+  const shouldUseExternalDisplayPrice = !!displayPrice;
   const resolvedDisplayPrice = shouldUseExternalDisplayPrice ? displayPrice : formatPrice(exactPrice);
 
   return (
