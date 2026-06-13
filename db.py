@@ -253,6 +253,8 @@ def init_db_schema() -> None:
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_promotion BOOLEAN DEFAULT FALSE",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_new BOOLEAN DEFAULT FALSE",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0",
+        "ALTER TABLE products ALTER COLUMN price TYPE DOUBLE PRECISION USING price::double precision",
+        "ALTER TABLE products ALTER COLUMN old_price TYPE DOUBLE PRECISION USING old_price::double precision",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_manually_edited BOOLEAN DEFAULT FALSE",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'В наличии'",
