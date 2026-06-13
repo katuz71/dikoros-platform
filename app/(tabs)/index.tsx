@@ -2009,6 +2009,7 @@ export default function Index() {
             paddingTop: 16,
             paddingBottom: 28,
             maxHeight: '86%',
+            position: 'relative',
           }}>
             <View style={{ alignItems: 'center', marginBottom: 14 }}>
               <View style={{ width: 42, height: 4, borderRadius: 999, backgroundColor: '#D1D5DB' }} />
@@ -2021,7 +2022,7 @@ export default function Index() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
               <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Сортування</Text>
               <View style={{ gap: 6, marginBottom: 22 }}>
                 {CATEGORY_SORT_OPTIONS.map((option) => {
@@ -2112,7 +2113,7 @@ export default function Index() {
               </View>
             </ScrollView>
 
-            <View style={{ flexDirection: 'row', gap: 10, paddingTop: 8 }}>
+            <View style={{ position: 'absolute', left: 20, right: 20, bottom: 82, flexDirection: 'row', gap: 10, paddingTop: 8 }}>
               <TouchableOpacity
                 onPress={() => {
                   setSortType('popular');
@@ -2445,8 +2446,6 @@ export default function Index() {
           </Text>
         </Animated.View>
       )}
-      {/* Floating Chat Button */}
-      {/* <FloatingChatButton bottomOffset={30} /> */}
     </View>
   );
 }

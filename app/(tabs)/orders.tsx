@@ -5,7 +5,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/config/api';
-import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OrderItem = ({ order, onPress, onDelete, formatPrice }: any) => (
@@ -135,7 +134,6 @@ export default function OrdersScreen() {
           ) : null
         }
       />
-      <FloatingChatButton bottomOffset={30} />
     </View>
   );
 }

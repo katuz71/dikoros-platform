@@ -1,4 +1,3 @@
-import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { ProductDetailsView } from '@/components/ProductDetailsView';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
@@ -868,8 +867,6 @@ export default function ProductScreen() {
            <Text style={styles.whiteText}>{toastMessage}</Text>
          </Animated.View>
        )}
-       
-       <FloatingChatButton bottomOffset={90} />
     </SafeAreaView>
   );
 }

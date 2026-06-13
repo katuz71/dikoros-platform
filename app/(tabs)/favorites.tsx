@@ -1,4 +1,3 @@
-import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/utils/analytics';
 import { getImageUrl } from '@/utils/image';
@@ -286,7 +285,6 @@ export default function FavoritesScreen() {
             <Text style={styles.shopButtonText}>Перейти до покупок</Text>
           </TouchableOpacity>
         </View>
-        <FloatingChatButton bottomOffset={30} />
       </View>
     );
   }
@@ -370,7 +368,6 @@ export default function FavoritesScreen() {
           </Text>
         </Animated.View>
       )}
-      <FloatingChatButton bottomOffset={30} />
     </View>
   );
 }

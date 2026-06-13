@@ -1,3 +1,4 @@
+import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { API_URL } from '@/config/api';
 import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -5,7 +6,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
 import { OrdersProvider } from '../context/OrdersContext';
@@ -76,6 +77,7 @@ async function registerForPushNotificationsAsync() {
 
 export default function Layout() {
   const pathname = usePathname();
+  const showFloatingChat = !pathname?.endsWith('/chat');
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');
@@ -89,13 +91,16 @@ export default function Layout() {
     <SafeAreaProvider>
       <OrdersProvider>
         <CartProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="checkout" options={{ headerShown: false }} />
-            <Stack.Screen name="news" options={{ headerShown: false }} />
-            <Stack.Screen name="news-detail" options={{ headerShown: false }} />
-          </Stack>
+          <View style={{ flex: 1 }}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="checkout" options={{ headerShown: false }} />
+              <Stack.Screen name="news" options={{ headerShown: false }} />
+              <Stack.Screen name="news-detail" options={{ headerShown: false }} />
+            </Stack>
+            {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
+          </View>
         </CartProvider>
       </OrdersProvider>
     </SafeAreaProvider>

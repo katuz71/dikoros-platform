@@ -1,4 +1,3 @@
-import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/utils/analytics';
@@ -310,8 +309,6 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
       )}
-
-      <FloatingChatButton bottomOffset={30} />
     </KeyboardAvoidingView>
   );
 }

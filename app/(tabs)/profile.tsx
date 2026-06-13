@@ -1,4 +1,3 @@
-import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
@@ -918,9 +917,6 @@ export default function ProfileScreen() {
   return (
     <View style={{flex: 1, backgroundColor: '#F4F4F4'}}>
       {phone ? renderUserView() : renderGuestView()}
-      
-      <FloatingChatButton bottomOffset={30} />
-
       {/* МОДАЛКА ВХОДА */}
       <Modal visible={showLoginModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>

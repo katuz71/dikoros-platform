@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductCard from './ProductCard';
 import ProductImage from './ProductImage';
 
@@ -72,6 +73,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   favorites = []
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
+  const insets = useSafeAreaInsets();
 
   const cleanProductHtml = (html: any) => {
     const decode = (value: string) => {
@@ -270,7 +272,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
 
   return (
-    <ScrollView contentContainerStyle={{ paddingTop: 88, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 150 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
       {/* 1. Фото товара (Carousel start) */}
       <View style={{ height: 320, width: Dimensions.get('window').width }}>
         <ScrollView key={`${String(product?.id ?? '')}:${String(product?.image ?? '')}`} horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
@@ -418,15 +424,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             </Text>
           )}
 
-        {/* Add to Cart Button */}
-        <TouchableOpacity
-          style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
-          onPress={onAddToCart}
-          disabled={!activeAvailable}
-        >
-          <Text style={styles.addToCartText}>{activeAvailable ? 'В кошик' : 'Немає в наявності'}</Text>
-        </TouchableOpacity>
-
         {/* Similar Products */}
         {similarProducts.length > 0 && (
           <View style={styles.similarSection}>
@@ -480,12 +477,24 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           </View>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
 
+      <View style={[styles.stickyCartBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <TouchableOpacity
+          style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
+          onPress={onAddToCart}
+          disabled={!activeAvailable}
+        >
+          <Text style={styles.addToCartText}>{activeAvailable ? 'В кошик' : 'Немає в наявності'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  scrollContent: { paddingTop: 88 },
   mainImage: { width: Dimensions.get('window').width, height: 320 },
   content: { padding: 20 },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
@@ -529,7 +538,23 @@ const styles = StyleSheet.create({
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   bulletDot: { width: 16, color: '#10b981', lineHeight: 22, fontSize: 16 },
   bulletText: { flex: 1, color: '#4b5563', lineHeight: 22, fontSize: 15 },
-  addToCartBtn: { backgroundColor: '#2E7D32', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  stickyCartBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#EEF0F2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  addToCartBtn: { backgroundColor: '#2E7D32', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
   addToCartText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
