@@ -478,17 +478,18 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 8}
       >
         <FlatList
           ref={flatListRef}
           data={messages}
           renderItem={renderItem}
           keyExtractor={(item) => `msg-${item.id}`}
-          contentContainerStyle={{ padding: 15, paddingBottom: 120 }}
+          contentContainerStyle={{ padding: 15, paddingBottom: 150 }}
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           onContentSizeChange={() => {
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
@@ -778,7 +779,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     alignItems: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 18,
   },
   input: {
     flex: 1,
