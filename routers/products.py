@@ -133,24 +133,30 @@ def _format_variant(product: dict) -> dict:
 
 
 def _sort_group_variants(variants: list[dict], group_key: str, selected_id: int | None = None) -> list[dict]:
+    has_regular_variant = any(_as_float(item.get("price")) >= 20 for item in variants)
+
     def sort_key(product: dict):
         sku = str(product.get("sku") or "").strip()
         parent_sku = str(product.get("parent_sku") or "").strip()
         product_id = int(product.get("id") or 0)
+        price = _as_float(product.get("price"))
 
-        if selected_id and product_id == selected_id:
+        selected_rank = 0 if selected_id and product_id == selected_id else 1
+        micro_rank = 1 if has_regular_variant and price < 20 else 0
+
+        if sku and sku == group_key:
             primary = 0
-        elif sku and sku == group_key:
-            primary = 1
         elif parent_sku and sku == parent_sku:
-            primary = 1
+            primary = 0
         else:
-            primary = 2
+            primary = 1
 
         return (
+            selected_rank,
+            micro_rank,
             primary,
             int(product.get("sort_order") or 2147483647),
-            _as_float(product.get("price")),
+            price,
             product_id,
         )
 
