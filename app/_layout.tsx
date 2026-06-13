@@ -98,6 +98,7 @@ export default function Layout() {
               <Stack.Screen name="checkout" options={{ headerShown: false }} />
               <Stack.Screen name="news" options={{ headerShown: false }} />
               <Stack.Screen name="news-detail" options={{ headerShown: false }} />
+              <Stack.Screen name="profile-info" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
           </View>
