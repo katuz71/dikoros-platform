@@ -3,7 +3,7 @@ import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -128,25 +128,15 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    loadChatSession();
-  }, []);
-
-  useEffect(() => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [messages]);
-
-  const resetChatStorageForEncodingVersion = async () => {
+  const resetChatStorageForEncodingVersion = useCallback(async () => {
     const version = await AsyncStorage.getItem(CHAT_STORAGE_VERSION_KEY);
     if (version === CHAT_STORAGE_VERSION) return;
 
     await AsyncStorage.multiRemove(['chat_messages', 'chat_session_id']);
     await AsyncStorage.setItem(CHAT_STORAGE_VERSION_KEY, CHAT_STORAGE_VERSION);
-  };
+  }, []);
 
-  const loadChatSession = async () => {
+  const loadChatSession = useCallback(async () => {
     try {
       await resetChatStorageForEncodingVersion();
 
@@ -175,7 +165,17 @@ export default function ChatScreen() {
     } catch (e) {
       console.warn('Load chat session failed:', e);
     }
-  };
+  }, [resetChatStorageForEncodingVersion]);
+
+  useEffect(() => {
+    loadChatSession();
+  }, [loadChatSession]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [messages]);
 
   const persistMessages = async (nextMessages: Message[]) => {
     try {
