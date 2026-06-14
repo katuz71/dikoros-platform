@@ -321,10 +321,7 @@ export default function CheckoutScreen() {
     }
 
     if (isBelowMinOrder) {
-      Alert.alert(
-        'Мінімальна сума замовлення',
-        `Мінімальне замовлення — ${formatPrice(MIN_ORDER_AMOUNT)}. Додайте товарів ще на ${formatPrice(minOrderMissing)}.`
-      );
+      router.push('/(tabs)' as any);
       return;
     }
 
@@ -509,7 +506,7 @@ export default function CheckoutScreen() {
   const bonusesToUse = canUseBonuses && useBonuses ? Math.min(bonusBalance, cartFinal) : 0;
   const finalPriceWithBonuses = Math.max(0, cartFinal - bonusesToUse);
   const allowedPaymentOptions = getAllowedPaymentOptions(deliveryMethod);
-  const submitDisabled = loading || isBelowMinOrder;
+  const submitDisabled = loading;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
@@ -694,11 +691,11 @@ export default function CheckoutScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.submitBtn, isBelowMinOrder && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitDisabled}>
+          <TouchableOpacity style={[styles.submitBtn, loading && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitDisabled}>
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.submitBtnText}>{isBelowMinOrder ? `ДОДАЙТЕ ЩЕ ${formatPrice(minOrderMissing)}` : 'ПІДТВЕРДИТИ ЗАМОВЛЕННЯ'}</Text>
+              <Text style={styles.submitBtnText}>{isBelowMinOrder ? 'ДОДАТИ ТОВАРИ' : 'ПІДТВЕРДИТИ ЗАМОВЛЕННЯ'}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
