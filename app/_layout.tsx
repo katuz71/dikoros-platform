@@ -5,12 +5,15 @@ import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Stack, usePathname } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
 import { OrdersProvider } from '../context/OrdersContext';
+
+WebBrowser.maybeCompleteAuthSession();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -78,6 +81,7 @@ async function registerForPushNotificationsAsync() {
 
 export default function Layout() {
   const pathname = usePathname();
+  const router = useRouter();
   const showFloatingChat = !pathname?.endsWith('/chat');
 
   useEffect(() => {
@@ -87,6 +91,28 @@ export default function Layout() {
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
+
+  useEffect(() => {
+    const handleOAuthRedirect = (url?: string | null) => {
+      if (!url || !url.toLowerCase().includes('oauthredirect')) return false;
+
+      WebBrowser.maybeCompleteAuthSession();
+      setTimeout(() => {
+        router.replace('/(tabs)/profile' as any);
+      }, 150);
+      return true;
+    };
+
+    Linking.getInitialURL()
+      .then(handleOAuthRedirect)
+      .catch(() => {});
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleOAuthRedirect(url);
+    });
+
+    return () => subscription.remove();
+  }, [router]);
 
   return (
     <SafeAreaProvider>
@@ -100,6 +126,7 @@ export default function Layout() {
               <Stack.Screen name="news" options={{ headerShown: false }} />
               <Stack.Screen name="news-detail" options={{ headerShown: false }} />
               <Stack.Screen name="profile-info" options={{ headerShown: false }} />
+              <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
             <WelcomeBonusModal />
