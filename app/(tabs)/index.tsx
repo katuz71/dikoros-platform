@@ -11,6 +11,7 @@ import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, Keyboa
 import HomeProductCarousel from '../../components/HomeProductCarousel';
 import ProductCard from '../../components/ProductCard';
 import { useFavoritesStore } from '../../store/favoritesStore';
+import { useGlobalSearch } from '@/context/GlobalSearchContext';
 
 // Анимированная кнопка избранного
 const AnimatedFavoriteButton = ({ item, onPress }: { 
@@ -530,6 +531,7 @@ const SITE_CATEGORY_ORDER = [
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { openSearch } = useGlobalSearch();
   // Get cart context
   const { addItem, items: cartItems, removeItem, clearCart, totalPrice, updateQuantity, addOne, removeOne } = useCart();
   // Get favorites store
@@ -1668,7 +1670,7 @@ export default function Index() {
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity 
-            onPress={() => setIsSearchVisible(!isSearchVisible)}
+            onPress={openSearch}
             style={{ marginRight: 0, position: 'relative' }}
           >
             <Ionicons name="search" size={24} color="black" />

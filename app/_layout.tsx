@@ -1,7 +1,9 @@
 import { FloatingChatButton } from '@/components/FloatingChatButton';
+import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
 import { API_URL } from '@/config/api';
 import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
+import { GlobalSearchProvider } from '@/context/GlobalSearchContext';
 import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
@@ -136,6 +138,7 @@ export default function Layout() {
     <SafeAreaProvider>
       <OrdersProvider>
         <CartProvider>
+          <GlobalSearchProvider>
           <View style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -147,8 +150,10 @@ export default function Layout() {
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
+            <GlobalSearchModal />
             <WelcomeBonusModal />
           </View>
+          </GlobalSearchProvider>
         </CartProvider>
       </OrdersProvider>
     </SafeAreaProvider>
