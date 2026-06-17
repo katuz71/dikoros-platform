@@ -936,14 +936,6 @@ export default function Index() {
         onCartPress={() => {
            Vibration.vibrate(10);
 
-           const variants = parseMaybeJsonArray((item as any)?.variants);
-
-           if (variants.length > 1) {
-             showToast('Оберіть варіант у картці товару');
-             router.push(`/product/${item.id}`);
-             return;
-           }
-
            const picked = _pickDefaultVariant(item);
            addItem(item, 1, picked.packSize, item.unit || 'шт', picked.price);
            showToast('Товар додано в кошик');
