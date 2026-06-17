@@ -15,6 +15,7 @@ import {
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
+import { hasBiometricLoginEnabled, promptEnableBiometricLogin } from '@/utils/biometricAuth';
 
 const WELCOME_BONUS_MODAL_SEEN_KEY = 'welcomeBonusModalSeenV1';
 
@@ -58,13 +59,14 @@ export function WelcomeBonusModal() {
 
     const maybeShowModal = async () => {
       try {
-        const [seen, accessToken] = await Promise.all([
+        const [seen, accessToken, biometricEnabled] = await Promise.all([
           AsyncStorage.getItem(WELCOME_BONUS_MODAL_SEEN_KEY),
           AsyncStorage.getItem('accessToken'),
+          hasBiometricLoginEnabled(),
         ]);
 
         if (!mounted) return;
-        if (!seen && !accessToken) {
+        if (!seen && !accessToken && !biometricEnabled) {
           setVisible(true);
         }
       } catch (error) {
@@ -190,6 +192,10 @@ export function WelcomeBonusModal() {
       setSmsSent(false);
       setSmsCode('');
       router.replace('/(tabs)/profile' as any);
+
+      if (user.is_new_user && user.access_token) {
+        await promptEnableBiometricLogin(user.access_token, canon);
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Помилка', 'Немає з’єднання');

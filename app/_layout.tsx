@@ -2,6 +2,7 @@ import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
 import { API_URL } from '@/config/api';
 import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
+import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -91,6 +92,23 @@ export default function Layout() {
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const restoreBiometric = async () => {
+      const restored = await tryRestoreBiometricSession();
+      if (mounted && restored) {
+        router.replace('/(tabs)/profile' as any);
+      }
+    };
+
+    restoreBiometric();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   useEffect(() => {
     const handleOAuthRedirect = (url?: string | null) => {

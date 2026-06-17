@@ -2,6 +2,7 @@
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
+import { promptEnableBiometricLogin } from '@/utils/biometricAuth';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
@@ -348,6 +349,11 @@ export default function ProfileScreen() {
         setSmsSent(false);
         setSmsCode('');
         fetchData(canon);
+
+        if (user.is_new_user && user.access_token) {
+          await AsyncStorage.setItem('welcomeBonusModalSeenV1', '1');
+          await promptEnableBiometricLogin(user.access_token, canon);
+        }
       } else {
         const err = await res.json().catch(() => null);
         Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 SMS-\u043a\u043e\u0434');
