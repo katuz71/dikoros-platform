@@ -4,8 +4,7 @@ import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState , useEffect } from 'react';
 
@@ -24,7 +23,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
 
-WebBrowser.maybeCompleteAuthSession();
 
 // --- ТИПЫ ---
 interface UserProfile {
@@ -37,6 +35,9 @@ interface UserProfile {
   warehouse?: string;
   email?: string;
   contact_preference?: 'call' | 'telegram' | 'viber';
+  phone_verified?: boolean;
+  google_connected?: boolean;
+  facebook_connected?: boolean;
 }
 
 
@@ -59,11 +60,45 @@ export default function ProfileScreen() {
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
   const [googleAuthMode, setGoogleAuthMode] = useState<'login' | 'link'>('login');
 
-  const [, googleResponse, promptGoogleLogin] = Google.useIdTokenAuthRequest({
-    clientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
-    webClientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
-    androidClientId: '451079322222-49sf5d8pc3kb2fr10022b5im58s21ao6.apps.googleusercontent.com',
-  });
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
+      offlineAccess: false,
+    } as any);
+  }, []);
+
+  const promptGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      const signInResult: any = await GoogleSignin.signIn();
+      let idToken =
+        signInResult?.data?.idToken ||
+        signInResult?.idToken ||
+        null;
+
+      if (!idToken) {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      }
+
+      if (!idToken) {
+        Alert.alert('??????? Google ?????', 'Google ?? ???????? ID token.');
+        return;
+      }
+
+      if (googleAuthMode === 'link') {
+        await handleGoogleSocialLink(idToken);
+      } else {
+        await handleGoogleSocialLogin(idToken);
+      }
+    } catch (error: any) {
+      if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
+
+      console.warn('Google native sign-in failed:', error);
+      Alert.alert('??????? Google ?????', error?.message || '?? ??????? ?????? ????? Google.');
+    }
+  };
 
 
   // 1. Проверка авторизации и обновление данных при фокусе
@@ -77,19 +112,6 @@ export default function ProfileScreen() {
     checkLogin();
   }, []);
 
-  useEffect(() => {
-    const idToken = googleResponse?.type === 'success'
-      ? (googleResponse.params?.id_token || googleResponse.authentication?.idToken)
-      : null;
-
-    if (idToken) {
-      if (googleAuthMode === 'link') {
-        handleGoogleSocialLink(idToken);
-      } else {
-        handleGoogleSocialLogin(idToken);
-      }
-    }
-  }, [googleResponse, googleAuthMode]);
 
   const canonicalizePhone = (value: string) => {
     const digits = (value || '').replace(/\D/g, '');
@@ -647,7 +669,13 @@ export default function ProfileScreen() {
       </MenuSection>
 
       <MenuSection title="Налаштування">
-        <MenuItem label="Прив’язати Google" onPress={handleGoogleLinkStart} />
+        <MenuItem
+          label={profile?.google_connected ? 'Google підключено' : 'Прив’язати Google'}
+          onPress={profile?.google_connected
+            ? () => Alert.alert('Google', 'Google вже підключено до вашого акаунта.')
+            : handleGoogleLinkStart
+          }
+        />
         <MenuItem label="Видалити акаунт" color="#D32F2F" isLast onPress={handleDeleteAccount} />
       </MenuSection>
 
@@ -825,6 +853,27 @@ export default function ProfileScreen() {
                 <Text style={styles.inviteText}>Запросити друга (+50 грн)</Text>
                 <Ionicons name="chevron-forward" size={20} color="#FFF" />
             </TouchableOpacity>
+
+            <View style={styles.authStatusCard}>
+                <Ionicons
+                  name={profile?.google_connected ? 'logo-google' : 'link-outline'}
+                  size={22}
+                  color="#333"
+                />
+                <View style={{flex: 1}}>
+                  <Text style={styles.authStatusTitle}>Google авторизація</Text>
+                  <Text style={styles.authStatusText}>
+                    {profile?.google_connected
+                      ? `Підключено${profile?.email ? `: ${profile.email}` : ''}`
+                      : 'Не підключено. Можна прив’язати після SMS-входу.'}
+                  </Text>
+                </View>
+                {!profile?.google_connected && (
+                  <TouchableOpacity style={styles.authStatusButton} onPress={handleGoogleLinkStart}>
+                    <Text style={styles.authStatusButtonText}>Підключити</Text>
+                  </TouchableOpacity>
+                )}
+            </View>
 
             {/* ОСНОВНОЕ МЕНЮ */}
             <View style={{marginTop: 20}}>
@@ -1065,6 +1114,11 @@ const styles = StyleSheet.create({
 
   inviteBanner: { marginHorizontal: 15, backgroundColor: '#FF9800', borderRadius: 12, padding: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   inviteText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  authStatusCard: { marginHorizontal: 15, marginBottom: 8, backgroundColor: '#FFF', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#EEE' },
+  authStatusTitle: { fontSize: 15, fontWeight: '700', color: '#333', marginBottom: 3 },
+  authStatusText: { fontSize: 13, color: '#666' },
+  authStatusButton: { backgroundColor: '#458B00', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10 },
+  authStatusButtonText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
 
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginLeft: 15, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginRight: 15 },

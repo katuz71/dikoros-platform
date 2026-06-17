@@ -83,6 +83,9 @@ def _get_user_profile_by_identifier(phone: str):
             ukrposhta=ukrposhta_display,
             email=user_dict.get('email'),
             contact_preference=user_dict.get('contact_preference'),
+            phone_verified=bool(user_dict.get('phone_verified')),
+            google_connected=bool(user_dict.get('google_id')),
+            facebook_connected=bool(user_dict.get('facebook_id')),
             referrer=user_dict.get('referrer'),
             created_at=user_dict.get('created_at')
         )

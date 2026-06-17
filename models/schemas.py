@@ -276,6 +276,9 @@ class UserResponse(BaseModel):
     ukrposhta: Optional[str] = None
     email: Optional[str] = None
     contact_preference: Optional[str] = None
+    phone_verified: bool = False
+    google_connected: bool = False
+    facebook_connected: bool = False
     referrer: Optional[str] = None
     created_at: Optional[str] = None
 

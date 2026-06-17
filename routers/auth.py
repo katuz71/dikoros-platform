@@ -358,6 +358,9 @@ def auth_social_login(body: SocialAuthRequest):
             out = dict(user_dict)
             out["phone"] = linked_phone
             out["access_token"] = create_access_token(linked_phone)
+            out["phone_verified"] = bool(user_dict.get("phone_verified"))
+            out["google_connected"] = bool(user_dict.get("google_id"))
+            out["facebook_connected"] = bool(user_dict.get("facebook_id"))
             out["is_new_user"] = False
             return out
 
@@ -434,6 +437,9 @@ def auth_social_link(
         out = dict(linked_user)
         out["access_token"] = create_access_token(clean_phone)
         out["is_new_user"] = False
+        out["phone_verified"] = bool(out.get("phone_verified"))
+        out["google_connected"] = bool(out.get("google_id"))
+        out["facebook_connected"] = bool(out.get("facebook_id"))
         out["linked_provider"] = provider
         return out
     finally:
