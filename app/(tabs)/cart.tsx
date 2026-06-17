@@ -8,7 +8,7 @@ import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
 
 
 type Variant = {
@@ -99,7 +99,7 @@ export default function CartScreen() {
   const totalAmount = finalPrice;
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -142,164 +142,174 @@ export default function CartScreen() {
         )}
       </View>
 
-      <FlatList
-        data={cartItems}
-        keyExtractor={(item) => {
-          const sizeKey = (item as any).variantSize || (item as any).packSize || (item as any).unit || 'шт';
-          return `${item.id}-${String(sizeKey)}`;
-        }}
-        contentContainerStyle={cartItems.length === 0 ? styles.emptyContainer : styles.listContent}
-        ListEmptyComponent={
+      <ScrollView
+        contentContainerStyle={cartItems.length === 0 ? styles.emptyContainer : styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {cartItems.length === 0 ? (
           <View style={styles.emptyView}>
             <View style={styles.emptyIconContainer}>
               <Ionicons name="cart-outline" size={60} color="#D1D5DB" />
             </View>
+
             <Text style={styles.emptyTitle}>Кошик порожній</Text>
+
             <Text style={styles.emptyText}>
               Ви ще нічого не додали. Загляньте в каталог, там багато цікавого!
             </Text>
-            <TouchableOpacity 
+
+            <TouchableOpacity
               onPress={() => router.replace('/(tabs)')}
               style={styles.emptyButton}
             >
               <Text style={styles.emptyButtonText}>Перейти до каталогу</Text>
             </TouchableOpacity>
           </View>
-        }
-        renderItem={({ item }) => {
-          const product = item;
-          return (
-            <View style={styles.itemContainer}>
-              <TouchableOpacity
-                onPress={() => router.push(`/product/${item.id}`)}
-                style={styles.itemImageContainer}
-              >
-                <Image 
-                  source={{ uri: getImageUrl(item.image) }} 
-                  style={styles.itemImage} 
-                />
-              </TouchableOpacity>
-              
-              <View style={styles.itemInfo}>
-                <Text numberOfLines={1} style={styles.itemName}>
-                  {item.name}
-                  <Text style={styles.itemUnit}>
-                    {' '}({(item as any).variantSize || (item as any).packSize || (item as any).unit || 'шт'})
-                  </Text>
-                </Text>
-                <Text style={styles.itemPrice}>{formatPrice(item.price * (item.quantity || 1))}</Text>
-              </View>
+        ) : (
+          <>
+            {cartItems.map((item: any) => {
+              const sizeKey = item.variantSize || item.packSize || item.unit || 'шт';
+              const compositeId = `${item.id}-${String(sizeKey)}`;
 
-              <View style={styles.itemControls}>
-                <View style={styles.quantityControls}>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      const itemUnit = (item as any).variantSize || (item as any).unit || (item as any).packSize || 'шт';
-                      removeOne(item.id, itemUnit);
-                    }}
-                    style={styles.quantityButton}
+              return (
+                <View key={compositeId} style={styles.itemContainer}>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/product/${item.id}`)}
+                    style={styles.itemImageContainer}
                   >
-                    <Ionicons name="remove" size={16} color="black" />
+                    <Image
+                      source={{ uri: getImageUrl(item.image) }}
+                      style={styles.itemImage}
+                    />
                   </TouchableOpacity>
-                  
-                  <Text style={styles.quantityText}>{item.quantity || 1}</Text>
-                  
-                  <TouchableOpacity 
-                    onPress={() => {
-                      const itemUnit = (item as any).variantSize || (item as any).unit || (item as any).packSize || 'шт';
-                      addOne(item.id, itemUnit);
-                    }}
-                    style={styles.quantityButton}
-                  >
-                    <Ionicons name="add" size={16} color="black" />
-                  </TouchableOpacity>
+
+                  <View style={styles.itemInfo}>
+                    <Text numberOfLines={1} style={styles.itemName}>
+                      {item.name}
+                      <Text style={styles.itemUnit}>
+                        {' '}({sizeKey})
+                      </Text>
+                    </Text>
+
+                    <Text style={styles.itemPrice}>
+                      {formatPrice(item.price * (item.quantity || 1))}
+                    </Text>
+                  </View>
+
+                  <View style={styles.itemControls}>
+                    <View style={styles.quantityControls}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const itemUnit = item.variantSize || item.unit || item.packSize || 'шт';
+                          removeOne(item.id, itemUnit);
+                        }}
+                        style={styles.quantityButton}
+                      >
+                        <Ionicons name="remove" size={16} color="black" />
+                      </TouchableOpacity>
+
+                      <Text style={styles.quantityText}>{item.quantity || 1}</Text>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          const itemUnit = item.variantSize || item.unit || item.packSize || 'шт';
+                          addOne(item.id, itemUnit);
+                        }}
+                        style={styles.quantityButton}
+                      >
+                        <Ionicons name="add" size={16} color="black" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        Vibration.vibrate(100);
+                        removeItem(compositeId);
+                      }}
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#999" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+              );
+            })}
 
-                <TouchableOpacity 
-                  onPress={() => {
-                    Vibration.vibrate(100);
-                    const sizeKey = (item as any).variantSize || (item as any).packSize || (item as any).unit || 'шт';
-                    const compositeId = `${item.id}-${String(sizeKey)}`;
-                    removeItem(compositeId);
-                  }}
-                  style={styles.deleteButton}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#999" />
+            <View style={styles.footer}>
+              <Text style={styles.promoLabel}>Промокод</Text>
+              <View style={styles.promoContainer}>
+                <TextInput
+                  placeholder="Введіть код"
+                  value={promoCode}
+                  onChangeText={setPromoCode}
+                  autoCapitalize="characters"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.promoInput}
+                />
+
+                <TouchableOpacity onPress={applyPromo} style={styles.promoButton}>
+                  <Text style={styles.promoButtonText}>Застосувати</Text>
                 </TouchableOpacity>
               </View>
+
+              {(discount > 0 || discountAmount > 0) && (
+                <Text style={styles.discountText}>
+                  Промокод {appliedPromoCode} застосовано!
+                  {discount > 0 ? ` Знижка ${discount * 100}%` : ` Знижка ${Math.round(discountAmount)} ₴`} 🎉
+                </Text>
+              )}
+
+              <Text style={styles.totalText}>
+                <Text>Разом: </Text>
+                <Text>{formatPrice(totalAmount)}</Text>
+              </Text>
+
+              <TouchableOpacity
+                disabled={cartItems.length === 0}
+                onPress={async () => {
+                  try {
+                    trackEvent('InitiateCheckout', {
+                      value: totalAmount,
+                      currency: 'UAH',
+                      num_items: cartItems.length,
+                      content_ids: cartItems.map((i: any) => i.id),
+                      content_type: 'product',
+                      items: cartItems.map((i: any) => ({
+                        item_id: i.id,
+                        item_name: i.name,
+                        price: i.price,
+                        quantity: i.quantity || 1
+                      }))
+                    });
+
+                    logFirebaseEvent('begin_checkout', {
+                      currency: 'UAH',
+                      value: totalAmount,
+                      items: cartItems.map((i: any) => ({
+                        item_id: String(i.id),
+                        item_name: i.name,
+                        price: i.price,
+                        quantity: i.quantity || 1
+                      }))
+                    });
+                  } catch (error) {
+                    console.error('Error logging begin checkout:', error);
+                  }
+
+                  router.push('/checkout');
+                }}
+                style={[
+                  styles.checkoutButton,
+                  cartItems.length === 0 && styles.checkoutButtonDisabled
+                ]}
+              >
+                <Text style={styles.checkoutButtonText}>Оформити замовлення</Text>
+              </TouchableOpacity>
             </View>
-          );
-        }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
-
-      {cartItems.length > 0 && (
-        <View style={styles.footer}>
-          <View style={styles.promoContainer}>
-            <TextInput
-              placeholder="Промокод (напр. START)"
-              value={promoCode}
-              onChangeText={setPromoCode}
-              autoCapitalize="characters"
-              style={styles.promoInput}
-            />
-            <TouchableOpacity onPress={applyPromo} style={styles.promoButton}>
-              <Text style={styles.promoButtonText}>Застосувати</Text>
-            </TouchableOpacity>
-          </View>
-
-          {(discount > 0 || discountAmount > 0) && (
-            <Text style={styles.discountText}>
-              Промокод {appliedPromoCode} застосовано! 
-              {discount > 0 ? ` Знижка ${discount * 100}%` : ` Знижка ${Math.round(discountAmount)} ₴`} 🎉
-            </Text>
-          )}
-
-          <Text style={styles.totalText}>
-            <Text>Разом: </Text>
-            <Text>{formatPrice(totalAmount)}</Text>
-          </Text>
-
-          <TouchableOpacity
-            disabled={cartItems.length === 0}
-            onPress={async () => {
-              // Отправка события начала оформления заказа в аналитику
-              const productsForAnalytics = cartItems.map((item: Product) => ({
-                ...item,
-                title: item.name,
-                price: item.price
-              }));
-              
-              try {
-                trackEvent('InitiateCheckout', {
-                  value: totalAmount,
-                  currency: 'UAH',
-                  num_items: cartItems.length,
-                  content_ids: cartItems.map((i: any) => i.id),
-                  content_type: 'product',
-                  items: cartItems.map((i: any) => ({ item_id: i.id, item_name: i.name, price: i.price, quantity: i.quantity || 1 }))
-                });
-
-                logFirebaseEvent('begin_checkout', {
-                  currency: 'UAH',
-                  value: totalAmount,
-                  items: cartItems.map((i: any) => ({ item_id: String(i.id), item_name: i.name, price: i.price, quantity: i.quantity || 1 }))
-                });
-              } catch (error) {
-                console.error('Error logging begin checkout:', error);
-              }
-              
-              router.push('/checkout');
-            }}
-            style={[
-              styles.checkoutButton,
-              cartItems.length === 0 && styles.checkoutButtonDisabled
-            ]}
-          >
-            <Text style={styles.checkoutButtonText}>Оформити замовлення</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          </>
+        )}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -359,9 +369,9 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   emptyContainer: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
-    justifyContent: 'center',  // Центрируем по вертикали
+    justifyContent: 'center',
     alignItems: 'center',
   },
   emptyView: {
@@ -409,9 +419,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  listContent: {
+  scrollContent: {
     padding: 20,
-    paddingBottom: 280,
+    paddingBottom: 190,
   },
   itemContainer: {
     flexDirection: 'row',
@@ -482,29 +492,44 @@ const styles = StyleSheet.create({
   footer: {
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 42 : 72,
-    marginBottom: Platform.OS === 'ios' ? 24 : 92,
+    marginTop: 4,
+    marginBottom: Platform.OS === 'ios' ? 54 : 74,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#fff',
+    borderRadius: 16,
+  },
+  promoLabel: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
   },
   promoContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
-    marginTop: 10,
+    marginTop: 8,
+    gap: 10,
   },
   promoInput: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 10,
-    marginRight: 10,
-    fontSize: 14,
+    height: 48,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    fontSize: 15,
+    color: '#111827',
   },
   promoButton: {
+    height: 48,
+    minWidth: 112,
     backgroundColor: '#2E7D32',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   promoButtonText: {
@@ -541,6 +566,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+
 
 
 
