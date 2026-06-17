@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+﻿/* eslint-disable @typescript-eslint/no-unused-vars */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
+    paddingBottom: 280,
   },
   itemContainer: {
     flexDirection: 'row',
@@ -480,7 +481,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'ios' ? 42 : 72,
+    marginBottom: Platform.OS === 'ios' ? 24 : 92,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#fff',
@@ -539,4 +541,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+
 
