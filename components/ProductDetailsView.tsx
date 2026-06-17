@@ -274,7 +274,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   return (
     <View style={styles.root}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 205 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 195 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
       {/* 1. Фото товара (Carousel start) */}
@@ -479,7 +479,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       </View>
       </ScrollView>
 
-      <View style={[styles.stickyCartBar, { bottom: 66 + insets.bottom, paddingBottom: 10 }]}>
+      <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4), paddingBottom: 10 }]}>
         <TouchableOpacity
           style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
           onPress={onAddToCart}
