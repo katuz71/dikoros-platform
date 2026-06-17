@@ -1,5 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -37,9 +38,11 @@ export default function NewsScreen() {
     try {
       setError('');
       const response = await fetch(`${API_URL}${API_ENDPOINTS.newsPage}`);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
+
       const data = await response.json();
       setPage(data);
     } catch (err) {
@@ -74,7 +77,23 @@ export default function NewsScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title={page?.title || 'Акції'} showBack showSearch showCart />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.pageTitleRow}>
+        <TouchableOpacity
+          onPress={() => router.replace('/(tabs)' as any)}
+          style={styles.pageBackButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
+        <Text style={styles.pageTitle} numberOfLines={1}>
+          {page?.title || 'Акції'}
+        </Text>
+
+        <View style={styles.pageBackButton} />
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -82,17 +101,16 @@ export default function NewsScreen() {
         </View>
       ) : (
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           {(page?.sections || []).map((section, index) => (
             <TouchableOpacity
-              key={index}
+              key={`${section.heading || 'promo'}-${index}`}
               style={styles.card}
               activeOpacity={0.88}
               onPress={() => openPromotion(section)}
@@ -104,11 +122,15 @@ export default function NewsScreen() {
                   resizeMode="cover"
                 />
               )}
+
               {!!section.heading && (
                 <Text style={styles.cardTitle}>{section.heading}</Text>
               )}
+
               {!!section.body && (
-                <Text style={styles.cardText}>{section.body}</Text>
+                <Text style={styles.cardText} numberOfLines={4}>
+                  {section.body}
+                </Text>
               )}
             </TouchableOpacity>
           ))}
@@ -126,30 +148,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAF8',
-    paddingTop: 48,
   },
-  header: {
-    height: 56,
-    paddingHorizontal: 16,
+  pageTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAF8',
+    justifyContent: 'center',
   },
-  backButton: {
+  pageBackButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
+  pageTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '900',
-    color: '#111',
+    color: '#111827',
   },
-  headerSpacer: {
-    width: 44,
+  scroll: {
+    flex: 1,
   },
   center: {
     flex: 1,
@@ -157,13 +179,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 120,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 18,
+    padding: 14,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -177,8 +200,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#111',
+    fontWeight: '900',
+    color: '#111827',
     marginBottom: 8,
   },
   cardText: {

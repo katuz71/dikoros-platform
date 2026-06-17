@@ -101,7 +101,7 @@ export default function Layout() {
     const restoreBiometric = async () => {
       const restored = await tryRestoreBiometricSession();
       if (mounted && restored) {
-        router.replace('/(tabs)/profile' as any);
+        router.replace('/(tabs)' as any);
       }
     };
 

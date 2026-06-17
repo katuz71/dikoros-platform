@@ -27,6 +27,7 @@ type AppHeaderProps = {
   onTrash?: () => void;
   showLogout?: boolean;
   onLogout?: () => void;
+  onLogoPress?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -51,6 +52,7 @@ export function AppHeader({
   onTrash,
   showLogout = false,
   onLogout,
+  onLogoPress,
   style,
 }: AppHeaderProps) {
   const router = useRouter();
@@ -87,13 +89,19 @@ export function AppHeader({
           )}
         </View>
 
-        <View pointerEvents="none" style={styles.centerArea}>
+        <View style={styles.centerArea}>
           {showLogo ? (
-            <Image
-              source={require('../assets/images/dikoros-logo.webp')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onLogoPress || (() => router.replace('/(tabs)' as any))}
+              style={styles.logoButton}
+            >
+              <Image
+                source={require('../assets/images/dikoros-logo.webp')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
           ) : (
             <>
               {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
@@ -208,6 +216,12 @@ const styles = StyleSheet.create({
   iconButtonPlaceholder: {
     width: 40,
     height: 40,
+  },
+  logoButton: {
+    minWidth: 150,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logo: {
     width: 132,

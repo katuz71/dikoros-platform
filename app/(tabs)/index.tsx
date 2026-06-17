@@ -1178,6 +1178,26 @@ export default function Index() {
   const bannerRef = useRef<ScrollView>(null);
   const categoryTabsRef = useRef<ScrollView>(null);
 
+  const showHomeScreen = useCallback(() => {
+    setCategoryViewOpen(false);
+    setSelectedCategory('');
+    setSearchQuery('');
+    setIsSearchVisible(false);
+    setFilterModalVisible(false);
+    setOnlyAvailable(false);
+    setOnlyPromo(false);
+    setPriceFrom('');
+    setPriceTo('');
+    setSortType('popular');
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+
+  useEffect(() => {
+    if (params.homeReset) {
+      showHomeScreen();
+    }
+  }, [params.homeReset, showHomeScreen]);
+
 
   // Автоматическая прокрутка баннеров
   useEffect(() => {
@@ -1650,7 +1670,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites showCart onLogoPress={showHomeScreen} />
 
       {!categoryViewOpen && (
         <View style={styles.categoriesList}>
@@ -1771,6 +1791,7 @@ export default function Index() {
 
       {!categoryViewOpen && (
         <ScrollView
+          ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
           style={{ flex: 1, width: '100%', backgroundColor: '#f5f5f5' }}
           contentContainerStyle={{ paddingBottom: 120, backgroundColor: '#f5f5f5' }}

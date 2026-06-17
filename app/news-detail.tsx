@@ -1,5 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -88,7 +89,23 @@ export default function NewsDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Акція" showBack showSearch showCart />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.pageTitleRow}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.pageBackButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
+        <Text style={styles.pageTitle} numberOfLines={1}>
+          Акція
+        </Text>
+
+        <View style={styles.pageBackButton} />
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -96,11 +113,10 @@ export default function NewsDetailScreen() {
         </View>
       ) : (
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -124,30 +140,83 @@ export default function NewsDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F4F4' },
-  header: {
-    height: 64,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAF8',
+  },
+  pageTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 44,
-    height: 44,
     justifyContent: 'center',
   },
-  headerSpacer: { width: 44 },
-  title: { fontSize: 18, fontWeight: '800', color: '#111' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, paddingBottom: 40 },
-  card: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden' },
-  image: { width: '100%', height: 220, backgroundColor: '#EEE' },
-  date: { fontSize: 13, color: '#6B7280', paddingHorizontal: 16, paddingTop: 16 },
-  heading: { fontSize: 22, fontWeight: '900', color: '#111', paddingHorizontal: 16, paddingTop: 8 },
-  body: { fontSize: 16, lineHeight: 24, color: '#333', padding: 16 },
-  error: { color: '#B00020', marginBottom: 12, fontWeight: '700' },
+  pageBackButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  scroll: {
+    flex: 1,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 120,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  image: {
+    width: '100%',
+    height: 230,
+    backgroundColor: '#EEF2EE',
+  },
+  date: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2E7D32',
+  },
+  heading: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    fontSize: 22,
+    lineHeight: 29,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  body: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 18,
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#374151',
+  },
+  error: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#B91C1C',
+    marginBottom: 14,
+  },
 });

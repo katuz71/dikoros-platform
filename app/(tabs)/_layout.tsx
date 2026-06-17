@@ -23,6 +23,11 @@ export default function TabLayout() {
           title: 'Головна',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('index' as never, { homeReset: String(Date.now()) } as never);
+          },
+        })}
       />
       <Tabs.Screen
         name="favorites"
