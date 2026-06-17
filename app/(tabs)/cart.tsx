@@ -104,26 +104,43 @@ export default function CartScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <AppHeader
-        title="Кошик"
-        showBack
-        backIcon="close"
-        showSearch
-        showTrash={cartItems.length > 0}
-        onTrash={() => {
-          Alert.alert("Очистити кошик?", "Всі товари будуть видалені з кошика.", [
-            { text: "Скасувати", style: "cancel" },
-            {
-              text: "Очистити",
-              style: "destructive",
-              onPress: () => {
-                clearCart();
-                Vibration.vibrate(100);
-              }
-            }
-          ]);
-        }}
-      />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.unifiedTitleButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="close" size={26} color="#111827" />
+        </TouchableOpacity>
+
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Кошик</Text>
+
+        {cartItems.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert("Очистити кошик?", "Всі товари будуть видалені з кошика.", [
+                { text: "Скасувати", style: "cancel" },
+                {
+                  text: "Очистити",
+                  style: "destructive",
+                  onPress: () => {
+                    clearCart();
+                    Vibration.vibrate(100);
+                  }
+                }
+              ]);
+            }}
+            style={styles.unifiedTitleButton}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="trash-outline" size={23} color="#EF4444" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.unifiedTitleButton} />
+        )}
+      </View>
 
       <FlatList
         data={cartItems}
@@ -288,6 +305,27 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

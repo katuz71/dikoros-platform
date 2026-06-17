@@ -250,7 +250,13 @@ export default function FavoritesScreen() {
   if (favorites.length === 0) {
     return (
       <View style={styles.container}>
-        <AppHeader title="Обране" showSearch showCart />
+        <AppHeader showLogo showSearch showFavorites showCart />
+
+        <View style={styles.unifiedTitleRow}>
+          <View style={styles.unifiedTitleButton} />
+          <Text style={styles.unifiedTitle} numberOfLines={1}>Обране</Text>
+          <View style={styles.unifiedTitleButton} />
+        </View>
         
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconContainer}>
@@ -275,7 +281,19 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Обране" showSearch showCart showTrash={favorites.length > 0} onTrash={clearAllFavorites} />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <View style={styles.unifiedTitleButton} />
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Обране</Text>
+        <TouchableOpacity
+          onPress={clearAllFavorites}
+          style={styles.unifiedTitleButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="trash-outline" size={23} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
 
       {/* Список товаров */}
       <FlatList
@@ -332,6 +350,27 @@ export default function FavoritesScreen() {
 }
 
 const styles = StyleSheet.create({
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',

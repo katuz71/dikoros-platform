@@ -511,7 +511,21 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      <AppHeader title="Оформлення замовлення" showBack showSearch showCart />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.unifiedTitleButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Оформлення замовлення</Text>
+
+        <View style={styles.unifiedTitleButton} />
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {!isLoggedIn && (
@@ -743,6 +757,27 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   scrollContent: { padding: 15, paddingBottom: 50 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 20, color: '#333', textAlign: 'center' },
   guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },

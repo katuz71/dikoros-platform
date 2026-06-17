@@ -713,7 +713,13 @@ export default function ProfileScreen() {
   // === ЭКРАН ГОСТЯ ===
   const renderGuestView = () => (
     <View style={styles.container}>
-      <AppHeader title="Профіль" showSearch showCart />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <View style={styles.unifiedTitleButton} />
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+        <View style={styles.unifiedTitleButton} />
+      </View>
 
       <ScrollView 
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -782,7 +788,19 @@ export default function ProfileScreen() {
     return (
 
         <View style={styles.container}>
-          <AppHeader title="Профіль" showSearch showCart showLogout onLogout={handleLogout} />
+          <AppHeader showLogo showSearch showFavorites showCart />
+
+          <View style={styles.unifiedTitleRow}>
+            <View style={styles.unifiedTitleButton} />
+            <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={styles.unifiedTitleButton}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
 
           <ScrollView 
             contentContainerStyle={{ paddingBottom: 100 }}
@@ -1046,6 +1064,27 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   container: { flex: 1 },
   
   // GUEST
