@@ -96,7 +96,19 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Мої замовлення" showBack showSearch showCart />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.unifiedTitleButton}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Замовлення</Text>
+        <View style={styles.unifiedTitleButton} />
+      </View>
 
       <FlatList
         data={orders}
@@ -128,6 +140,27 @@ export default function OrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   header: {
     backgroundColor: '#FFF', paddingHorizontal: 20, paddingBottom: 16, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -135,7 +168,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   backBtn: { padding: 5 },
-  list: { padding: 15 },
+  list: { padding: 15, paddingBottom: 130 },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 15 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
   orderId: { fontWeight: 'bold', fontSize: 16 },

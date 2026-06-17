@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ContactPreference = 'call' | 'telegram' | 'viber';
 
@@ -62,8 +62,6 @@ const splitFullName = (value: string) => {
 
 export default function ProfileInfoScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [phone, setPhone] = useState('');
@@ -188,12 +186,14 @@ export default function ProfileInfoScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }]}> 
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color="#1F2937" />
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <TouchableOpacity style={styles.unifiedTitleButton} onPress={() => router.back()} activeOpacity={0.75}>
+          <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Особиста інформація</Text>
-        <View style={styles.headerButton} />
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Особиста інформація</Text>
+        <View style={styles.unifiedTitleButton} />
       </View>
 
       {loading ? (
@@ -313,6 +313,27 @@ export default function ProfileInfoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
+  unifiedTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unifiedTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+  },
   header: {
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
@@ -340,7 +361,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 120,
+    paddingBottom: 130,
   },
   label: {
     marginBottom: 6,

@@ -294,30 +294,11 @@ def auth_user(ua: UserAuth):
 
 @router.get("/user/{identifier}")
 def get_user_by_phone(identifier: str):
-    """
-    Поиск пользователя по номеру телефона.
-    Ищет в таблице app_users.
-    """
-    conn = get_db_connection()
-    c = conn.cursor()
-    identifier = (identifier or "").strip()
-    if not identifier:
-        conn.close()
-        raise HTTPException(status_code=400, detail="identifier is required")
-    clean_phone = normalize_phone(identifier)
-    if not clean_phone:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Invalid phone")
-    row = c.execute(
-        "SELECT id, telegram_id, phone, name, bonus_balance FROM app_users WHERE phone = ?",
-        (clean_phone,),
-    ).fetchone()
-    conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="User not found")
-    r = dict(row)
-    r["auth_id"] = None  # поиск только по телефону
-    return r
+    """Legacy phone lookup is intentionally disabled. Use /api/user/me with Bearer JWT."""
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy phone user lookup is disabled. Use /api/user/me with authorization.",
+    )
 
 
 @router.post("/api/auth/social-login")

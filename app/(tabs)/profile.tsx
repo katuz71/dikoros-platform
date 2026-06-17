@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+﻿/* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState , useEffect } from 'react';
 
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Modal,
@@ -53,7 +54,7 @@ export default function ProfileScreen() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   
   // Reviews State
@@ -159,15 +160,52 @@ export default function ProfileScreen() {
     return parts.join(' ');
   };
 
+  const clearAuthSession = async () => {
+    await AsyncStorage.multiRemove([
+      'accessToken',
+      'userPhone',
+      'userName',
+    ]);
+    setPhone('');
+    setProfile(null);
+  };
+
   const checkLogin = async () => {
-    const storedPhone = await AsyncStorage.getItem('userPhone');
-    if (storedPhone) {
-      const canon = canonicalizePhone(storedPhone);
-      if (canon && canon !== storedPhone) {
-        await AsyncStorage.setItem('userPhone', canon);
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      const storedPhone = await AsyncStorage.getItem('userPhone');
+
+      if (!accessToken) {
+        await clearAuthSession();
+        return;
       }
-      setPhone(canon);
-      fetchData(canon);
+
+      const res = await fetch(`${API_URL}/api/user/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403 || res.status === 404) {
+          await clearAuthSession();
+        }
+        return;
+      }
+
+      const user: UserProfile = await res.json();
+      const profilePhone = canonicalizePhone(user.phone || storedPhone || '');
+
+      if (profilePhone) {
+        await AsyncStorage.setItem('userPhone', profilePhone);
+      }
+
+      setPhone(profilePhone);
+      setProfile(user);
+      fetchUserReviews();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+      setAuthReady(true);
     }
   };
 
@@ -212,25 +250,41 @@ export default function ProfileScreen() {
   };
 
   // 2. Загрузка данных
-  const fetchData = async (phoneNumber: string) => {
+  const fetchData = async (_phoneNumber?: string) => {
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
       if (!accessToken) {
-        setProfile(null);
+        await clearAuthSession();
         return;
       }
 
       const resUser = await fetch(`${API_URL}/api/user/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (resUser.ok) setProfile(await resUser.json());
 
+      if (!resUser.ok) {
+        if (resUser.status === 401 || resUser.status === 403 || resUser.status === 404) {
+          await clearAuthSession();
+        }
+        return;
+      }
+
+      const user: UserProfile = await resUser.json();
+      const profilePhone = canonicalizePhone(user.phone || _phoneNumber || '');
+
+      if (profilePhone) {
+        await AsyncStorage.setItem('userPhone', profilePhone);
+      }
+
+      setPhone(profilePhone);
+      setProfile(user);
       fetchUserReviews();
     } catch (e) {
       console.error(e);
     } finally {
       setRefreshing(false);
+      setAuthReady(true);
     }
   };
 
@@ -440,9 +494,8 @@ export default function ProfileScreen() {
 
   const handleGoogleLinkStart = async () => {
     const accessToken = await AsyncStorage.getItem('accessToken');
-    const storedPhone = await AsyncStorage.getItem('userPhone');
 
-    if (!accessToken || !storedPhone) {
+    if (!accessToken || !profile?.phone_verified) {
       Alert.alert(
         'Потрібен SMS-вхід',
         'Спочатку увійдіть за номером телефону через SMS, потім прив’яжіть Google.'
@@ -484,18 +537,19 @@ export default function ProfileScreen() {
         return;
       }
 
-      const authId = result.auth_id || result.phone || phone;
-      if (authId) {
-        await AsyncStorage.setItem('userPhone', authId);
-        setPhone(authId);
-        fetchData(authId);
-      }
-
       if (result.access_token) {
         await AsyncStorage.setItem('accessToken', result.access_token);
       }
 
+      const authId = canonicalizePhone(result.phone || phone || '');
+
+      if (authId) {
+        await AsyncStorage.setItem('userPhone', authId);
+        setPhone(authId);
+      }
+
       setProfile(result);
+      fetchData(authId);
       Alert.alert('Готово', 'Google успішно прив’язано до вашого акаунта.');
     } catch (error) {
       console.error(error);
@@ -665,18 +719,18 @@ export default function ProfileScreen() {
       <View style={styles.gridContainer}>
         <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
         <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
-        <GridBtn icon="heart-outline" label="Мої списки" onPress={() => router.push('/(tabs)/favorites')} />
-        <GridBtn icon="person-outline" label="Інформація" onPress={openInfoModal} />
+        <GridBtn icon="heart-outline" label="Обране" onPress={() => router.push('/(tabs)/favorites')} />
+        <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoModal} />
       </View>
 
       {/* СПИСКИ МЕНЮ */}
       <MenuSection title="Бонуси та знижки">
-        <MenuItem label="Мої винагороди" onPress={() => setModalVisible(true)} />
-        <MenuItem label="Бонуси на покупки" onPress={() => setModalVisible(true)} />
+        <MenuItem label="Бонуси / кешбек" onPress={() => setModalVisible(true)} />
+        <MenuItem label="Умови кешбеку" onPress={() => setModalVisible(true)} />
       </MenuSection>
 
       <MenuSection title="Моя активність">
-        <MenuItem label="Моя сторінка" onPress={openInfoModal} />
+        <MenuItem label="Особиста інформація" onPress={openInfoModal} />
         <MenuItem label="Мої відгуки" isLast onPress={() => setReviewsModalVisible(true)} />
       </MenuSection>
 
@@ -710,6 +764,22 @@ export default function ProfileScreen() {
     </>
   );
 
+  const renderLoadingView = () => (
+    <View style={styles.container}>
+      <AppHeader showLogo showSearch showFavorites showCart />
+
+      <View style={styles.unifiedTitleRow}>
+        <View style={styles.unifiedTitleButton} />
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+        <View style={styles.unifiedTitleButton} />
+      </View>
+
+      <View style={styles.loadingBox}>
+        <ActivityIndicator size="large" color="#458B00" />
+      </View>
+    </View>
+  );
+
   // === ЭКРАН ГОСТЯ ===
   const renderGuestView = () => (
     <View style={styles.container}>
@@ -722,7 +792,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 130 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
       <View style={styles.welcomeBlock}>
@@ -803,7 +873,7 @@ export default function ProfileScreen() {
           </View>
 
           <ScrollView 
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 130 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           >
 
@@ -886,7 +956,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={{flex: 1, backgroundColor: '#F4F4F4'}}>
-      {phone ? renderUserView() : renderGuestView()}
+      {authReady ? (profile ? renderUserView() : renderGuestView()) : renderLoadingView()}
       {/* МОДАЛКА ВХОДА */}
       <Modal visible={showLoginModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -1086,6 +1156,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   container: { flex: 1 },
+  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   
   // GUEST
   guestHeader: { backgroundColor: '#458B00', padding: 20, paddingTop: 60, alignItems: 'center' },
@@ -1175,6 +1246,7 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
 
 
 
