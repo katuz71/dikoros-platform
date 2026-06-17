@@ -150,7 +150,7 @@ export default function Layout() {
               <Stack.Screen name="profile-info" options={{ headerShown: false }} />
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
-            {showFloatingChat && <FloatingChatButton bottomOffset={96} />}
+            {showFloatingChat && <FloatingChatButton bottomOffset={142} />}
             {!pathname?.includes('oauthredirect') && <AppFooter />}
             <GlobalSearchModal />
             <WelcomeBonusModal />

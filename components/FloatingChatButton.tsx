@@ -2,13 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FloatingChatButtonProps {
   bottomOffset?: number;
 }
 
-export function FloatingChatButton({ bottomOffset = 110 }: FloatingChatButtonProps) {
+export function FloatingChatButton({ bottomOffset = 142 }: FloatingChatButtonProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function FloatingChatButton({ bottomOffset = 110 }: FloatingChatButtonPro
       style={[
         styles.floatingContainer, 
         { 
-          bottom: bottomOffset,
+          bottom: bottomOffset + Math.max(insets.bottom, 4),
           transform: [{ scale: scaleAnim }] 
         }
       ]}
