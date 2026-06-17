@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,15 @@ const OrderItem = ({ order, onPress, formatPrice }: any) => (
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const closeOrders = () => {
+    if (params.from === 'profile') {
+      router.replace('/(tabs)/profile' as any);
+      return;
+    }
+
+    router.back();
+  };
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,7 +109,7 @@ export default function OrdersScreen() {
 
       <View style={styles.unifiedTitleRow}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={closeOrders}
           style={styles.unifiedTitleButton}
           activeOpacity={0.75}
         >

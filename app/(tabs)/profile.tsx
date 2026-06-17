@@ -425,10 +425,10 @@ export default function ProfileScreen() {
   const renderCommonMenu = () => (
     <>
       <View style={styles.gridContainer}>
-        <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
+        <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push({ pathname: '/(tabs)/orders', params: { from: 'profile' } } as any)} />
         <GridBtn icon="heart-outline" label="Обране" onPress={() => router.push('/(tabs)/favorites')} />
         <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoPage} />
-        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => router.push('/(tabs)/chat' as any)} />
+        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => router.push({ pathname: '/(tabs)/chat', params: { from: 'profile' } } as any)} />
       </View>
 
       <MenuSection title="Бонуси та кешбек">
