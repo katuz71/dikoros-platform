@@ -599,7 +599,6 @@ export default function Index() {
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [quantity, setQuantity] = useState(1);
-  const [welcomeBonusVisible, setWelcomeBonusVisible] = useState(false);
 
   // --- ADVANCED VARIATION LOGIC ---
   const [variationGroups, setVariationGroups] = useState<any[]>([]);
@@ -961,44 +960,6 @@ export default function Index() {
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
-
-  const closeWelcomeBonus = async () => {
-    setWelcomeBonusVisible(false);
-    await AsyncStorage.setItem('dikoros_welcome_bonus_seen_v1', '1');
-  };
-
-  const startWelcomeBonusRegistration = async () => {
-    await closeWelcomeBonus();
-    router.push({
-      pathname: '/(tabs)/profile',
-      params: { openLogin: 'true' },
-    } as any);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const checkWelcomeBonus = async () => {
-      const [seen, accessToken] = await Promise.all([
-        AsyncStorage.getItem('dikoros_welcome_bonus_seen_v1'),
-        AsyncStorage.getItem('accessToken'),
-      ]);
-
-      if (!mounted || seen || accessToken) return;
-
-      timer = setTimeout(() => {
-        if (mounted) setWelcomeBonusVisible(true);
-      }, 700);
-    };
-
-    checkWelcomeBonus().catch(() => {});
-
-    return () => {
-      mounted = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
 
 
   useEffect(() => {
@@ -2030,34 +1991,6 @@ export default function Index() {
         </ScrollView>
       )}
       <Modal
-        animationType="fade"
-        transparent
-        visible={welcomeBonusVisible}
-        onRequestClose={closeWelcomeBonus}
-      >
-        <View style={styles.welcomeBonusOverlay}>
-          <View style={styles.welcomeBonusCard}>
-            <View style={styles.welcomeBonusHeader}>
-              <Text style={styles.welcomeBonusTitle}>Вітаємо в DikorosUA</Text>
-              <TouchableOpacity onPress={closeWelcomeBonus} style={styles.welcomeBonusClose}>
-                <Ionicons name="close" size={30} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.welcomeBonusEmoji}>🎉</Text>
-
-            <Text style={styles.welcomeBonusText}>
-              Отримайте 150 грн бонусами за реєстрацію в застосунку
-            </Text>
-
-            <TouchableOpacity style={styles.welcomeBonusButton} onPress={startWelcomeBonusRegistration}>
-              <Text style={styles.welcomeBonusButtonText}>Почати</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
         animationType="slide"
         transparent
         visible={filterModalVisible && categoryViewOpen}
@@ -2581,69 +2514,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-  },
-  welcomeBonusOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.58)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-  },
-  welcomeBonusCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingHorizontal: 28,
-    paddingTop: 26,
-    paddingBottom: 28,
-    alignItems: 'center',
-  },
-  welcomeBonusHeader: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  welcomeBonusTitle: {
-    flex: 1,
-    color: '#333',
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '900',
-  },
-  welcomeBonusClose: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-  },
-  welcomeBonusEmoji: {
-    fontSize: 86,
-    marginBottom: 16,
-  },
-  welcomeBonusText: {
-    color: '#333',
-    fontSize: 25,
-    lineHeight: 32,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: 26,
-  },
-  welcomeBonusButton: {
-    width: '100%',
-    minHeight: 66,
-    borderRadius: 10,
-    backgroundColor: '#3F8F00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  welcomeBonusButtonText: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '900',
   },
 });
