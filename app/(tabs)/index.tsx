@@ -1183,6 +1183,7 @@ export default function Index() {
   const flatListRef = useRef<FlatList>(null);
   const chatFlatListRef = useRef<FlatList>(null);
   const bannerRef = useRef<ScrollView>(null);
+  const categoryTabsRef = useRef<ScrollView>(null);
 
 
   // Автоматическая прокрутка баннеров
@@ -1522,6 +1523,27 @@ export default function Index() {
   const promoProducts = catalogHomeLoaded ? homePromotions : fallbackPromoProducts;
   const newProducts = catalogHomeLoaded ? homeNewProducts : fallbackNewProducts;
 
+  const scrollCategoryTabsToIndex = (index: number) => {
+    const estimatedTabWidth = 118;
+    const targetX = Math.max(0, (index - 1) * estimatedTabWidth);
+
+    requestAnimationFrame(() => {
+      categoryTabsRef.current?.scrollTo({
+        x: targetX,
+        animated: true,
+      });
+    });
+  };
+
+  const openCategoryFromTab = (category: string, index: number) => {
+    scrollCategoryTabsToIndex(index);
+
+    setTimeout(() => {
+      setSelectedCategory(category);
+      setCategoryViewOpen(true);
+    }, 120);
+  };
+
   // Removed fetchProducts useEffect as we use local DB now
 
   // Auto-scrolling banner carousel
@@ -1690,41 +1712,50 @@ export default function Index() {
       {!categoryViewOpen && (
         <View style={styles.categoriesList}>
           <ScrollView
+            ref={categoryTabsRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingRight: 0 }}
+            contentContainerStyle={styles.categoriesContent}
           >
             <TouchableOpacity
-              key="news"
-              onPress={() => router.push('/news')}
-              style={[
-                styles.categoryItem,
-                { backgroundColor: '#E8F5E9', borderColor: '#2E7D32' }
-              ]}
+              key="all"
+              onPress={() => {
+                scrollCategoryTabsToIndex(0);
+                setCategoryViewOpen(false);
+                setSelectedCategory('');
+                setSearchQuery('');
+              }}
+              style={styles.categoryTab}
+              activeOpacity={0.8}
             >
-              <Text style={[
-                styles.categoryText,
-                { color: '#2E7D32', fontWeight: '800' }
-              ]}>
-                Акції
-              </Text>
+              <Text style={[styles.categoryText, styles.categoryTextActive]}>Усі</Text>
+              <View style={styles.categoryUnderlineActive} />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              key="news"
+              onPress={() => {
+                scrollCategoryTabsToIndex(1);
+                router.push('/news');
+              }}
+              style={styles.categoryTab}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.categoryText}>Акції</Text>
+              <View style={styles.categoryUnderline} />
+            </TouchableOpacity>
+
             {catalogCategories.map((cat, index) => (
               <TouchableOpacity
                 key={index}
-                onPress={() => {
-                  setSelectedCategory(cat);
-                  setCategoryViewOpen(true);
-                }}
-                style={[
-                  styles.categoryItem
-                ]}
+                onPress={() => openCategoryFromTab(cat, index + 2)}
+                style={styles.categoryTab}
+                activeOpacity={0.8}
               >
-                <Text style={[
-                  styles.categoryText
-                ]}>
+                <Text style={styles.categoryText} numberOfLines={1}>
                   {cat}
                 </Text>
+                <View style={styles.categoryUnderline} />
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -2478,27 +2509,44 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     paddingHorizontal: 0,
-    marginBottom: 15,
+    marginBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  categoryItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    backgroundColor: '#E8F5E9',
-    borderWidth: 1,
-    borderColor: '#2E7D32',
+  categoriesContent: {
+    paddingHorizontal: 18,
+    alignItems: 'center',
   },
-  categoryItemActive: {
-    backgroundColor: '#2E7D32',
+  categoryTab: {
+    paddingTop: 12,
+    paddingBottom: 0,
+    marginRight: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: '#1F2937',
   },
   categoryTextActive: {
-    color: '#fff',
+    color: '#2E7D32',
+    fontWeight: '900',
+  },
+  categoryUnderline: {
+    height: 3,
+    minWidth: 26,
+    marginTop: 9,
+    borderRadius: 2,
+    backgroundColor: 'transparent',
+  },
+  categoryUnderlineActive: {
+    height: 3,
+    minWidth: 34,
+    marginTop: 9,
+    borderRadius: 2,
+    backgroundColor: '#2E7D32',
   },
   emptyStateContainer: {
     flex: 1,
