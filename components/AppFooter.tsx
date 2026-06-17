@@ -1,4 +1,4 @@
-import { useCart } from '@/context/CartContext';
+﻿import { useCart } from '@/context/CartContext';
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
 import { useOrders } from '@/context/OrdersContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +82,7 @@ export function AppFooter() {
   const { openSearch } = useGlobalSearch();
   const { products, fetchProducts } = useOrders();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [legalMenuOpen, setLegalMenuOpen] = useState(false);
 
   const cartCount = items.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
 
@@ -122,7 +123,10 @@ export function AppFooter() {
     return false;
   };
 
-  const closeMenu = () => setMenuVisible(false);
+  const closeMenu = () => {
+    setMenuVisible(false);
+    setLegalMenuOpen(false);
+  };
 
   const goHome = () => {
     router.replace({
@@ -165,11 +169,13 @@ export function AppFooter() {
     title,
     subtitle,
     onPress,
+    rightIcon = 'chevron-forward',
   }: {
     icon: keyof typeof Ionicons.glyphMap;
     title: string;
     subtitle?: string;
     onPress: () => void;
+    rightIcon?: keyof typeof Ionicons.glyphMap;
   }) => (
     <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.78}>
       <View style={styles.menuIconBox}>
@@ -181,7 +187,26 @@ export function AppFooter() {
         {!!subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      <Ionicons name={rightIcon} size={18} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
+
+  const LegalMenuRow = ({
+    title,
+    page,
+    isLast = false,
+  }: {
+    title: string;
+    page: string;
+    isLast?: boolean;
+  }) => (
+    <TouchableOpacity
+      style={[styles.legalMenuRow, isLast && styles.legalMenuRowLast]}
+      onPress={() => menuAction(() => router.push({ pathname: '/policies', params: { page } } as any))}
+      activeOpacity={0.78}
+    >
+      <Text style={styles.legalMenuTitle}>{title}</Text>
+      <Ionicons name="chevron-forward" size={17} color="#9CA3AF" />
     </TouchableOpacity>
   );
 
@@ -318,6 +343,28 @@ export function AppFooter() {
                 subtitle="Написати менеджеру"
                 onPress={() => menuAction(() => router.push('/(tabs)/chat' as any))}
               />
+
+              <Text style={styles.menuSectionTitle}>Юридична інформація</Text>
+
+              <MenuRow
+                icon="document-text-outline"
+                title="Юридичні сторінки"
+                subtitle="Оплата, повернення, оферта, політика"
+                onPress={() => setLegalMenuOpen(prev => !prev)}
+                rightIcon={legalMenuOpen ? 'chevron-up' : 'chevron-down'}
+              />
+
+              {legalMenuOpen && (
+                <View style={styles.legalMenuBox}>
+                  <LegalMenuRow title="Оплата і доставка" page="delivery" />
+                  <LegalMenuRow title="Обмін та повернення" page="returns" />
+                  <LegalMenuRow title="Міжнародні відправки" page="international" />
+                  <LegalMenuRow title="Договір оферти" page="offer" />
+                  <LegalMenuRow title="Політика конфіденційності" page="privacy" />
+                  <LegalMenuRow title="Видалення акаунта" page="deleteAccount" />
+                  <LegalMenuRow title="Часті питання" page="faq" isLast />
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -497,4 +544,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6B7280',
   },
+  legalMenuBox: {
+    marginTop: -1,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  legalMenuRow: {
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingLeft: 18,
+    paddingRight: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  legalMenuRowLast: {
+    borderBottomWidth: 0,
+  },
+  legalMenuTitle: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#374151',
+  },
 });
+
