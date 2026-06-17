@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+﻿/* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -763,5 +763,6 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
+
 
 
