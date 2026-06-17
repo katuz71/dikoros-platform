@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 
 // --- ТИПЫ ---
@@ -43,6 +43,7 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   // Состояния
   const [phone, setPhone] = useState('');
@@ -111,6 +112,12 @@ export default function ProfileScreen() {
   useEffect(() => {
     checkLogin();
   }, []);
+
+  useEffect(() => {
+    if (params.openLogin === 'true' && !phone) {
+      setShowLoginModal(true);
+    }
+  }, [params.openLogin, phone]);
 
 
   const canonicalizePhone = (value: string) => {
