@@ -1721,9 +1721,9 @@ export default function Index() {
               key="all"
               onPress={() => {
                 scrollCategoryTabsToIndex(0);
-                setCategoryViewOpen(false);
                 setSelectedCategory('');
                 setSearchQuery('');
+                setCategoryViewOpen(true);
               }}
               style={styles.categoryTab}
               activeOpacity={0.8}
@@ -1782,7 +1782,7 @@ export default function Index() {
             </TouchableOpacity>
 
             <Text style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: '900', color: '#111' }} numberOfLines={1}>
-              {selectedCategory}
+              {selectedCategory || 'Усі товари'}
             </Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
