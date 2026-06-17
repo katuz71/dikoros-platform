@@ -1,4 +1,4 @@
-import { AppHeader } from '@/components/AppHeader';
+﻿import { AppHeader } from '@/components/AppHeader';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { trackEvent } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
   },
-  scrollContent: { padding: 15, paddingBottom: 50 },
+  scrollContent: { padding: 15, paddingBottom: 260 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 20, color: '#333', textAlign: 'center' },
   guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
   guestNoticeText: { color: '#2E7D32', fontSize: 14, fontWeight: '600', flex: 1, lineHeight: 19 },
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
   totalLabel: { fontSize: 20, fontWeight: 'bold' },
   totalValue: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50' },
-  submitBtn: { backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: 40 },
+  submitBtn: { backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: Platform.OS === 'ios' ? 110 : 150 },
   submitBtnDisabled: { backgroundColor: '#A3A3A3' },
   submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
   modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -839,3 +839,4 @@ const styles = StyleSheet.create({
   resultItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#EEE' },
   resultText: { fontSize: 16, color: '#333' },
 });
+
