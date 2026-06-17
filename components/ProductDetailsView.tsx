@@ -274,7 +274,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   return (
     <View style={styles.root}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 150 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 205 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
       {/* 1. Фото товара (Carousel start) */}
@@ -479,7 +479,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       </View>
       </ScrollView>
 
-      <View style={[styles.stickyCartBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.stickyCartBar, { bottom: 66 + insets.bottom, paddingBottom: 10 }]}>
         <TouchableOpacity
           style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
           onPress={onAddToCart}
@@ -543,8 +543,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingTop: 10,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#EEF0F2',
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 16,
   },
-  addToCartBtn: { backgroundColor: '#2E7D32', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  addToCartBtn: { backgroundColor: '#2E7D32', height: 52, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
   addToCartText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },

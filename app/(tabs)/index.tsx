@@ -1198,6 +1198,28 @@ export default function Index() {
     }
   }, [params.homeReset, showHomeScreen]);
 
+  useEffect(() => {
+    if (!params.categoryOpen) return;
+
+    const rawCategory = Array.isArray(params.category) ? params.category[0] : params.category;
+    const category = String(rawCategory || '').trim();
+
+    setSelectedCategory(category);
+    setSearchQuery('');
+    setIsSearchVisible(false);
+    setFilterModalVisible(false);
+    setOnlyAvailable(false);
+    setOnlyPromo(false);
+    setPriceFrom('');
+    setPriceTo('');
+    setSortType('popular');
+    setCategoryViewOpen(true);
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [params.categoryOpen, params.category]);
+
 
   // Автоматическая прокрутка баннеров
   useEffect(() => {

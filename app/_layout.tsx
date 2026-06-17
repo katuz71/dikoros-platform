@@ -1,3 +1,4 @@
+import { AppFooter } from '@/components/AppFooter';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
@@ -149,7 +150,8 @@ export default function Layout() {
               <Stack.Screen name="profile-info" options={{ headerShown: false }} />
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
-            {showFloatingChat && <FloatingChatButton bottomOffset={132} />}
+            {showFloatingChat && <FloatingChatButton bottomOffset={96} />}
+            {!pathname?.includes('oauthredirect') && <AppFooter />}
             <GlobalSearchModal />
             <WelcomeBonusModal />
           </View>
