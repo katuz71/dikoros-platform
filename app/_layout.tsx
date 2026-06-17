@@ -1,4 +1,4 @@
-import { AppFooter } from '@/components/AppFooter';
+﻿import { AppFooter } from '@/components/AppFooter';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
@@ -87,6 +87,7 @@ export default function Layout() {
   const pathname = usePathname();
   const router = useRouter();
   const showFloatingChat = !pathname?.endsWith('/chat');
+  const hideAppFooter = pathname?.includes('oauthredirect') || pathname?.endsWith('/chat');
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');
@@ -155,7 +156,7 @@ export default function Layout() {
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={142} />}
-            {!pathname?.includes('oauthredirect') && <AppFooter />}
+            {!hideAppFooter && <AppFooter />}
             <GlobalSearchModal />
             <WelcomeBonusModal />
           </View>
@@ -165,3 +166,4 @@ export default function Layout() {
     </SafeAreaProvider>
   );
 }
+

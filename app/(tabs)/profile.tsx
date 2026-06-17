@@ -1,4 +1,4 @@
-﻿/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -428,7 +428,7 @@ export default function ProfileScreen() {
         <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
         <GridBtn icon="heart-outline" label="Обране" onPress={() => router.push('/(tabs)/favorites')} />
         <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoPage} />
-        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
+        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => router.push('/(tabs)/chat' as any)} />
       </View>
 
       <MenuSection title="Бонуси та кешбек">

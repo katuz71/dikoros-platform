@@ -1,4 +1,4 @@
-import { AppHeader } from '@/components/AppHeader';
+﻿import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
@@ -152,6 +152,45 @@ const openViberChat = async () => {
     await Linking.openURL('tel:+380632526824');
   }
 };
+
+const SUPPORT_CONTACTS = [
+  {
+    icon: 'call' as const,
+    title: 'Роздрібні продажі',
+    value: '063-252-68-24',
+    subtitle: 'Подзвонити менеджеру',
+    action: 'tel:+380632526824',
+  },
+  {
+    icon: 'briefcase' as const,
+    title: 'Оптові закупівлі',
+    value: '066-365-97-77',
+    subtitle: 'Співробітництво та опт',
+    action: 'tel:+380663659777',
+  },
+  {
+    icon: 'chatbox-ellipses' as const,
+    title: 'Viber',
+    value: 'Написати у Viber',
+    subtitle: '+380 63 252 68 24',
+    action: 'viber',
+  },
+  {
+    icon: 'paper-plane' as const,
+    title: 'Telegram',
+    value: '@Dikorosua',
+    subtitle: 'Написати менеджеру',
+    action: 'https://t.me/Dikorosua',
+  },
+  {
+    icon: 'mail' as const,
+    title: 'Email',
+    value: 'dikorosua@gmail.com',
+    subtitle: 'Написати на пошту',
+    action: 'mailto:dikorosua@gmail.com',
+  },
+];
+
 
 const formatPrice = (price?: number) => {
   const safePrice = price || 0;
@@ -379,61 +418,85 @@ export default function ChatScreen() {
     );
   };
 
+  const openSupportContact = (action: string) => {
+    if (action === 'viber') {
+      openViberChat();
+      return;
+    }
+
+    openContactUrl(action);
+  };
+
+  const renderSupportContactButton = (contact: typeof SUPPORT_CONTACTS[number]) => (
+    <TouchableOpacity
+      key={contact.title}
+      style={styles.contactButton}
+      activeOpacity={0.85}
+      onPress={() => openSupportContact(contact.action)}
+    >
+      <View style={styles.contactButtonIcon}>
+        <Ionicons name={contact.icon} size={19} color="#2E7D32" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={styles.contactButtonTitle}>{contact.title}</Text>
+        <Text style={styles.contactButtonValue}>{contact.value}</Text>
+        <Text style={styles.contactButtonHint}>{contact.subtitle}</Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
+
   const renderManagerContactsCard = () => (
     <View style={styles.contactCard}>
       <View style={styles.contactHeaderRow}>
         <View style={styles.contactIconMain}>
           <Ionicons name="chatbubbles" size={22} color="#FFFFFF" />
         </View>
+
         <View style={{ flex: 1 }}>
           <Text style={styles.contactTitle}>Зв’язатися з менеджером</Text>
           <Text style={styles.contactSubtitle}>Оберіть зручний спосіб зв’язку</Text>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('tel:+380632526824')}>
-        <View style={styles.contactButtonIcon}>
-          <Ionicons name="call" size={19} color="#2E7D32" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.contactButtonTitle}>Телефон</Text>
-          <Text style={styles.contactButtonValue}>(063) 25 26 8 24</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-      </TouchableOpacity>
+      {SUPPORT_CONTACTS.map(renderSupportContactButton)}
+    </View>
+  );
 
-      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={openViberChat}>
-        <View style={styles.contactButtonIcon}>
-          <Ionicons name="chatbox-ellipses" size={19} color="#2E7D32" />
+  const renderSupportHeader = () => (
+    <View style={styles.supportHeaderWrap}>
+      <View style={styles.supportHero}>
+        <View style={styles.supportHeroIcon}>
+          <Ionicons name="headset" size={28} color="#FFFFFF" />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.contactButtonTitle}>Viber</Text>
-          <Text style={styles.contactButtonValue}>Написати у Viber</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('https://t.me/Dikorosua')}>
-        <View style={styles.contactButtonIcon}>
-          <Ionicons name="paper-plane" size={19} color="#2E7D32" />
-        </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.contactButtonTitle}>Telegram</Text>
-          <Text style={styles.contactButtonValue}>@Dikorosua</Text>
+          <Text style={styles.supportHeroTitle}>Підтримка DikorosUA</Text>
+          <Text style={styles.supportHeroText}>
+            Тут можна швидко зв’язатися з менеджером або поставити питання AI-консультанту нижче.
+          </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-      </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={styles.contactButton} activeOpacity={0.85} onPress={() => openContactUrl('mailto:dikorosua@gmail.com')}>
-        <View style={styles.contactButtonIcon}>
-          <Ionicons name="mail" size={19} color="#2E7D32" />
-        </View>
+      <View style={styles.scheduleCard}>
+        <Ionicons name="time-outline" size={22} color="#2E7D32" />
         <View style={{ flex: 1 }}>
-          <Text style={styles.contactButtonTitle}>Email</Text>
-          <Text style={styles.contactButtonValue}>dikorosua@gmail.com</Text>
+          <Text style={styles.scheduleTitle}>Графік роботи</Text>
+          <Text style={styles.scheduleText}>Будні: 9:00–19:00</Text>
+          <Text style={styles.scheduleText}>Субота та неділя: 9:00–18:00</Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-      </TouchableOpacity>
+      </View>
+
+      {renderManagerContactsCard()}
+
+      <View style={styles.chatIntroCard}>
+        <Text style={styles.chatIntroTitle}>AI-консультант</Text>
+        <Text style={styles.chatIntroText}>
+          Напишіть питання про товари, доставку, оплату або підбір продукції.
+        </Text>
+      </View>
     </View>
   );
 
@@ -463,8 +526,8 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9f9' }}>
       <AppHeader
-        title="Чат з експертом"
-        subtitle="Dikoros AI консультант"
+        title="Підтримка"
+        subtitle="Контакти менеджера та AI-консультант"
         showBack
         backIcon="close"
         showSearch
@@ -482,7 +545,7 @@ export default function ChatScreen() {
           data={messages}
           renderItem={renderItem}
           keyExtractor={(item) => `msg-${item.id}`}
-          contentContainerStyle={{ padding: 15, paddingBottom: 150 }}
+          contentContainerStyle={{ padding: 15, paddingBottom: 190 }}
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
@@ -491,6 +554,7 @@ export default function ChatScreen() {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
           }}
+          ListHeaderComponent={renderSupportHeader}
           ListFooterComponent={
             loading ? (
               <View style={styles.loadingContainer}>
@@ -554,6 +618,77 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+
+  supportHeaderWrap: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  supportHero: {
+    backgroundColor: '#1F2937',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  supportHeroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2E7D32',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportHeroTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 5,
+  },
+  supportHeroText: {
+    color: '#D1D5DB',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  scheduleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  scheduleTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  scheduleText: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+  },
+  chatIntroCard: {
+    backgroundColor: '#ECFDF3',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  chatIntroTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#14532D',
+    marginBottom: 4,
+  },
+  chatIntroText: {
+    fontSize: 14,
+    color: '#166534',
+    lineHeight: 20,
+  },
   bubble: {
     padding: 12,
     borderRadius: 16,
@@ -775,7 +910,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     alignItems: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 25 : 18,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 26,
+    marginBottom: Platform.OS === 'ios' ? 12 : 42,
   },
   input: {
     flex: 1,
@@ -797,3 +933,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
