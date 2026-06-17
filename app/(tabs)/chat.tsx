@@ -845,6 +845,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
+  contactButtonHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 1,
+  },
   header: {
     minHeight: Platform.OS === 'android' ? 86 : 70,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8,
@@ -933,4 +938,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
 
