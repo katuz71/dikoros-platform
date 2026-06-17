@@ -1,4 +1,4 @@
-﻿/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,8 +48,6 @@ export default function ProfileScreen() {
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   
-  // Reviews State
-
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: '451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com',
@@ -73,7 +71,7 @@ export default function ProfileScreen() {
       }
 
       if (!idToken) {
-        Alert.alert('??????? Google ?????', 'Google ?? ???????? ID token.');
+        Alert.alert('Помилка Google входу', 'Google не повернув ID token.');
         return;
       }
 
@@ -82,7 +80,7 @@ export default function ProfileScreen() {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
 
       console.warn('Google native sign-in failed:', error);
-      Alert.alert('??????? Google ?????', error?.message || '?? ??????? ?????? ????? Google.');
+      Alert.alert('Помилка Google входу', error?.message || 'Не вдалося увійти через Google.');
     }
   };
 
@@ -269,7 +267,6 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert('Помилка', 'Немає з’єднання');
-    } finally {
     }
   };
 
@@ -331,13 +328,20 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     Alert.alert('Вихід', 'Ви впевнені?', [
       { text: 'Ні', style: 'cancel' },
-      { 
-        text: 'Так', 
-        style: 'destructive', 
+      {
+        text: 'Так',
+        style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.removeItem('userPhone');
-        } 
-      }
+          await AsyncStorage.multiRemove([
+            'accessToken',
+            'userPhone',
+            'userName',
+          ]);
+          setPhone('');
+          setProfile(null);
+          setAuthReady(true);
+        },
+      },
     ]);
   };
 
