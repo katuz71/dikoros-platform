@@ -1,6 +1,7 @@
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { useRouter } from 'expo-router';
 import {
     Dimensions,
     ScrollView,
@@ -25,6 +26,8 @@ interface ProductDetailsViewProps {
   oldPrice?: number;
   activeRow: any;
   onAddToCart: () => void;
+  isInCart?: boolean;
+  cartButtonLabel?: string;
   onToggleFavorite: () => void;
   isFavorite: boolean;
   onShare: () => void;
@@ -56,6 +59,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   oldPrice,
   activeRow,
   onAddToCart,
+  isInCart = false,
+  cartButtonLabel,
   onToggleFavorite,
   isFavorite,
   onShare,
@@ -74,6 +79,31 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  const cartButtonSignature = React.useMemo(() => {
+    const selected = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
+    return `${Number(product?.id || 0)}::${clean(selected || product?.unit || 'шт')}::${clean(activeRow?.rowId || '')}`;
+  }, [product?.id, product?.unit, activeRow?.rowId, internalKeys, selectedOptions, clean]);
+
+  const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
+
+  React.useEffect(() => {
+    setLocalAddedToCart(false);
+  }, [cartButtonSignature]);
+
+  const resolvedIsInCart = isInCart || localAddedToCart;
+
+  const handleMainCartPress = React.useCallback(() => {
+    if (resolvedIsInCart) {
+      router.push('/(tabs)/cart' as any);
+      return;
+    }
+
+    setLocalAddedToCart(true);
+    onAddToCart();
+  }, [resolvedIsInCart, router, onAddToCart]);
+
 
   const cleanProductHtml = (html: any) => {
     const decode = (value: string) => {
@@ -482,10 +512,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4), paddingBottom: 10 }]}>
         <TouchableOpacity
           style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
-          onPress={onAddToCart}
+          onPress={handleMainCartPress}
           disabled={!activeAvailable}
         >
-          <Text style={styles.addToCartText}>{activeAvailable ? 'В кошик' : 'Немає в наявності'}</Text>
+          <Text style={styles.addToCartText}>{activeAvailable ? (resolvedIsInCart ? 'Перейти в кошик' : 'В кошик') : 'Немає в наявності'}</Text>
         </TouchableOpacity>
       </View>
     </View>

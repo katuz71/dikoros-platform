@@ -62,6 +62,7 @@ export default function ProductScreen() {
   
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [addedCartKeys, setAddedCartKeys] = useState<Record<string, boolean>>({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const cartCount = cartItems.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
@@ -673,6 +674,18 @@ export default function ProductScreen() {
 
   const isFavorite = favorites.some(f => f.id === displayProduct.id);
 
+  const activeSelections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
+  const activeSelectedUnit = displayProduct.unit || product.unit || 'шт';
+  const activeCartKey = activeSelections || activeSelectedUnit;
+  const activeCartSignature = `${Number(displayProduct.id)}::${clean(activeCartKey)}`;
+
+  const isCurrentProductInCart = !!addedCartKeys[activeCartSignature] || cartItems.some((item: any) => (
+    Number(item.id) === Number(displayProduct.id)
+    && clean(item.variantSize || item.packSize || item.unit || 'шт') === clean(activeCartKey)
+  ));
+
+  const productCartButtonLabel = isCurrentProductInCart ? 'Перейти в кошик' : 'В кошик';
+
   return (
     <SafeAreaView style={styles.container}>
        {/* Floating Header */}
@@ -865,7 +878,7 @@ export default function ProductScreen() {
        </Modal>
 
        {toastVisible && (
-         <Animated.View style={[styles.toast, { opacity: fadeAnim }]}>
+         <Animated.View style={[styles.toast, { opacity: fadeAnim, top: Math.max(insets.top + 74, 88) }]}>
            <Text style={styles.whiteText}>{toastMessage}</Text>
          </Animated.View>
        )}
@@ -884,7 +897,7 @@ const styles = StyleSheet.create({
   mainBtn: { backgroundColor: '#2E7D32', padding: 15, borderRadius: 12, marginTop: 20 },
   whiteText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   errorText: { fontSize: 16, color: '#666', textAlign: 'center', paddingHorizontal: 20 },
-  toast: { position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: 'rgba(30,30,30,0.9)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, zIndex: 1000 },
+  toast: { position: 'absolute', alignSelf: 'center', backgroundColor: 'rgba(30,30,30,0.92)', paddingHorizontal: 20, paddingVertical: 11, borderRadius: 25, zIndex: 1000, elevation: 30 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
