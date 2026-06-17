@@ -110,9 +110,13 @@ export default function ProductCard({
         )}
         
         <TouchableOpacity 
-          onPress={onFavoritePress}
+          onPress={(event) => {
+            event.stopPropagation();
+            onFavoritePress();
+          }}
           style={styles.favoriteButton}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons 
             name={isFavorite ? "heart" : "heart-outline"} 
@@ -142,9 +146,13 @@ export default function ProductCard({
           </View>
           
           <TouchableOpacity 
-            onPress={onCartPress}
+            onPress={(event) => {
+              event.stopPropagation();
+              onCartPress();
+            }}
             style={styles.cartButton}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons 
               name="cart-outline" 

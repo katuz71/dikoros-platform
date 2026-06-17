@@ -4,8 +4,8 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OrderItem = ({ order, onPress, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -43,8 +43,6 @@ const OrderItem = ({ order, onPress, formatPrice }: any) => (
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const headerTopInset = Math.max(insets.top, 18);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,13 +96,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: headerTopInset + 16 }]}> 
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Мої замовлення</Text>
-        <View style={{ width: 34 }} />
-      </View>
+      <AppHeader title="Мої замовлення" showBack showSearch showCart />
 
       <FlatList
         data={orders}

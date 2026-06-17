@@ -9,9 +9,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
+import { AppHeader } from '@/components/AppHeader';
 import ProductCard from '../../components/ProductCard';
 import { useFavoritesStore } from '../../store/favoritesStore';
-import { useGlobalSearch } from '@/context/GlobalSearchContext';
 
 // Анимированная кнопка избранного
 const AnimatedFavoriteButton = ({ item, onPress }: { 
@@ -531,7 +531,6 @@ const SITE_CATEGORY_ORDER = [
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { openSearch } = useGlobalSearch();
   // Get cart context
   const { addItem, items: cartItems, removeItem, clearCart, totalPrice, updateQuantity, addOne, removeOne } = useCart();
   // Get favorites store
@@ -1659,57 +1658,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.headerRow, categoryViewOpen && { display: 'none' }]}>
-        <View>
-          <Image
-            source={require('../../assets/images/dikoros-logo.webp')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
-          
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity 
-            onPress={openSearch}
-            style={{ marginRight: 0, position: 'relative' }}
-          >
-            <Ionicons name="search" size={24} color="black" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => router.push('/(tabs)/favorites')}
-            style={{ marginRight: 0, position: 'relative' }}
-          >
-            <Ionicons name="heart" color="red" size={24} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={{ marginRight: 0, position: 'relative' }} 
-            onPress={() => router.push('/(tabs)/cart')}
-          >
-            <Ionicons name="cart" size={26} color="black" />
-            {cart.length > 0 && (
-              <View style={{
-                position: 'absolute',
-                right: -8,
-                top: -5,
-                backgroundColor: 'red',
-                borderRadius: 12,
-                minWidth: 22,
-                height: 22,
-                justifyContent: 'center',
-                alignItems: 'center',
-                paddingHorizontal: 6,
-                zIndex: 10,
-                borderWidth: 2,
-                borderColor: 'white'
-              }}>
-                <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
-                  {cart.reduce((sum: number, item: Product) => sum + (Number(item.quantity) || 1), 0)}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AppHeader showLogo showSearch showFavorites showCart />
 
       {!categoryViewOpen && (
         <View style={styles.categoriesList}>
@@ -1765,42 +1714,24 @@ export default function Index() {
       )}
 
       {categoryViewOpen && (
-        <View style={{ flex: 1, paddingTop: 32 }}>
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 18,
-            paddingHorizontal: 4
-          }}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.categoryScreenTitleRow}>
             <TouchableOpacity
               onPress={() => {
                 setCategoryViewOpen(false);
                 setSelectedCategory('');
               }}
-              style={{ padding: 8 }}
+              style={styles.categoryScreenBackButton}
+              activeOpacity={0.75}
             >
-              <Ionicons name="arrow-back" size={26} color="#111" />
+              <Ionicons name="arrow-back" size={24} color="#111827" />
             </TouchableOpacity>
 
-            <Text style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: '900', color: '#111' }} numberOfLines={1}>
+            <Text style={styles.categoryScreenTitle} numberOfLines={1}>
               {selectedCategory || 'Усі товари'}
             </Text>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)} style={{ padding: 8 }}>
-                <Ionicons name="search" size={24} color="#111" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ padding: 8 }}>
-                <Ionicons name="options-outline" size={25} color="#111" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={{ padding: 8 }}>
-                <Ionicons name="heart" size={24} color="red" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} style={{ padding: 8 }}>
-                <Ionicons name="cart" size={26} color="#111" />
-              </TouchableOpacity>
-            </View>
+            <View style={styles.categoryScreenBackButton} />
           </View>
 
           {isSearchVisible && (
@@ -2549,6 +2480,27 @@ const styles = StyleSheet.create({
     marginTop: 9,
     borderRadius: 2,
     backgroundColor: '#2E7D32',
+  },
+  categoryScreenTitleRow: {
+    height: 58,
+    paddingHorizontal: 14,
+    backgroundColor: '#F8FAF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryScreenBackButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryScreenTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
   },
   emptyStateContainer: {
     flex: 1,

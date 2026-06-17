@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/utils/analytics';
 import { getImageUrl } from '@/utils/image';
@@ -5,24 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Animated, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFavoritesStore } from '../../store/favoritesStore';
 
 export default function FavoritesScreen() {
   const router = useRouter();
   const { addItem } = useCart();
   const { favorites, toggleFavorite, clearFavorites } = useFavoritesStore();
-  const insets = useSafeAreaInsets();
-
-  // Динамические стили с insets
-  const headerStyle = {
-    height: 60 + insets.top,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingTop: insets.top,
-  };
-
   // Функция форматирования цены
   const formatPrice = (price: number) => {
     const safePrice = price || 0;
@@ -261,12 +250,7 @@ export default function FavoritesScreen() {
   if (favorites.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={headerStyle}>
-          {/* Absolute Centered Title */}
-          <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 60, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-            <Text style={styles.headerTitle}>Обране</Text>
-          </View>
-        </View>
+        <AppHeader title="Обране" showSearch showCart />
         
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconContainer}>
@@ -291,32 +275,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Хедер */}
-      <View style={headerStyle}>
-        {/* Absolute Centered Title */}
-        <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 60, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-          <Text style={styles.headerTitle}>Обране</Text>
-        </View>
-
-        {/* Action Buttons Layer */}
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, zIndex: 2 }}>
-           {/* Left placeholder if needed */}
-           <View style={{ width: 40 }} />
-           
-           {/* Right Button */}
-           <View style={{ width: 'auto' }}>
-             {favorites.length > 0 && (
-              <TouchableOpacity 
-                onPress={clearAllFavorites}
-                style={styles.clearButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.clearButtonText}>Очистити</Text>
-              </TouchableOpacity>
-             )}
-           </View>
-        </View>
-      </View>
+      <AppHeader title="Обране" showSearch showCart showTrash={favorites.length > 0} onTrash={clearAllFavorites} />
 
       {/* Список товаров */}
       <FlatList

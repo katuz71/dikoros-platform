@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/utils/analytics';
@@ -8,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 type Variant = {
@@ -41,7 +41,6 @@ type Product = {
 export default function CartScreen() {
   const router = useRouter();
   const { items: cartItems, removeItem, clearCart, addOne, removeOne, setPromoDiscount, discount, discountAmount, appliedPromoCode, totalPrice, finalPrice } = useCart();
-  const insets = useSafeAreaInsets();
   
   const formatPrice = (price: number) => {
     const safePrice = price || 0;
@@ -105,52 +104,26 @@ export default function CartScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      {/* Universal Header with Absolute Center */}
-      <View style={{ 
-          height: 60 + insets.top, 
-          backgroundColor: 'white', 
-          borderBottomWidth: 1, 
-          borderBottomColor: '#f0f0f0',
-          paddingTop: insets.top 
-      }}>
-        {/* Absolute Title */}
-        <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 60, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1F2937' }}>Кошик</Text>
-        </View>
-
-        {/* Buttons Layer */}
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, zIndex: 2 }}>
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              style={styles.closeButton}
-            >
-              <Ionicons name="close" size={28} color="black" />
-            </TouchableOpacity>
-
-            <View style={styles.headerRight}>
-              {cartItems.length > 0 && (
-                <TouchableOpacity 
-                  onPress={() => {
-                    Alert.alert("Очистити кошик?", "Всі товари будуть видалені з кошика.", [
-                      { text: "Скасувати", style: "cancel" },
-                      { 
-                        text: "Очистити", 
-                        style: "destructive", 
-                        onPress: () => {
-                          clearCart();
-                          Vibration.vibrate(100);
-                        }
-                      }
-                    ]);
-                  }}
-                  style={styles.trashButton}
-                >
-                  <Ionicons name="trash-outline" size={24} color="#ff3b30" />
-                </TouchableOpacity>
-              )}
-            </View>
-        </View>
-      </View>
+      <AppHeader
+        title="Кошик"
+        showBack
+        backIcon="close"
+        showSearch
+        showTrash={cartItems.length > 0}
+        onTrash={() => {
+          Alert.alert("Очистити кошик?", "Всі товари будуть видалені з кошика.", [
+            { text: "Скасувати", style: "cancel" },
+            {
+              text: "Очистити",
+              style: "destructive",
+              onPress: () => {
+                clearCart();
+                Vibration.vibrate(100);
+              }
+            }
+          ]);
+        }}
+      />
 
       <FlatList
         data={cartItems}

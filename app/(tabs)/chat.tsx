@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
@@ -461,20 +462,15 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9f9' }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeButton} activeOpacity={0.7}>
-          <Ionicons name="close" size={24} color="#000" />
-        </TouchableOpacity>
-
-        <View style={{ alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>Чат з експертом</Text>
-          <Text style={styles.headerSubtitle}>Dikoros AI консультант</Text>
-        </View>
-
-        <TouchableOpacity onPress={clearChat} style={styles.clearButton} activeOpacity={0.7}>
-          <Ionicons name="trash-outline" size={22} color="#666" />
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title="Чат з експертом"
+        subtitle="Dikoros AI консультант"
+        showBack
+        backIcon="close"
+        showSearch
+        showTrash
+        onTrash={clearChat}
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

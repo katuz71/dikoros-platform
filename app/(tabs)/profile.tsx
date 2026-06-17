@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
@@ -20,7 +21,6 @@ import {
   Text, TextInput, TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -45,7 +45,6 @@ interface UserProfile {
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const insets = useSafeAreaInsets();
   // Состояния
   const [phone, setPhone] = useState('');
   const [inputPhone, setInputPhone] = useState('');
@@ -714,18 +713,7 @@ export default function ProfileScreen() {
   // === ЭКРАН ГОСТЯ ===
   const renderGuestView = () => (
     <View style={styles.container}>
-      {/* HEADER FIXED */}
-      <View style={{ 
-          height: 60 + insets.top, 
-          backgroundColor: 'white', 
-          borderBottomWidth: 1, 
-          borderBottomColor: '#f0f0f0',
-          paddingTop: insets.top 
-      }}>
-         <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 60, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1F2937' }}>Профіль</Text>
-         </View>
-      </View>
+      <AppHeader title="Профіль" showSearch showCart />
 
       <ScrollView 
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -794,26 +782,7 @@ export default function ProfileScreen() {
     return (
 
         <View style={styles.container}>
-          {/* HEADER FIXED */}
-          <View style={{ 
-              height: 60 + insets.top, 
-              backgroundColor: 'white', 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f0f0f0',
-              paddingTop: insets.top 
-          }}>
-             {/* Center Title */}
-             <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 60, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1F2937' }}>Профіль</Text>
-             </View>
-
-             {/* Right Button */}
-             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 20, zIndex: 2 }}>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-                  <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-                </TouchableOpacity>
-             </View>
-          </View>
+          <AppHeader title="Профіль" showSearch showCart showLogout onLogout={handleLogout} />
 
           <ScrollView 
             contentContainerStyle={{ paddingBottom: 100 }}

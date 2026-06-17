@@ -1,5 +1,5 @@
+import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -74,19 +74,7 @@ export default function NewsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={26} color="#111" />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>{page?.title || 'Акції'}</Text>
-
-        <View style={styles.headerSpacer} />
-      </View>
+      <AppHeader title={page?.title || 'Акції'} showBack showSearch showCart />
 
       {loading ? (
         <View style={styles.center}>

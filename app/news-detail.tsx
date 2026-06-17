@@ -1,5 +1,5 @@
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -88,19 +88,7 @@ export default function NewsDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={26} color="#111" />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Акція</Text>
-
-        <View style={styles.headerSpacer} />
-      </View>
+      <AppHeader title="Акція" showBack showSearch showCart />
 
       {loading ? (
         <View style={styles.center}>

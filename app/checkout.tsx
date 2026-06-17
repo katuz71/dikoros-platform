@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { trackEvent } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -510,10 +511,9 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+      <AppHeader title="Оформлення замовлення" showBack showSearch showCart />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.headerTitle}>Оформлення замовлення</Text>
-
           {!isLoggedIn && (
             <View style={styles.guestNotice}>
               <Ionicons name="flash-outline" size={20} color="#2E7D32" />
