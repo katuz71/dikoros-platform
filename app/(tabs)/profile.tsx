@@ -1,9 +1,6 @@
 ﻿/* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { trackEvent } from '@/utils/analytics';
-import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
-import { promptEnableBiometricLogin } from '@/utils/biometricAuth';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
@@ -14,12 +11,11 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Modal,
   RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
-  Text, TextInput, TouchableOpacity,
+  Text, TouchableOpacity,
   View
 } from 'react-native';
 
@@ -48,19 +44,11 @@ export default function ProfileScreen() {
   const params = useLocalSearchParams();
   // Состояния
   const [phone, setPhone] = useState('');
-  const [inputPhone, setInputPhone] = useState('');
-  const [smsCode, setSmsCode] = useState('');
-  const [smsSent, setSmsSent] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   
   // Reviews State
-  const [userReviews, setUserReviews] = useState<any[]>([]);
-  const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
-  const [googleAuthMode, setGoogleAuthMode] = useState<'login' | 'link'>('login');
 
   useEffect(() => {
     GoogleSignin.configure({
@@ -89,11 +77,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      if (googleAuthMode === 'link') {
-        await handleGoogleSocialLink(idToken);
-      } else {
-        await handleGoogleSocialLogin(idToken);
-      }
+      await handleGoogleSocialLink(idToken);
     } catch (error: any) {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
 
@@ -116,7 +100,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (params.openLogin === 'true' && !phone) {
-      setShowLoginModal(true);
+      router.push('/login' as any);
     }
   }, [params.openLogin, phone]);
 
@@ -136,28 +120,6 @@ export default function ProfileScreen() {
       return `380${digits.slice(0, 9)}`;
     }
     return digits;
-  };
-
-  const formatPhoneInput = (value: string) => {
-    const digits = (value || '').replace(/\D/g, '');
-    let local = digits;
-
-    if (digits.startsWith('380')) {
-      local = digits.slice(3);
-    } else if (digits.startsWith('80')) {
-      local = digits.slice(2);
-    } else if (digits.startsWith('0')) {
-      local = digits.slice(1);
-    }
-
-    local = local.slice(0, 9);
-    const parts = ['+380'];
-    if (local.length > 0) parts.push(local.slice(0, 2));
-    if (local.length > 2) parts.push(local.slice(2, 5));
-    if (local.length > 5) parts.push(local.slice(5, 7));
-    if (local.length > 7) parts.push(local.slice(7, 9));
-
-    return parts.join(' ');
   };
 
   const clearAuthSession = async () => {
@@ -200,53 +162,12 @@ export default function ProfileScreen() {
 
       setPhone(profilePhone);
       setProfile(user);
-      fetchUserReviews();
     } catch (e) {
       console.error(e);
     } finally {
       setRefreshing(false);
       setAuthReady(true);
     }
-  };
-
-  const fetchUserReviews = async () => {
-    try {
-        const accessToken = await AsyncStorage.getItem('accessToken');
-        if (!accessToken) return;
-
-        const res = await fetch(`${API_URL}/api/user/reviews/me`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (res.ok) {
-            setUserReviews(await res.json());
-        }
-    } catch (e) { console.log(e); }
-  };
-
-  const deleteUserReview = async (id: number) => {
-      Alert.alert('Видалити відгук?', 'Цю дію неможливо скасувати', [
-          { text: 'Ні', style: 'cancel' },
-          { text: 'Так', style: 'destructive', onPress: async () => {
-              try {
-                  const accessToken = await AsyncStorage.getItem('accessToken');
-                  if (!accessToken) {
-                    Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб видалити відгук.');
-                    return;
-                  }
-
-                  const res = await fetch(`${API_URL}/api/reviews/${id}`, {
-                    method: 'DELETE',
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                  });
-                  if (res.ok) {
-                      setUserReviews(prev => prev.filter(r => r.id !== id));
-                      Alert.alert('Успіх', 'Відгук видалено');
-                  }
-              } catch {
-                   Alert.alert('Помилка', 'Не вдалося видалити відгук');
-              }
-          }}
-      ]);
   };
 
   // 2. Загрузка данных
@@ -279,7 +200,6 @@ export default function ProfileScreen() {
 
       setPhone(profilePhone);
       setProfile(user);
-      fetchUserReviews();
     } catch (e) {
       console.error(e);
     } finally {
@@ -289,209 +209,6 @@ export default function ProfileScreen() {
   };
 
   // 3. Логика входа / выхода
-  const attachPushToken = async () => {
-    try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      const expoPushToken = await AsyncStorage.getItem('expoPushToken');
-
-      if (accessToken && expoPushToken) {
-        await fetch(`${API_URL}/api/user/push-token/me`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            token: expoPushToken,
-          }),
-        });
-      }
-    } catch (e) {
-      console.warn('Save push token after login failed:', e);
-    }
-  };
-
-  const handleSendSmsCode = async () => {
-    const canon = canonicalizePhone(inputPhone);
-
-    if (canon.length !== 12 || !canon.startsWith('380')) {
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0443 \u0444\u043e\u0440\u043c\u0430\u0442\u0456 +380 XX XXX XX XX');
-      return;
-    }
-    setInputPhone(formatPhoneInput(canon));
-
-    try {
-      const res = await fetch(`${API_URL}/api/auth/sms/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: canon })
-      });
-
-      if (res.ok) {
-        setSmsSent(true);
-        setSmsCode('');
-        Alert.alert('\u041a\u043e\u0434 \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0443\u002e');
-      } else {
-        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u0438\u0442\u0438 SMS-\u043a\u043e\u0434');
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
-    }
-  };
-
-  const handleLogin = async () => {
-    const canon = canonicalizePhone(inputPhone);
-
-    if (canon.length !== 12 || !canon.startsWith('380')) {
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u043e\u043c\u0435\u0440 \u0443 \u0444\u043e\u0440\u043c\u0430\u0442\u0456 +380 XX XXX XX XX');
-      return;
-    }
-
-    if (!smsSent) {
-      await handleSendSmsCode();
-      return;
-    }
-
-    const cleanSmsCode = smsCode.replace(/\D/g, '');
-
-    if (cleanSmsCode.length !== 6) {
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/api/auth/sms/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: canon,
-          code: cleanSmsCode
-        })
-      });
-
-      if (res.ok) {
-        const user = await res.json();
-
-        await AsyncStorage.setItem('userPhone', canon);
-        if (user.access_token) {
-          await AsyncStorage.setItem('accessToken', user.access_token);
-        }
-
-        await attachPushToken();
-
-        if (user.is_new_user) {
-          trackEvent('CompleteRegistration', {
-            method: 'sms',
-            value: 150,
-            currency: 'UAH',
-          });
-
-          logFirebaseEvent('sign_up', {
-            method: 'sms',
-          });
-        }
-
-        if (user.name) {
-          await AsyncStorage.setItem('userName', user.name);
-        }
-
-        setPhone(canon);
-        setProfile(user);
-        setShowLoginModal(false);
-        setSmsSent(false);
-        setSmsCode('');
-        fetchData(canon);
-
-        if (user.is_new_user && user.access_token) {
-          await AsyncStorage.setItem('welcomeBonusModalSeenV1', '1');
-          await promptEnableBiometricLogin(user.access_token, canon);
-        }
-      } else {
-        const err = await res.json().catch(() => null);
-        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 SMS-\u043a\u043e\u0434');
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
-    }
-  };
-
-  const handleGoogleSocialLogin = async (idToken: string) => {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/social-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: 'google',
-          token: idToken,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-
-        if (res.status === 409) {
-          setSmsSent(false);
-          setSmsCode('');
-          Alert.alert(
-            '\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d SMS-\u0432\u0445\u0456\u0434',
-            '\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0443\u0432\u0456\u0439\u0434\u0456\u0442\u044c \u0430\u0431\u043e \u0437\u0430\u0440\u0435\u0454\u0441\u0442\u0440\u0443\u0439\u0442\u0435\u0441\u044c \u0437\u0430 \u043d\u043e\u043c\u0435\u0440\u043e\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443 \u0447\u0435\u0440\u0435\u0437 SMS. \u041f\u0456\u0441\u043b\u044f \u0446\u044c\u043e\u0433\u043e Google-\u0432\u0445\u0456\u0434 \u043c\u043e\u0436\u043d\u0430 \u0431\u0443\u0434\u0435 \u043f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0430\u043a\u0430\u0443\u043d\u0442\u0430.',
-            [{ text: '\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 SMS' }]
-          );
-          return;
-        }
-
-        Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', err?.detail || '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0443\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google');
-        return;
-      }
-
-      const user = await res.json();
-      const authId = user.auth_id || user.phone;
-
-      if (authId) {
-        await AsyncStorage.setItem('userPhone', authId);
-        setPhone(authId);
-      }
-
-      if (user.access_token) {
-        await AsyncStorage.setItem('accessToken', user.access_token);
-      }
-
-      await attachPushToken();
-
-      if (user.name) {
-        await AsyncStorage.setItem('userName', user.name);
-      }
-
-      if (user.is_new_user) {
-        trackEvent('CompleteRegistration', {
-          method: 'google',
-          value: 150,
-          currency: 'UAH',
-        });
-
-        logFirebaseEvent('sign_up', {
-          method: 'google',
-        });
-      }
-
-      setProfile(user);
-      setGoogleAuthMode('login');
-      setShowLoginModal(false);
-      setSmsSent(false);
-      setSmsCode('');
-
-      if (authId) {
-        fetchData(authId);
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('\u041f\u043e\u043c\u0438\u043b\u043a\u0430', '\u041d\u0435\u043c\u0430\u0454 \u0437\u0027\u0454\u0434\u043d\u0430\u043d\u043d\u044f');
-    }
-  };
-
-
   const handleGoogleLinkStart = async () => {
     const accessToken = await AsyncStorage.getItem('accessToken');
 
@@ -500,11 +217,10 @@ export default function ProfileScreen() {
         'Потрібен SMS-вхід',
         'Спочатку увійдіть за номером телефону через SMS, потім прив’яжіть Google.'
       );
-      setShowLoginModal(true);
+      router.push('/login' as any);
       return;
     }
 
-    setGoogleAuthMode('link');
     promptGoogleLogin();
   };
 
@@ -513,7 +229,6 @@ export default function ProfileScreen() {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
       if (!accessToken) {
-        setGoogleAuthMode('login');
         Alert.alert('Потрібен SMS-вхід', 'Увійдіть через SMS перед прив’язкою Google.');
         return;
       }
@@ -555,7 +270,6 @@ export default function ProfileScreen() {
       console.error(error);
       Alert.alert('Помилка', 'Немає з’єднання');
     } finally {
-      setGoogleAuthMode('login');
     }
   };
 
@@ -601,11 +315,7 @@ export default function ProfileScreen() {
 
               setProfile(null);
               setPhone('');
-              setInputPhone('');
-              setSmsCode('');
-              setSmsSent(false);
-              setGoogleAuthMode('login');
-              setShowLoginModal(false);
+                    
 
               Alert.alert('Акаунт видалено', 'Ваш акаунт успішно видалено.');
             } catch (error) {
@@ -626,18 +336,13 @@ export default function ProfileScreen() {
         style: 'destructive', 
         onPress: async () => {
           await AsyncStorage.removeItem('userPhone');
-          await AsyncStorage.removeItem('userName');
-          await AsyncStorage.removeItem('accessToken');
-          setPhone('');
-          setProfile(null);
-          setInputPhone('');
         } 
       }
     ]);
   };
 
   /* 🔥 UPDATE USER INFO */
-  const openInfoModal = () => {
+  const openInfoPage = () => {
     if (!profile) {
       Alert.alert('Увага', 'Спочатку увійдіть в акаунт');
       return;
@@ -657,7 +362,7 @@ export default function ProfileScreen() {
 
       if (!accessToken) {
         Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб запросити друга.');
-        setShowLoginModal(true);
+        router.push('/login' as any);
         return;
       }
 
@@ -715,23 +420,19 @@ export default function ProfileScreen() {
   // === ОБЩИЙ КОНТЕНТ ===
   const renderCommonMenu = () => (
     <>
-      {/* СЕТКА БЫСТРЫХ ДЕЙСТВИЙ */}
       <View style={styles.gridContainer}>
         <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push('/(tabs)/orders')} />
-        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
         <GridBtn icon="heart-outline" label="Обране" onPress={() => router.push('/(tabs)/favorites')} />
-        <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoModal} />
+        <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoPage} />
+        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => openLink('https://t.me/dikoros_support')} />
       </View>
 
-      {/* СПИСКИ МЕНЮ */}
-      <MenuSection title="Бонуси та знижки">
-        <MenuItem label="Бонуси / кешбек" onPress={() => setModalVisible(true)} />
-        <MenuItem label="Умови кешбеку" onPress={() => setModalVisible(true)} />
+      <MenuSection title="Бонуси та кешбек">
+        <MenuItem label="Бонуси / кешбек" isLast onPress={() => router.push('/profile-cashback' as any)} />
       </MenuSection>
 
       <MenuSection title="Моя активність">
-        <MenuItem label="Особиста інформація" onPress={openInfoModal} />
-        <MenuItem label="Мої відгуки" isLast onPress={() => setReviewsModalVisible(true)} />
+        <MenuItem label="Мої відгуки" isLast onPress={() => router.push('/profile-reviews' as any)} />
       </MenuSection>
 
       <MenuSection title="Налаштування">
@@ -745,13 +446,9 @@ export default function ProfileScreen() {
         <MenuItem label="Видалити акаунт" color="#D32F2F" isLast onPress={handleDeleteAccount} />
       </MenuSection>
 
-            <MenuSection title="Інформація">
+      <MenuSection title="Інформація">
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
-        <MenuItem label="Рейтинг та відгуки" isLast onPress={() => setReviewsModalVisible(true)} />
-      </MenuSection>
-
-      <MenuSection title="Детальніше">
         <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
         <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
         <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
@@ -759,7 +456,6 @@ export default function ProfileScreen() {
         <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
 
-      {/* 🔥 ВЕРСИЯ УДАЛЕНА ПО ЗАПРОСУ */}
       <View style={{height: 50}} />
     </>
   );
@@ -800,7 +496,7 @@ export default function ProfileScreen() {
         <Text style={styles.welcomeSubtitle}>
           Авторизуйтесь, щоб керувати замовленнями, отримувати кешбек та персональні знижки.
         </Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowLoginModal(true)}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/login' as any)}>
           <Text style={styles.primaryBtnText}>Увійти / Створити акаунт</Text>
         </TouchableOpacity>
       </View>
@@ -899,7 +595,7 @@ export default function ProfileScreen() {
                             Всього витрачено: <Text style={{fontWeight: 'bold', color: '#FFF'}}>{totalSpent} ₴</Text>
                         </Text>
                         {/* 🔥 КНОПКА УМОВИ */}
-                        <TouchableOpacity onPress={() => setModalVisible(true)}>
+                        <TouchableOpacity onPress={() => router.push('/profile-cashback' as any)} activeOpacity={0.8}>
                             <Text style={{color: '#4CAF50', fontSize: 12, fontWeight: 'bold'}}>ⓘ Умови</Text>
                         </TouchableOpacity>
                     </View>
@@ -957,178 +653,6 @@ export default function ProfileScreen() {
   return (
     <View style={{flex: 1, backgroundColor: '#F4F4F4'}}>
       {authReady ? (profile ? renderUserView() : renderGuestView()) : renderLoadingView()}
-      {/* МОДАЛКА ВХОДА */}
-      <Modal visible={showLoginModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{'\u0412\u0445\u0456\u0434 \u002f \u0420\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u044f'}</Text>
-              <TouchableOpacity onPress={() => { setShowLoginModal(false); setSmsSent(false); setSmsCode(''); }}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSubtitle}>
-              {smsSent
-                ? '\u0412\u0432\u0435\u0434\u0456\u0442\u044c SMS-\u043a\u043e\u0434, \u044f\u043a\u0438\u0439 \u043c\u0438 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043b\u0438 \u043d\u0430 \u0432\u0430\u0448 \u043d\u043e\u043c\u0435\u0440'
-                : '\u0412\u0445\u0456\u0434 \u0456 \u0440\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u044f \u0437\u0430 \u043d\u043e\u043c\u0435\u0440\u043e\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443'}
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="+380 99 123 45 67"
-              value={inputPhone}
-              onChangeText={(value) => {
-                setInputPhone(formatPhoneInput(value));
-                if (smsSent) {
-                  setSmsSent(false);
-                  setSmsCode('');
-                }
-              }}
-              keyboardType="phone-pad"
-              maxLength={17}
-              editable={!smsSent}
-              autoFocus
-            />
-
-            {smsSent && (
-              <TextInput
-                style={styles.input}
-                placeholder={'SMS-\u043a\u043e\u0434'}
-                value={smsCode}
-                onChangeText={setSmsCode}
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-            )}
-
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>
-                {smsSent ? '\u0423\u0432\u0456\u0439\u0442\u0438' : '\u041e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 SMS-\u043a\u043e\u0434'}
-              </Text>
-            </TouchableOpacity>
-
-            {smsSent && (
-              <TouchableOpacity style={{marginTop: 12, alignItems: 'center'}} onPress={handleSendSmsCode}>
-                <Text style={{color: '#458B00', fontWeight: '700'}}>
-                  {'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043a\u043e\u0434 \u0449\u0435 \u0440\u0430\u0437'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {!smsSent && (
-              <>
-                <View style={{alignItems: 'center', marginVertical: 12}}>
-                  <Text style={{color: '#999'}}>{'\u0430\u0431\u043e'}</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.loginButton, {backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginBottom: 10}]}
-                  onPress={() => {
-                    setGoogleAuthMode('login');
-                    promptGoogleLogin();
-                  }}
-                >
-                  <Text style={[styles.loginButtonText, {color: '#333'}]}>
-                    {'\u0423\u0432\u0456\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Google'}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={modalVisible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Рівні кешбеку</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.table}>
-                <View style={[styles.tr, {backgroundColor: '#F5F5F5'}]}>
-                    <Text style={[styles.th, {flex: 1}]}>Сума покупок</Text>
-                    <Text style={[styles.th, {width: 60, textAlign: 'right'}]}>%</Text>
-                </View>
-                <View style={styles.tr}><Text style={styles.td}>0 - 4 999 ₴</Text><Text style={styles.tdR}>5%</Text></View>
-                <View style={styles.tr}><Text style={styles.td}>5 000 - 9 999 ₴</Text><Text style={styles.tdR}>10%</Text></View>
-                <View style={styles.tr}><Text style={styles.td}>10 000 - 24 999 ₴</Text><Text style={styles.tdR}>15%</Text></View>
-                <View style={[styles.tr, {borderBottomWidth:0}]}><Text style={styles.td}>від 25 000 ₴</Text><Text style={styles.tdR}>20%</Text></View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 🔥 REVIEWS MODAL */}
-      <Modal visible={reviewsModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, {height: '80%'}]}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Мої відгуки</Text>
-                    <TouchableOpacity onPress={() => setReviewsModalVisible(false)}>
-                        <Ionicons name="close" size={24} color="#333" />
-                    </TouchableOpacity>
-                </View>
-
-                {userReviews.length === 0 ? (
-                    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-                        <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
-                        <Text style={{color: '#999', marginTop: 10}}>У вас поки немає відгуків</Text>
-                    </View>
-                ) : (
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        {userReviews.map((review, index) => (
-                            <View key={review.id || index} style={{
-                                backgroundColor: '#F9F9F9',
-                                padding: 15,
-                                borderRadius: 12,
-                                marginBottom: 15
-                            }}>
-                                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10}}>
-                                    <View style={{flex: 1}}>
-                                        <Text style={{fontWeight: 'bold', fontSize: 16, marginBottom: 4}}>
-                                            {review.product_name || 'Товар'}
-                                        </Text>
-                                        <View style={{flexDirection: 'row', marginBottom: 5}}>
-                                            {[1,2,3,4,5].map(star => (
-                                                <Ionicons 
-                                                    key={star} 
-                                                    name={star <= review.rating ? "star" : "star-outline"} 
-                                                    size={16} 
-                                                    color="#FFD700" 
-                                                />
-                                            ))}
-                                        </View>
-                                    </View>
-                                    <TouchableOpacity 
-                                        onPress={() => deleteUserReview(review.id)}
-                                        style={{padding: 5}}
-                                    >
-                                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {review.comment && (
-                                    <Text style={{color: '#444', fontSize: 14, lineHeight: 20, marginBottom: 8}}>
-                                        {review.comment}
-                                    </Text>
-                                )}
-                                
-                                <Text style={{color: '#999', fontSize: 12}}>
-                                    {new Date(review.created_at).toLocaleDateString('uk-UA')}
-                                </Text>
-                            </View>
-                        ))}
-                    </ScrollView>
-                )}
-            </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1222,18 +746,7 @@ const styles = StyleSheet.create({
   orderTotal: { fontWeight: 'bold', fontSize: 16 },
   statusText: { fontSize: 14, fontWeight: '500' },
   emptyText: { textAlign: 'center', color: '#999', marginVertical: 10 },
-
-  // MODAL
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
-  modalContent: { backgroundColor: '#FFF', borderRadius: 20, padding: 20, paddingBottom: 40, minHeight: 300, maxHeight: '80%', marginHorizontal: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  modalSubtitle: { color: '#666', marginBottom: 20 },
-  input: { borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 15, fontSize: 18, marginBottom: 20 },
-  loginButton: { backgroundColor: '#458B00', padding: 16, borderRadius: 10, alignItems: 'center' },
-  loginButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-
-  // TABLE STYLES
+// TABLE STYLES
   table: { borderWidth: 1, borderColor: '#EEE', borderRadius: 8, overflow: 'hidden' },
   tr: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, borderBottomWidth: 1, borderBottomColor: '#EEE' },
   th: { fontWeight: 'bold', color: '#333', fontSize: 14 },
@@ -1246,8 +759,5 @@ const styles = StyleSheet.create({
   contactChipText: { fontSize: 12, color: '#333', fontWeight: '500' },
   contactChipTextActive: { color: '#2E7D32', fontWeight: 'bold' }
 });
-
-
-
 
 
