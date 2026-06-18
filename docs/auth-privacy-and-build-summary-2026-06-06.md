@@ -213,3 +213,248 @@ Recommended next-chat opening prompt:
 ```text
 Продолжаем проект dikoros-platform. В прошлом чате мы закрыли phone-based legacy endpoints, перевели frontend на JWT /me endpoints, проверили сервер, сделали Android versionCode 28 и собрали production build. Теперь нужно заняться базами: я загружу старые базы из старого приложения и сайта. Нужно проанализировать схемы, сопоставить пользователей по телефону/email, подключить клиентов к программе кешбека и сохранить их прогресс, заказы, отзывы, бонусы/кешбек в новом аккаунте. Работать безопасно: сначала dry-run, отчет по совпадениям и конфликтам, потом миграция после подтверждения.
 ```
+
+---
+
+## Update: 2026-06-18 — legal pages, footer menu and internal testing build status
+
+### 1. In-app legal pages were completed and normalized
+
+`app/policies.tsx` now contains the main legal/information pages used inside the mobile app:
+
+- `delivery` — payment and delivery terms.
+- `returns` — exchange and return terms.
+- `international` — international shipping terms.
+- `contacts` — contact information.
+- `offer` — public offer agreement.
+- `privacy` — privacy policy.
+- `deleteAccount` — account deletion instructions.
+- `faq` — frequently asked questions.
+
+The legal content was adapted for mobile-app use and aligned with the public website content where appropriate.
+
+### 2. Privacy policy was expanded for app store compliance
+
+The privacy policy was rewritten from a short generic page into a fuller app privacy policy. It now covers:
+
+- what personal and technical data the app may process;
+- processing purposes;
+- sharing with third-party services;
+- push notifications;
+- analytics and technical events;
+- data protection;
+- data retention;
+- user rights;
+- account deletion;
+- contact channel for privacy requests;
+- policy changes.
+
+Public privacy URL for app stores:
+
+```text
+https://app.dikoros.ua/privacy-policy
+```
+
+### 3. Account deletion page was added
+
+A public account deletion page was added and verified:
+
+```text
+https://app.dikoros.ua/delete-account
+```
+
+The page explains:
+
+- how to delete an account inside the app;
+- what data is deleted;
+- what may remain anonymized for accounting, disputes, returns, warranty or legal reasons;
+- how to request deletion by email if the user cannot access the app;
+- expected processing time of up to 7 business days.
+
+The support email is shown as `dikorosua@gmail.com`.
+
+Cloudflare email obfuscation was handled by avoiding a direct `mailto:` link and rendering the email as separated HTML parts.
+
+### 4. Public legal URLs were verified
+
+The public legal pages returned `200 OK`:
+
+- `https://app.dikoros.ua/privacy-policy`
+- `https://app.dikoros.ua/delete-account`
+
+### 5. FAQ was safely adapted and converted to accordion UI
+
+The website FAQ was not copied directly because it contained medical-style promises, dosing details and usage instructions.
+
+The app FAQ was rewritten into a safer informational format. It avoids:
+
+- medical claims;
+- direct treatment promises;
+- concrete dosing instructions;
+- prescriptive use guidance.
+
+The FAQ now covers product formats, general selection guidance, storage, ordering, payment, delivery, returns and support.
+
+The FAQ screen was converted into an accordion so each answer opens only after tapping the question. This prevents the page from becoming too long.
+
+### 6. Legal pages were added to the footer menu, not to the profile screen
+
+The profile screen was intentionally not changed for this task.
+
+The legal pages were added to the bottom app footer menu:
+
+```text
+Footer -> Menu -> Юридична інформація -> Юридичні сторінки
+```
+
+The dropdown contains:
+
+- Оплата і доставка
+- Обмін та повернення
+- Міжнародні відправки
+- Договір оферти
+- Політика конфіденційності
+- Видалення акаунта
+- Часті питання
+
+`Контактна інформація` was not duplicated inside the legal dropdown because user support/contact actions are available in the support section.
+
+Files involved:
+
+- `components/AppFooter.tsx`
+- `app/policies.tsx`
+
+### 7. Support/chat screen TypeScript error was fixed
+
+The support chat screen used `styles.contactButtonHint` but the style was missing.
+
+Fixed in:
+
+- `app/(tabs)/chat.tsx`
+
+Added:
+
+```ts
+contactButtonHint: {
+  color: '#6B7280',
+  fontSize: 12,
+  marginTop: 1,
+}
+```
+
+This resolved the TypeScript error:
+
+```text
+Property 'contactButtonHint' does not exist
+```
+
+### 8. Product card and cart UX status
+
+Previously completed product/cart UX changes remain part of the current project state:
+
+- Product detail button changes from `В кошик` to `Перейти в кошик` after adding an item.
+- Pressing the updated button opens the cart.
+- Cart scrolling and promo-code layout were aligned with checkout behavior.
+
+Relevant files:
+
+- `components/ProductDetailsView.tsx`
+- `app/(tabs)/cart.tsx`
+
+### 9. Android version was prepared for the next internal test build
+
+`app.json` is currently set to:
+
+- App version: `1.0.8`
+- Android `versionCode`: `41`
+
+Important: do not increase `versionCode` again until the current AAB is either uploaded to Google Play or explicitly discarded.
+
+### 10. EAS build and Google Play internal testing status
+
+The production Android build profile is configured to produce an Android App Bundle:
+
+```text
+build.production.android.buildType = app-bundle
+```
+
+The submit profile is configured for Google Play internal testing:
+
+```text
+submit.production.android.track = internal
+```
+
+Build command used/planned:
+
+```powershell
+eas build -p android --profile production --auto-submit
+```
+
+Observed build/submission blockers:
+
+1. EAS Free plan Android cloud-build quota was exhausted for the month at one point.
+2. A later build attempt proceeded to upload project files to EAS.
+3. Auto-submit stopped because the local file below was missing:
+
+```text
+google-play-service-account.json
+```
+
+This file is required for automatic upload to Google Play.
+
+### 11. Next actions for app release
+
+To finish internal testing upload, choose one route:
+
+#### Route A — automatic EAS submit
+
+Place the real Google Play service-account key in the project root:
+
+```text
+google-play-service-account.json
+```
+
+Then run:
+
+```powershell
+eas build -p android --profile production --auto-submit
+```
+
+#### Route B — manual upload
+
+Run a production Android build without auto-submit:
+
+```powershell
+eas build -p android --profile production
+```
+
+Download the generated `.aab` from EAS and upload it manually in Google Play Console:
+
+```text
+Google Play Console -> Testing -> Internal testing -> Create release
+```
+
+### 12. Temporary local patch files
+
+Several temporary `.py` patch scripts were used during implementation. They are not project source files and must not be committed.
+
+They can be safely removed from the local working directory if still present.
+
+### Current project status after this update
+
+Completed:
+
+- In-app legal pages are present.
+- Privacy policy is expanded.
+- Account deletion page exists both publicly and inside the app.
+- Public legal URLs return `200 OK`.
+- FAQ is safe and uses accordion UI.
+- Legal pages are grouped inside the footer menu.
+- Profile was not modified for the footer legal-menu task.
+- Support chat TypeScript error was fixed.
+- Android app version is ready as `1.0.8 / 41`.
+
+Remaining:
+
+- Add the real `google-play-service-account.json` for automatic Google Play upload, or manually upload the AAB to Google Play internal testing.
+- Do not bump `versionCode` again until the current `41` build path is resolved.
