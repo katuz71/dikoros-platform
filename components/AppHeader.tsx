@@ -65,10 +65,18 @@ export function AppHeader({
     router.back();
   };
 
-  if (showLogo && !showBack) {
+  if (showLogo) {
+    const showRightFavorite = showFavoriteToggle || showFavorites;
+
     return (
       <View style={[styles.header, { height: 48 + insets.top, paddingTop: insets.top }, style]}>
         <View style={styles.logoCenteredRow}>
+          {showBack && (
+            <TouchableOpacity onPress={goBack} style={styles.backOverlayButton} activeOpacity={0.75}>
+              <Ionicons name={backIcon as any} size={24} color="#111827" />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.logoActionSlot}>
             {showSearch ? (
               <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
@@ -92,9 +100,17 @@ export function AppHeader({
           </TouchableOpacity>
 
           <View style={styles.logoActionSlot}>
-            {showFavorites ? (
-              <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name="heart-outline" size={22} color="#111827" />
+            {showRightFavorite ? (
+              <TouchableOpacity
+                onPress={showFavoriteToggle ? onFavoritePress : () => router.push('/(tabs)/favorites')}
+                style={styles.iconButton}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={showFavoriteToggle && isFavorite ? 'heart' : 'heart-outline'}
+                  size={22}
+                  color={showFavoriteToggle && isFavorite ? '#EF4444' : '#111827'}
+                />
               </TouchableOpacity>
             ) : (
               <View style={styles.iconButtonPlaceholder} />
@@ -119,24 +135,8 @@ export function AppHeader({
         </View>
 
         <View style={styles.centerArea}>
-          {showLogo ? (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={onLogoPress || (() => router.replace('/(tabs)' as any))}
-              style={styles.logoButton}
-            >
-              <Image
-                source={require('../assets/images/dikoros-logo.webp')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          ) : (
-            <>
-              {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
-              {!!subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
-            </>
-          )}
+          {!!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
+          {!!subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
         </View>
 
         <View style={styles.rightArea}>
@@ -211,6 +211,17 @@ const styles = StyleSheet.create({
     width: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backOverlayButton: {
+    position: 'absolute',
+    left: 8,
+    top: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
   },
   leftArea: {
     width: 48,
