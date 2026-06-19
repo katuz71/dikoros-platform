@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../config/api';
 import { useCart } from '../context/CartContext';
 
@@ -81,6 +82,7 @@ const formatPrice = (value: number) => {
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { items, totalPrice, finalPrice, clearCart, appliedPromoCode, discount, discountAmount } = useCart() as any;
 
   const cartTotal = Number(totalPrice || 0);
@@ -112,8 +114,8 @@ export default function CheckoutScreen() {
   const [bonusBalance, setBonusBalance] = useState(0);
   const [useBonuses, setUseBonuses] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [saveUserData, setSaveUserData] = useState(false);
-  const saveUserDataRef = useRef(false);
+  const [saveUserData, setSaveUserData] = useState(true);
+  const saveUserDataRef = useRef(true);
 
   const [editSection, setEditSection] = useState<EditSection>(null);
   const [modalVisible, setModalVisible] = useState<'city' | 'warehouse' | null>(null);
@@ -836,6 +838,22 @@ export default function CheckoutScreen() {
 
         <View style={styles.summaryContainer}>
           <Text style={styles.summaryTitle}>Підсумок</Text>
+          <View style={styles.summaryProductsBox}>
+            {(items || []).map((item: any, index: number) => (
+              <View key={`summary_${item.id}_${index}`} style={styles.summaryProductRow}>
+                {!!(item.image || item.image_url || item.picture) && (
+                  <Image source={{ uri: item.image || item.image_url || item.picture }} style={styles.summaryProductImage} resizeMode="contain" />
+                )}
+                <View style={styles.summaryProductBody}>
+                  <Text style={styles.summaryProductName} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.summaryProductMeta} numberOfLines={1}>
+                    {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || 'Стандарт'} · {Number(item.quantity || 1)} шт.
+                  </Text>
+                </View>
+                <Text style={styles.summaryProductPrice}>{formatPrice(Number(item.price || 0) * Number(item.quantity || 1))}</Text>
+              </View>
+            ))}
+          </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Товари</Text>
             <Text style={styles.summaryValue}>{formatPrice(cartTotal)}</Text>
@@ -860,7 +878,7 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.stickySubmitWrap}>
+      <View style={[styles.stickySubmitWrap, { bottom: 58 + Math.max(insets.bottom, 4) }]}>
         <View style={styles.stickyTotalBlock}>
           <Text style={styles.stickyTotalLabel}>До сплати</Text>
           <Text style={styles.stickyTotalValue}>{formatPrice(finalPriceWithBonuses)}</Text>
@@ -950,7 +968,7 @@ const styles = StyleSheet.create({
   },
   titleIconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   checkoutTitle: { flex: 1, textAlign: 'center', fontSize: 20, lineHeight: 25, fontWeight: '900', color: '#111827' },
-  scrollContent: { padding: 12, paddingBottom: 132 },
+  scrollContent: { padding: 12, paddingBottom: 230 },
   guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 10, padding: 11, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   guestNoticeText: { color: '#2E7D32', fontSize: 13.5, fontWeight: '700', flex: 1, lineHeight: 18 },
   minOrderNotice: { backgroundColor: '#FFF7ED', borderColor: '#FDBA74', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 11 },
@@ -979,6 +997,13 @@ const styles = StyleSheet.create({
   saveDataText: { fontSize: 14, lineHeight: 19, color: '#555', fontWeight: '600', flex: 1 },
   summaryContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
   summaryTitle: { fontSize: 18, lineHeight: 23, fontWeight: '900', color: '#111827', marginBottom: 12 },
+  summaryProductsBox: { borderBottomWidth: 1, borderBottomColor: '#EEF0F2', marginBottom: 12, paddingBottom: 8 },
+  summaryProductRow: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10, marginBottom: 10 },
+  summaryProductImage: { width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#F3F4F6' },
+  summaryProductBody: { flex: 1, paddingRight: 8 },
+  summaryProductName: { fontSize: 14, lineHeight: 18, color: '#222222', fontWeight: '800' },
+  summaryProductMeta: { fontSize: 12.5, lineHeight: 17, color: '#6B7280', marginTop: 2, fontWeight: '600' },
+  summaryProductPrice: { fontSize: 14.5, lineHeight: 19, color: '#111827', fontWeight: '900' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   summaryLabel: { fontSize: 15, color: '#666', fontWeight: '600' },
   summaryValue: { fontSize: 15, fontWeight: '800', color: '#222222' },
@@ -989,16 +1014,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    minHeight: 88,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     paddingHorizontal: 14,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    zIndex: 900,
+    elevation: 900,
   },
   stickyTotalBlock: { minWidth: 110 },
   stickyTotalLabel: { fontSize: 12.5, lineHeight: 16, color: '#6B7280', fontWeight: '700' },
