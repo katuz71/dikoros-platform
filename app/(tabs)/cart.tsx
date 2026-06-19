@@ -89,20 +89,41 @@ export default function CartScreen() {
     }
   }, []);
 
-  const recommendationProducts = useMemo(() => {
-    const blockedIds = new Set<number>();
+  const normalizeText = (value: any) => String(value || '')
+    .toLowerCase()
+    .replace(/&[a-z]+;/g, ' ')
+    .replace(/[’'`ʼ]/g, '')
+    .replace(/[^a-zа-яіїєґ0-9\s-]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-    cartItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
-    postponedItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
-    favorites.forEach((item: any) => blockedIds.add(Number(item?.id)));
+  const getCategoryParts = (item: any) => normalizeText(item?.category)
+    .split(/[>»/|,]/)
+    .map(part => part.trim())
+    .filter(Boolean);
 
-    return (Array.isArray(products) ? products : [])
-      .filter((item: any) => Number(item?.id) && !blockedIds.has(Number(item.id)) && Number(item?.price || 0) > 0)
-      .slice(0, 8) as Product[];
-  }, [products, cartItems, postponedItems, favorites]);
+  const getSearchText = (item: any) => normalizeText([
+    item?.name,
+    item?.category,
+    item?.unit,
+    item?.packSize,
+    item?.variantSize,
+  ].filter(Boolean).join(' '));
 
-  const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
-  const formatItemCount = (count: number) => `${count} товарів`;
+  const getTokens = (item: any) => {
+    const stopWords = new Set([
+      'для', 'та', 'і', 'й', 'з', 'із', 'на', 'у', 'в', 'по', 'до', 'від', 'або', 'без', 'при',
+      'грн', 'шт', 'мл', 'г', 'кг', 'капсул', 'капсули', 'капсула', 'упаковка', 'товар', 'dikoros',
+      'the', 'and', 'with', 'for', 'of', 'in', 'new', 'best',
+    ]);
+
+    return Array.from(new Set(
+      getSearchText(item)
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(token => token.length >= 3 && !stopWords.has(token) && !/^\d+$/.test(token))
+    ));
+  };
 
   const getReviewStats = (item: any) => {
     const rating = Number(
@@ -125,10 +146,92 @@ export default function CartScreen() {
 
     const filled = Math.max(0, Math.min(5, Math.round(rating)));
     return {
+      rating,
       count,
       stars: `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`,
     };
   };
+
+  const recommendationProducts = useMemo(() => {
+    const blockedIds = new Set<number>();
+
+    cartItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
+    postponedItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
+    favorites.forEach((item: any) => blockedIds.add(Number(item?.id)));
+
+    const signals = [
+      ...cartItems.map((item: any) => ({ item, weight: 10 })),
+      ...postponedItems.map((item: any) => ({ item, weight: 8 })),
+      ...favorites.map((item: any) => ({ item, weight: 6 })),
+    ].filter(signal => Number(signal.item?.id));
+
+    const categoryWeights = new Map<string, number>();
+    const tokenWeights = new Map<string, number>();
+    const selectedPrices: number[] = [];
+
+    signals.forEach(({ item, weight }) => {
+      getCategoryParts(item).forEach(category => {
+        categoryWeights.set(category, (categoryWeights.get(category) || 0) + weight);
+      });
+
+      getTokens(item).forEach(token => {
+        tokenWeights.set(token, (tokenWeights.get(token) || 0) + weight);
+      });
+
+      const price = Number(item?.price || 0);
+      if (Number.isFinite(price) && price > 0) selectedPrices.push(price);
+    });
+
+    const averageSelectedPrice = selectedPrices.length
+      ? selectedPrices.reduce((sum, price) => sum + price, 0) / selectedPrices.length
+      : 0;
+
+    const hasPersonalSignals = signals.length > 0;
+
+    return (Array.isArray(products) ? products : [])
+      .filter((item: any) => Number(item?.id) && !blockedIds.has(Number(item.id)) && Number(item?.price || 0) > 0)
+      .map((item: any, index: number) => {
+        let score = 0;
+
+        getCategoryParts(item).forEach(category => {
+          score += (categoryWeights.get(category) || 0) * 9;
+        });
+
+        getTokens(item).forEach(token => {
+          score += (tokenWeights.get(token) || 0) * 2.4;
+        });
+
+        const price = Number(item?.price || 0);
+        if (averageSelectedPrice > 0 && price > 0) {
+          const priceDistance = Math.abs(price - averageSelectedPrice) / averageSelectedPrice;
+          score += Math.max(0, 26 - priceDistance * 34);
+        }
+
+        const oldPrice = Number(item?.old_price || 0);
+        if (oldPrice > price && price > 0) {
+          score += Math.min(18, ((oldPrice - price) / oldPrice) * 100);
+        }
+
+        const reviews = getReviewStats(item);
+        if (reviews) {
+          score += Math.min(12, reviews.count / 12);
+          score += Math.max(0, reviews.rating - 4) * 4;
+        }
+
+        if (!hasPersonalSignals) {
+          score += Math.max(0, 1000 - index) / 1000;
+        }
+
+        return { item, score, index };
+      })
+      .filter(({ score }) => !hasPersonalSignals || score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, 8)
+      .map(({ item }) => item) as Product[];
+  }, [products, cartItems, postponedItems, favorites]);
+
+  const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
+  const formatItemCount = (count: number) => `${count} товарів`;
 
   const applyPromo = async () => {
     const normalizedPromoCode = promoCode.trim().toUpperCase();
