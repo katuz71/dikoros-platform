@@ -95,17 +95,43 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   }, [selectedSignature]);
 
   const normalizeText = React.useCallback((value: any) => {
-    return String(value || '')
+    const decodeEntities = (source: string) => source
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&ldquo;/g, '«')
+      .replace(/&rdquo;/g, '»')
+      .replace(/&lsquo;/g, '‘')
+      .replace(/&rsquo;/g, '’')
+      .replace(/&laquo;/g, '«')
+      .replace(/&raquo;/g, '»')
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&hellip;/g, '…')
+      .replace(/&deg;/g, '°')
+      .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)));
+
+    let text = String(value || '');
+    text = decodeEntities(decodeEntities(decodeEntities(text)));
+
+    return text
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
       .replace(/<\/li>/gi, '\n')
       .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<h[1-6][^>]*>/gi, '\n')
+      .replace(/<\/h[1-6]>/gi, '\n')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<[^>]+>/g, '')
+      .replace(/[“”]/g, '"')
+      .replace(/[«»]/g, '"')
       .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s+/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }, []);
@@ -226,6 +252,37 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     };
   }, [normalizeText, product?.description, product?.composition, product?.usage]);
 
+  const renderInlineBold = (text: string) => {
+    const terms = [
+      'Мухоморний мікродозинг',
+      'червоний мухомор',
+      'Amanita muscaria',
+      'веганські капсули',
+      '60 капсул',
+      '120 капсул',
+      '0,5 г',
+      'сорт Еліт',
+      'Еліт',
+      'капсули',
+      'мікродозинг',
+      'мухомор',
+    ];
+
+    const escapedTerms = terms
+      .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .sort((a, b) => b.length - a.length);
+    const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+
+    return text.split(pattern).map((part, index) => {
+      const isBold = terms.some((term) => part.toLowerCase() === term.toLowerCase());
+      return (
+        <Text key={`${part}-${index}`} style={isBold ? styles.boldText : undefined}>
+          {part}
+        </Text>
+      );
+    });
+  };
+
   const renderText = (text: string) => (
     <View style={styles.structuredWrap}>
       {String(text || '').split(/\r?\n/).map((line, index) => {
@@ -235,11 +292,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           return (
             <View key={`b-${index}`} style={styles.bulletRow}>
               <Text style={styles.bulletDot}>•</Text>
-              <Text style={styles.bulletText}>{trimmed.slice(2)}</Text>
+              <Text style={styles.bulletText}>{renderInlineBold(trimmed.slice(2))}</Text>
             </View>
           );
         }
-        return <Text key={`p-${index}`} style={styles.paragraphText}>{trimmed}</Text>;
+        return <Text key={`p-${index}`} style={styles.paragraphText}>{renderInlineBold(trimmed)}</Text>;
       })}
     </View>
   );
@@ -460,11 +517,12 @@ const styles = StyleSheet.create({
   tabBtnText: { fontWeight: '500', fontSize: 14, color: '#666' },
   tabBtnTextActive: { fontWeight: 'bold', color: '#000' },
   structuredWrap: { marginBottom: 30 },
-  structuredSpacer: { height: 10 },
-  paragraphText: { color: '#4b5563', lineHeight: 22, fontSize: 15 },
-  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
-  bulletDot: { width: 16, color: '#10b981', lineHeight: 22, fontSize: 16 },
-  bulletText: { flex: 1, color: '#4b5563', lineHeight: 22, fontSize: 15 },
+  structuredSpacer: { height: 13 },
+  paragraphText: { color: '#4b5563', lineHeight: 23, fontSize: 15.5, marginBottom: 6 },
+  boldText: { fontWeight: '900', color: '#111827' },
+  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 7 },
+  bulletDot: { width: 16, color: '#10b981', lineHeight: 23, fontSize: 16 },
+  bulletText: { flex: 1, color: '#4b5563', lineHeight: 23, fontSize: 15.5 },
   stickyCartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#EEF0F2', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 300, zIndex: 300, overflow: 'visible' },
   cartControlsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   quantitySelector: { width: 70, height: 52, borderRadius: 10, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
