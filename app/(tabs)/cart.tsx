@@ -197,6 +197,20 @@ export default function CartScreen() {
     Vibration.vibrate(60);
   };
 
+  const restoreAllPostponedItems = () => {
+    if (!postponedItems.length) return;
+
+    postponedItems.forEach((item) => {
+      const sizeKey = getSizeKey(item);
+      const unit = item.unit || sizeKey || 'шт';
+      addItem(item, Number(item.quantity || 1), sizeKey, unit, item.price);
+    });
+
+    setPostponedItems([]);
+    setActiveListTab('saved');
+    Vibration.vibrate(60);
+  };
+
   const removePostponedItem = (item: Product) => {
     const compositeId = getCompositeId(item);
     setPostponedItems((prev) => prev.filter((saved) => getCompositeId(saved) !== compositeId));
@@ -224,22 +238,21 @@ export default function CartScreen() {
 
     return (
       <View key={compositeId} style={styles.postponedCard}>
-        <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
-
-        <View style={styles.postponedBody}>
-          <Text numberOfLines={2} style={styles.postponedName}>{item.name}</Text>
-          <Text style={styles.postponedMeta}>{sizeKey} · {Number(item.quantity || 1)} шт.</Text>
-          <Text style={styles.postponedPrice}>{formatPrice(Number(item.price || 0))}</Text>
-        </View>
-
-        <View style={styles.postponedActions}>
-          <TouchableOpacity onPress={() => restorePostponedItem(item)} style={styles.postponedCartButton} activeOpacity={0.84}>
-            <Ionicons name="cart-outline" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => removePostponedItem(item)} style={styles.postponedRemoveButton} activeOpacity={0.78}>
-            <Ionicons name="close" size={22} color="#6B7280" />
+        <View style={styles.postponedImageWrap}>
+          <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
+          <TouchableOpacity onPress={() => restorePostponedItem(item)} style={styles.postponedFloatingCart} activeOpacity={0.84}>
+            <Ionicons name="cart-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        <Text numberOfLines={3} style={styles.postponedName}>{item.name}</Text>
+        <Text style={styles.postponedMeta}>{sizeKey} · {Number(item.quantity || 1)} шт.</Text>
+        <Text style={styles.postponedRating}>★ ★ ★ ★ ☆ 486 067</Text>
+        <Text style={styles.postponedPrice}>{formatPrice(Number(item.price || 0))}</Text>
+
+        <TouchableOpacity onPress={() => removePostponedItem(item)} activeOpacity={0.78}>
+          <Text style={styles.postponedRemoveText}>Видалити</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -272,14 +285,26 @@ export default function CartScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.cartTopRow}>
-              <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
-              {hasCartItems && (
+            {!hasCartItems && hasPostponedItems && (
+              <View style={styles.emptyCartNotice}>
+                <View style={styles.emptyNoticeIcon}>
+                  <Ionicons name="cart-outline" size={52} color="#7A7A7A" />
+                </View>
+                <View style={styles.emptyNoticeTextBox}>
+                  <Text style={styles.emptyNoticeTitle}>Ваш кошик порожній</Text>
+                  <Text style={styles.emptyNoticeText}>Відкладені товари залишаються нижче на цій самій сторінці.</Text>
+                </View>
+              </View>
+            )}
+
+            {hasCartItems && (
+              <View style={styles.cartTopRow}>
+                <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
                 <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
                   <Text style={styles.editPromoText}>Редагувати промокод</Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            )}
 
             {hasCartItems && cartItems.map((item: any) => {
               const sizeKey = getSizeKey(item);
@@ -351,7 +376,10 @@ export default function CartScreen() {
               {activeListTab === 'saved' ? (
                 <View style={styles.postponedList}>
                   {hasPostponedItems ? (
-                    postponedItems.map(renderPostponedItem)
+                    <>
+                      <Text style={styles.postponedCount}>{postponedItems.length} товар</Text>
+                      {postponedItems.map(renderPostponedItem)}
+                    </>
                   ) : (
                     <View style={styles.savedPreviewCard}>
                       <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
@@ -362,7 +390,7 @@ export default function CartScreen() {
               ) : (
                 <View style={styles.savedPreviewCard}>
                   <Text style={styles.savedHintTitle}>Мої списки</Text>
-                  <Text style={styles.savedHintText}>Списки залишаються на цій сторінці корзини. Переходів з корзини немає.</Text>
+                  <Text style={styles.savedHintText}>Тут будуть списки покупок. Натискання не відкриває сторінку обраного.</Text>
                 </View>
               )}
             </View>
@@ -406,6 +434,14 @@ export default function CartScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={goCheckout} style={styles.checkoutButton} activeOpacity={0.9}>
             <Text style={styles.checkoutButtonText}>Оформити замовлення ({cartCount})</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!hasCartItems && hasPostponedItems && (
+        <View style={[styles.stickyCheckout, { bottom: 58 + Math.max(insets.bottom, 4) }]}> 
+          <TouchableOpacity onPress={restoreAllPostponedItems} style={styles.addPostponedButton} activeOpacity={0.9}>
+            <Text style={styles.addPostponedButtonText}>Додати товари в кошик</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -460,11 +496,16 @@ const styles = StyleSheet.create({
   emptyText: { color: '#6B7280', textAlign: 'center', marginBottom: 32, width: '86%', lineHeight: 24, fontSize: 16 },
   emptyButton: { backgroundColor: '#2E7D32', paddingVertical: 15, paddingHorizontal: 34, borderRadius: 12 },
   emptyButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 16 },
-  scrollContent: { paddingHorizontal: 12, paddingTop: 22, paddingBottom: 182 },
-  cartTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 10 },
+  scrollContent: { paddingTop: 0, paddingBottom: 182 },
+  emptyCartNotice: { minHeight: 146, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, marginBottom: 0 },
+  emptyNoticeIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center', marginRight: 18 },
+  emptyNoticeTextBox: { flex: 1 },
+  emptyNoticeTitle: { fontSize: 21, fontWeight: '900', color: '#222222', marginBottom: 8 },
+  emptyNoticeText: { fontSize: 16, lineHeight: 23, color: '#374151' },
+  cartTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 22, paddingTop: 22 },
   cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222' },
   editPromoText: { fontSize: 15, fontWeight: '700', color: '#1976A3' },
-  cartCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: 'row' },
+  cartCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginHorizontal: 12, marginBottom: 12, flexDirection: 'row' },
   cartImageWrap: { width: 96, paddingTop: 6, alignItems: 'center' },
   cartImage: { width: 76, height: 92, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
   cartItemBody: { flex: 1, paddingLeft: 12 },
@@ -483,26 +524,27 @@ const styles = StyleSheet.create({
   itemPriceBlock: { alignItems: 'flex-end' },
   itemTotalPrice: { fontSize: 20, fontWeight: '900', color: '#111827' },
   moreText: { fontSize: 13, fontWeight: '700', color: '#1976A3' },
-  savedSection: { marginTop: 8, marginBottom: 10, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' },
-  savedTabsRow: { flexDirection: 'row', minHeight: 56, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  savedSection: { marginTop: 0, marginBottom: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  savedTabsRow: { flexDirection: 'row', minHeight: 62, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   savedTab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: 'transparent' },
   savedTabActive: { borderBottomColor: '#2E7D32' },
-  savedTabText: { fontSize: 17, fontWeight: '800', color: '#374151' },
-  savedTabTextActive: { color: '#2E7D32', fontWeight: '900' },
-  postponedList: { padding: 12, gap: 10 },
-  postponedCard: { minHeight: 118, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#EEF0F2', padding: 10 },
-  postponedImage: { width: 74, height: 86, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
-  postponedBody: { flex: 1, paddingHorizontal: 10 },
-  postponedName: { fontSize: 15, lineHeight: 20, fontWeight: '700', color: '#2C2C2C', marginBottom: 4 },
-  postponedMeta: { fontSize: 13, lineHeight: 17, color: '#6B7280', marginBottom: 5 },
-  postponedPrice: { fontSize: 16, fontWeight: '900', color: '#111827' },
-  postponedActions: { alignItems: 'center', gap: 9 },
-  postponedCartButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
-  postponedRemoveButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  savedPreviewCard: { padding: 16 },
-  savedHintTitle: { fontSize: 17, fontWeight: '900', color: '#111827', marginBottom: 4 },
-  savedHintText: { fontSize: 14, lineHeight: 19, color: '#6B7280', marginBottom: 8 },
-  promoSection: { marginTop: 18, marginBottom: 20, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 22, borderRadius: 12 },
+  savedTabText: { fontSize: 20, fontWeight: '900', color: '#222222' },
+  savedTabTextActive: { color: '#2E7D32' },
+  postponedList: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 22 },
+  postponedCount: { fontSize: 22, fontWeight: '900', color: '#222222', marginBottom: 22 },
+  postponedCard: { width: 190, marginBottom: 10 },
+  postponedImageWrap: { width: 176, height: 150, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  postponedImage: { width: 96, height: 128, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
+  postponedFloatingCart: { position: 'absolute', right: 18, bottom: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
+  postponedName: { fontSize: 21, lineHeight: 29, fontWeight: '400', color: '#2C2C2C', marginBottom: 12 },
+  postponedMeta: { fontSize: 14, lineHeight: 18, color: '#6B7280', marginBottom: 8 },
+  postponedRating: { fontSize: 15, color: '#EAB308', marginBottom: 12 },
+  postponedPrice: { fontSize: 24, fontWeight: '900', color: '#111827', marginBottom: 20 },
+  postponedRemoveText: { fontSize: 16, lineHeight: 21, fontWeight: '900', color: '#2C2C2C', textDecorationLine: 'underline' },
+  savedPreviewCard: { padding: 24 },
+  savedHintTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 6 },
+  savedHintText: { fontSize: 15, lineHeight: 21, color: '#6B7280', marginBottom: 8 },
+  promoSection: { marginTop: 18, marginHorizontal: 12, marginBottom: 20, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 22, borderRadius: 12 },
   promoLabel: { fontSize: 23, fontWeight: '900', color: '#2C2C2C', marginBottom: 18 },
   promoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   promoInput: { flex: 1, height: 70, backgroundColor: '#FFFFFF', borderWidth: 1.2, borderColor: '#D1D5DB', paddingHorizontal: 16, borderRadius: 10, fontSize: 18, color: '#111827' },
@@ -516,6 +558,8 @@ const styles = StyleSheet.create({
   stickyTotal: { fontSize: 22, fontWeight: '900', color: '#111827' },
   checkoutButton: { flex: 1, height: 58, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   checkoutButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', textAlign: 'center' },
+  addPostponedButton: { flex: 1, height: 58, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center' },
+  addPostponedButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', textAlign: 'center' },
   quantityModalRoot: { flex: 1, justifyContent: 'flex-end' },
   quantityBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.58)' },
   quantitySheet: { maxHeight: '56%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 24, paddingHorizontal: 30 },
