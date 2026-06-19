@@ -18,6 +18,7 @@ from routers import (
     catalog,
     categories,
     chat,
+    checkout_profile,
     delivery,
     health,
     orders,
@@ -67,6 +68,7 @@ app.include_router(orders_secure.router)
 app.include_router(orders.router)
 app.include_router(products.router)
 app.include_router(users.router)
+app.include_router(checkout_profile.router)
 app.include_router(auth.router)
 app.include_router(admin_tools.router)
 app.include_router(sync.router)
