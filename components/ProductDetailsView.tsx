@@ -300,7 +300,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       <AppHeader
         showLogo
         showBack
-        showSearch={false}
+        backIcon="chevron-back"
+        showSearch
         showFavoriteToggle
         isFavorite={isFavorite}
         onFavoritePress={onToggleFavorite}
