@@ -11,7 +11,9 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,7 +40,7 @@ type Product = {
   variantSize?: string;
 };
 
-const quantityOptions = Array.from({ length: 10 }, (_, index) => index + 1);
+const quantityOptions = Array.from({ length: 11 }, (_, index) => index);
 
 const getSizeKey = (item: any) => item?.variantSize || item?.packSize || item?.unit || 'шт';
 const getCompositeId = (item: any) => `${item.id}-${String(getSizeKey(item))}`;
@@ -49,19 +51,17 @@ export default function CartScreen() {
   const {
     items: cartItems,
     removeItem,
-    clearCart,
     updateQuantity,
     setPromoDiscount,
     discount,
     discountAmount,
     appliedPromoCode,
-    totalPrice,
     finalPrice,
   } = useCart();
   const { favorites, toggleFavorite, isFavorite } = useFavoritesStore();
 
   const [promoCode, setPromoCode] = useState('');
-  const [openQuantityId, setOpenQuantityId] = useState<string | null>(null);
+  const [quantityPickerItem, setQuantityPickerItem] = useState<Product | null>(null);
   const [activeListTab, setActiveListTab] = useState<'saved' | 'lists'>('lists');
 
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
@@ -142,6 +142,24 @@ export default function CartScreen() {
     router.push('/checkout');
   };
 
+  const closeQuantityPicker = () => setQuantityPickerItem(null);
+
+  const selectQuantity = (quantity: number) => {
+    if (!quantityPickerItem) return;
+
+    const compositeId = getCompositeId(quantityPickerItem);
+
+    if (quantity <= 0) {
+      removeItem(compositeId);
+      Vibration.vibrate(70);
+    } else {
+      updateQuantity(compositeId, quantity);
+      Vibration.vibrate(20);
+    }
+
+    closeQuantityPicker();
+  };
+
   const postponeItem = (item: Product) => {
     const compositeId = getCompositeId(item);
     if (!isFavorite(item.id)) {
@@ -160,43 +178,21 @@ export default function CartScreen() {
   };
 
   const renderQuantitySelector = (item: any) => {
-    const compositeId = getCompositeId(item);
-    const isOpen = openQuantityId === compositeId;
     const quantity = Number(item.quantity || 1);
 
     return (
-      <View style={styles.quantityWrap}>
-        {isOpen && (
-          <View style={styles.quantityDropdown}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {quantityOptions.map((qty) => (
-                <TouchableOpacity
-                  key={qty}
-                  style={[styles.quantityOption, qty === quantity && styles.quantityOptionActive]}
-                  onPress={() => {
-                    updateQuantity(compositeId, qty);
-                    setOpenQuantityId(null);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.quantityOptionText, qty === quantity && styles.quantityOptionTextActive]}>{qty}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={styles.quantitySelector}
-          onPress={() => setOpenQuantityId(isOpen ? null : compositeId)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.quantityText}>{quantity}</Text>
-          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={19} color="#374151" />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={styles.quantitySelector}
+        onPress={() => setQuantityPickerItem(item)}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.quantityText}>{quantity}</Text>
+        <Ionicons name="chevron-down" size={19} color="#374151" />
+      </TouchableOpacity>
     );
   };
+
+  const pickerQuantity = Number(quantityPickerItem?.quantity || 1);
 
   return (
     <KeyboardAvoidingView
@@ -352,6 +348,44 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <Modal
+        visible={!!quantityPickerItem}
+        transparent
+        animationType="fade"
+        onRequestClose={closeQuantityPicker}
+      >
+        <View style={styles.quantityModalRoot}>
+          <Pressable style={styles.quantityBackdrop} onPress={closeQuantityPicker} />
+
+          <View style={[styles.quantitySheet, { paddingBottom: Math.max(insets.bottom + 18, 28) }]}> 
+            <View style={styles.quantitySheetHeader}>
+              <Text style={styles.quantitySheetTitle}>Оберіть кількість товару</Text>
+              <TouchableOpacity onPress={closeQuantityPicker} style={styles.quantityCloseButton} activeOpacity={0.75}>
+                <Ionicons name="close" size={34} color="#222222" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.quantitySheetScroll} showsVerticalScrollIndicator={false}>
+              {quantityOptions.map((quantity) => {
+                const active = quantity === pickerQuantity;
+                return (
+                  <TouchableOpacity
+                    key={quantity}
+                    style={[styles.quantitySheetOption, active && styles.quantitySheetOptionActive]}
+                    onPress={() => selectQuantity(quantity)}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={styles.quantitySheetOptionText}>
+                      {quantity === 0 ? '0 (видалити)' : quantity}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -482,10 +516,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
   },
-  quantityWrap: {
-    position: 'relative',
-    zIndex: 50,
-  },
   quantitySelector: {
     height: 44,
     minWidth: 92,
@@ -503,41 +533,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-  },
-  quantityDropdown: {
-    position: 'absolute',
-    left: 0,
-    bottom: 50,
-    width: 92,
-    maxHeight: 230,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    elevation: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    overflow: 'hidden',
-  },
-  quantityOption: {
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  quantityOptionActive: {
-    backgroundColor: '#EAF6E7',
-  },
-  quantityOptionText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#374151',
-  },
-  quantityOptionTextActive: {
-    color: '#2E7D32',
   },
   trashRoundButton: {
     width: 44,
@@ -745,5 +740,60 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  quantityModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  quantityBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+  },
+  quantitySheet: {
+    maxHeight: '56%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingTop: 24,
+    paddingHorizontal: 30,
+  },
+  quantitySheetHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  quantitySheetTitle: {
+    flex: 1,
+    paddingRight: 12,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '900',
+    color: '#2A2A2A',
+  },
+  quantityCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantitySheetScroll: {
+    maxHeight: 380,
+  },
+  quantitySheetOption: {
+    minHeight: 58,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 9,
+    marginBottom: 6,
+  },
+  quantitySheetOptionActive: {
+    backgroundColor: '#E2F4E2',
+  },
+  quantitySheetOptionText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: '#2B2B2B',
   },
 });
