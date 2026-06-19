@@ -2,7 +2,7 @@
     "expo":  {
                  "name":  "DikorosUA",
                  "slug":  "dikorosua",
-                 "version":  "1.0.8",
+                 "version":  "1.0.9",
                  "orientation":  "portrait",
                  "icon":  "./assets/images/icon.png",
                  "scheme":  "dikoros",
@@ -15,7 +15,7 @@
                  "android":  {
                                  "package":  "com.dikorosua.app",
                                  "googleServicesFile":  "./google-services.json",
-                                 "versionCode":  41,
+                                 "versionCode":  42,
                                  "softwareKeyboardLayoutMode":  "resize",
                                  "permissions":  [
                                                      "INTERNET",
