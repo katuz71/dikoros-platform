@@ -1,4 +1,4 @@
-﻿import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext';
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
 import { useOrders } from '@/context/OrdersContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,11 +36,16 @@ const ITEMS: FooterItem[] = [
     route: { pathname: '/(tabs)', params: { homeReset: '1' } },
   },
   {
-    key: 'favorites',
-    label: 'Обране',
-    icon: 'heart-outline',
-    activeIcon: 'heart',
-    route: '/(tabs)/favorites',
+    key: 'menu',
+    label: 'Меню',
+    icon: 'compass-outline',
+    activeIcon: 'compass',
+  },
+  {
+    key: 'categories',
+    label: 'Категорії',
+    icon: 'list-outline',
+    activeIcon: 'list',
   },
   {
     key: 'cart',
@@ -55,12 +60,6 @@ const ITEMS: FooterItem[] = [
     icon: 'person-outline',
     activeIcon: 'person',
     route: '/(tabs)/profile',
-  },
-  {
-    key: 'menu',
-    label: 'Меню',
-    icon: 'menu-outline',
-    activeIcon: 'menu',
   },
 ];
 
@@ -82,6 +81,7 @@ export function AppFooter() {
   const { openSearch } = useGlobalSearch();
   const { products, fetchProducts } = useOrders();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [categoriesVisible, setCategoriesVisible] = useState(false);
   const [legalMenuOpen, setLegalMenuOpen] = useState(false);
 
   const cartCount = items.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
@@ -115,10 +115,10 @@ export function AppFooter() {
       return path === '/' || path === '/(tabs)' || path === '/index';
     }
 
-    if (key === 'favorites') return path.includes('/favorites');
+    if (key === 'menu') return menuVisible;
+    if (key === 'categories') return categoriesVisible;
     if (key === 'cart') return path.includes('/cart') || path.includes('/checkout');
     if (key === 'profile') return path.includes('/profile');
-    if (key === 'menu') return menuVisible;
 
     return false;
   };
@@ -126,6 +126,10 @@ export function AppFooter() {
   const closeMenu = () => {
     setMenuVisible(false);
     setLegalMenuOpen(false);
+  };
+
+  const closeCategories = () => {
+    setCategoriesVisible(false);
   };
 
   const goHome = () => {
@@ -151,6 +155,11 @@ export function AppFooter() {
       return;
     }
 
+    if (item.key === 'categories') {
+      setCategoriesVisible(true);
+      return;
+    }
+
     if (item.key === 'home') {
       goHome();
       return;
@@ -162,6 +171,11 @@ export function AppFooter() {
   const menuAction = (action: () => void) => {
     closeMenu();
     setTimeout(action, 120);
+  };
+
+  const categoryAction = (category: string) => {
+    closeCategories();
+    setTimeout(() => goCategory(category), 120);
   };
 
   const MenuRow = ({
@@ -212,7 +226,7 @@ export function AppFooter() {
 
   return (
     <>
-      <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 4) }]}>
+      <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 4) }]}> 
         <View style={styles.bar}>
           {ITEMS.map((item) => {
             const active = getActive(item.key);
@@ -229,7 +243,7 @@ export function AppFooter() {
                   <Ionicons
                     name={active ? item.activeIcon : item.icon}
                     size={22}
-                    color={active ? '#FFFFFF' : '#6B7280'}
+                    color={active ? '#2E7D32' : '#6B7280'}
                   />
 
                   {showBadge && (
@@ -259,7 +273,7 @@ export function AppFooter() {
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={closeMenu} />
 
-          <View style={[styles.menuSheet, { paddingBottom: Math.max(insets.bottom + 14, 22) }]}>
+          <View style={[styles.menuSheet, { paddingBottom: Math.max(insets.bottom + 14, 22) }]}> 
             <View style={styles.menuHandle} />
 
             <View style={styles.menuHeader}>
@@ -290,15 +304,6 @@ export function AppFooter() {
                 subtitle="Поточні пропозиції та знижки"
                 onPress={() => menuAction(() => router.push('/news' as any))}
               />
-
-              {categories.map((category) => (
-                <MenuRow
-                  key={category}
-                  icon="leaf-outline"
-                  title={category}
-                  onPress={() => menuAction(() => goCategory(category))}
-                />
-              ))}
 
               <Text style={styles.menuSectionTitle}>Сервіс</Text>
 
@@ -369,6 +374,44 @@ export function AppFooter() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={categoriesVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCategories}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={closeCategories} />
+
+          <View style={[styles.menuSheet, { paddingBottom: Math.max(insets.bottom + 14, 22) }]}> 
+            <View style={styles.menuHandle} />
+
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuHeading}>Категорії</Text>
+
+              <TouchableOpacity onPress={closeCategories} style={styles.closeButton} activeOpacity={0.75}>
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.menuScroll}
+              contentContainerStyle={styles.menuScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {categories.map((category) => (
+                <MenuRow
+                  key={category}
+                  icon="leaf-outline"
+                  title={category}
+                  onPress={() => categoryAction(category)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -401,14 +444,14 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   iconBox: {
-    width: 36,
-    height: 28,
+    width: 42,
+    height: 30,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconBoxActive: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#E8F7E8',
   },
   label: {
     fontSize: 10,
@@ -575,4 +618,3 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
 });
-
