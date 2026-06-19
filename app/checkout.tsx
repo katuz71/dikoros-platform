@@ -577,7 +577,7 @@ export default function CheckoutScreen() {
           </View>
 
           <TouchableOpacity style={styles.sheetSwitchRow} onPress={() => setDoNotCall(!doNotCall)} activeOpacity={0.84}>
-            <Text style={styles.sheetSwitchText}>Не перезвонювати, тільки повідомлення</Text>
+            <Text style={styles.sheetSwitchText}>Не звонити, тільки повідомлення</Text>
             <Switch value={doNotCall} onValueChange={setDoNotCall} />
           </TouchableOpacity>
         </>
@@ -921,6 +921,7 @@ export default function CheckoutScreen() {
           ) : (
             <FlatList
               data={searchResults}
+              contentContainerStyle={styles.locationResultsContent}
               keyExtractor={(item, index) => `${item.ref}-${index}`}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
@@ -1015,13 +1016,13 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 14.5, fontWeight: '800', color: '#333', lineHeight: 19 },
   itemVariant: { fontSize: 13, color: '#777', marginTop: 3 },
   itemPrice: { fontSize: 15, fontWeight: '900', color: '#333', marginLeft: 8 },
-  sheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  sheetRoot: { flex: 1, justifyContent: 'flex-end', paddingBottom: 68 },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheetKeyboardWrap: { justifyContent: 'flex-end' },
-  sheetContainer: { maxHeight: '88%', backgroundColor: '#F7F7F7', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 8, overflow: 'hidden' },
+  sheetContainer: { maxHeight: '94%', backgroundColor: '#F7F7F7', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 8, overflow: 'hidden' },
   sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 6, marginBottom: 4 },
   sheetCloseButton: { position: 'absolute', top: 12, right: 14, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  sheetContent: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: Platform.OS === 'ios' ? 34 : 24 },
+  sheetContent: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: Platform.OS === 'ios' ? 112 : 96 },
   sheetTitle: { fontSize: 23, lineHeight: 29, fontWeight: '900', color: '#111827', marginBottom: 16, paddingRight: 48 },
   sheetSubTitle: { fontSize: 15, lineHeight: 20, fontWeight: '900', color: '#374151', marginTop: 4, marginBottom: 8 },
   sheetInfoText: { fontSize: 15, lineHeight: 22, color: '#374151', backgroundColor: '#FFFFFF', padding: 13, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
@@ -1040,9 +1041,10 @@ const styles = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2E7D32' },
   sheetOptionText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#333', fontWeight: '700' },
   sheetOptionTextActive: { color: '#111827', fontWeight: '900' },
-  sheetDoneButton: { height: 54, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  sheetDoneButton: { height: 54, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 18 },
   sheetDoneText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
-  locationModalSafeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  locationModalSafeArea: { flex: 1, backgroundColor: '#FFFFFF', paddingBottom: 68 },
+  locationResultsContent: { paddingBottom: 88 },
   modalHeader: { padding: 18, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: '900', color: '#111827' },
   modalInput: { margin: 15, borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 15, fontSize: 16 },
