@@ -224,9 +224,7 @@ export default function CartScreen() {
 
     return (
       <View key={compositeId} style={styles.postponedCard}>
-        <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} activeOpacity={0.84}>
-          <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
-        </TouchableOpacity>
+        <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
 
         <View style={styles.postponedBody}>
           <Text numberOfLines={2} style={styles.postponedName}>{item.name}</Text>
@@ -290,17 +288,16 @@ export default function CartScreen() {
 
               return (
                 <View key={compositeId} style={styles.cartCard}>
-                  <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.cartImageWrap} activeOpacity={0.82}>
+                  <View style={styles.cartImageWrap}>
                     <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.cartImage} />
-                  </TouchableOpacity>
+                  </View>
 
                   <View style={styles.cartItemBody}>
                     <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
                     <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
-                    <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.variantRow} activeOpacity={0.75}>
+                    <View style={styles.variantRow}>
                       <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
-                      <Ionicons name="chevron-forward" size={15} color="#6B7280" />
-                    </TouchableOpacity>
+                    </View>
 
                     <View style={styles.itemActionsRow}>
                       {renderQuantitySelector(item)}
@@ -358,14 +355,14 @@ export default function CartScreen() {
                   ) : (
                     <View style={styles.savedPreviewCard}>
                       <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
-                      <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар залишився тут, у корзині.</Text>
+                      <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар з’явився тут без переходу на іншу сторінку.</Text>
                     </View>
                   )}
                 </View>
               ) : (
                 <View style={styles.savedPreviewCard}>
                   <Text style={styles.savedHintTitle}>Мої списки</Text>
-                  <Text style={styles.savedHintText}>Списки залишаються в корзині. Обрані товари відкриваються через меню або іконку серця в хедері.</Text>
+                  <Text style={styles.savedHintText}>Списки залишаються на цій сторінці корзини. Переходів з корзини немає.</Text>
                 </View>
               )}
             </View>
