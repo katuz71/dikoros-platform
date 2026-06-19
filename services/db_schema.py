@@ -58,11 +58,22 @@ def fix_db_schema():
             referrer TEXT,
             created_at TEXT,
             name TEXT,
+            last_name TEXT,
+            middle_name TEXT,
             city TEXT,
+            city_ref TEXT,
             warehouse TEXT,
+            warehouse_ref TEXT,
             user_ukrposhta TEXT,
             email TEXT,
             contact_preference TEXT DEFAULT 'call',
+            recipient_name TEXT,
+            recipient_phone TEXT,
+            is_different_recipient BOOLEAN DEFAULT FALSE,
+            do_not_call BOOLEAN DEFAULT FALSE,
+            delivery_method TEXT,
+            payment_method TEXT,
+            checkout_comment TEXT,
             google_id TEXT UNIQUE,
             facebook_id TEXT UNIQUE,
             is_bonus_claimed BOOLEAN DEFAULT FALSE
@@ -196,6 +207,17 @@ def fix_db_schema():
     # User: Nova Poshta branch (warehouse) and Ukrposhta address
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS city_ref TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS warehouse_ref TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS recipient_name TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS recipient_phone TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_different_recipient BOOLEAN DEFAULT FALSE")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS do_not_call BOOLEAN DEFAULT FALSE")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS delivery_method TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_method TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS checkout_comment TEXT")
     # Orders: delivery type and Ukrposhta address
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_method TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
