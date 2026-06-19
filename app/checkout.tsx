@@ -202,7 +202,42 @@ export default function CheckoutScreen() {
 
       if (loggedIn && accessToken) {
         await fetchUserData(accessToken);
+        await fetchCheckoutProfile(accessToken);
       }
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const fetchCheckoutProfile = async (accessToken: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/user/checkout-profile/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data.name) setName(data.name);
+      if (data.last_name) setLastName(data.last_name);
+      if (data.middle_name) setMiddleName(data.middle_name);
+      if (data.email) setEmail(data.email);
+      if (data.contact_preference && ['call', 'telegram', 'viber'].includes(data.contact_preference)) {
+        setContactMethod(data.contact_preference as 'call' | 'telegram' | 'viber');
+      }
+      if (data.city || data.city_ref) setCity({ name: data.city || '', ref: data.city_ref || '' });
+      if (data.warehouse || data.warehouse_ref) setWarehouse({ name: data.warehouse || '', ref: data.warehouse_ref || '' });
+      if (data.recipient_name) setRecipientName(data.recipient_name);
+      if (data.recipient_phone) setRecipientPhone(formatUaPhoneInput(data.recipient_phone));
+      if (typeof data.is_different_recipient === 'boolean') setIsDifferentRecipient(data.is_different_recipient);
+      if (typeof data.do_not_call === 'boolean') setDoNotCall(data.do_not_call);
+      if (data.delivery_method && DELIVERY_OPTIONS.some(option => option.id === data.delivery_method)) {
+        setDeliveryMethod(data.delivery_method);
+      }
+      if (data.payment_method && PAYMENT_OPTIONS.some(option => option.id === data.payment_method)) {
+        setPaymentMethod(data.payment_method);
+      }
+      if (data.checkout_comment) setOrderComment(data.checkout_comment);
     } catch (e) {
       console.log(e);
     }
@@ -483,6 +518,36 @@ export default function CheckoutScreen() {
           });
         } catch {
           // Order is already created; profile save is optional.
+        }
+
+        try {
+          await fetch(`${API_URL}/api/user/checkout-profile/me`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              name: name.trim(),
+              last_name: lastName.trim(),
+              middle_name: middleName.trim(),
+              email: email.trim(),
+              contact_preference: contactMethod,
+              city: city.name || '',
+              city_ref: finalCityRef,
+              warehouse: warehouse.name || '',
+              warehouse_ref: finalWarehouseRef,
+              recipient_name: isDifferentRecipient ? recipientName.trim() : '',
+              recipient_phone: isDifferentRecipient ? finalRecipientPhone : '',
+              is_different_recipient: isDifferentRecipient,
+              do_not_call: doNotCall,
+              delivery_method: deliveryMethod,
+              payment_method: paymentMethod,
+              checkout_comment: orderComment.trim(),
+            }),
+          });
+        } catch {
+          // Extended checkout profile save is optional and must not block OneBox/order flow.
         }
       }
 
