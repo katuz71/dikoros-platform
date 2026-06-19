@@ -75,6 +75,7 @@ export default function CartScreen() {
   const totalAmount = finalPrice;
 
   const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
+  const formatItemCount = (count: number) => `${count} товарів`;
 
   const applyPromo = async () => {
     const normalizedPromoCode = promoCode.trim().toUpperCase();
@@ -265,7 +266,7 @@ export default function CartScreen() {
             style={styles.postponedFloatingCart}
             activeOpacity={0.84}
           >
-            <Ionicons name="cart-outline" size={24} color="#FFFFFF" />
+            <Ionicons name="cart-outline" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -403,7 +404,7 @@ export default function CartScreen() {
                 <View style={styles.postponedList}>
                   {hasPostponedItems ? (
                     <>
-                      <Text style={styles.postponedCount}>{postponedItems.length} товар</Text>
+                      <Text style={styles.postponedCount}>{formatItemCount(postponedItems.length)}</Text>
                       <View style={styles.productTilesWrap}>
                         {postponedItems.map(item => renderProductTile(item, { postponed: true }))}
                       </View>
@@ -419,7 +420,7 @@ export default function CartScreen() {
                 <View style={styles.postponedList}>
                   {hasFavoriteItems ? (
                     <>
-                      <Text style={styles.postponedCount}>{favorites.length} товар</Text>
+                      <Text style={styles.postponedCount}>{formatItemCount(favorites.length)}</Text>
                       <View style={styles.productTilesWrap}>
                         {favorites.map((item: any, index: number) => renderProductTile(item, { index }))}
                       </View>
@@ -536,11 +537,11 @@ const styles = StyleSheet.create({
   emptyButton: { backgroundColor: '#2E7D32', paddingVertical: 15, paddingHorizontal: 34, borderRadius: 12 },
   emptyButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 16 },
   scrollContent: { paddingTop: 0, paddingBottom: 182 },
-  emptyCartNotice: { minHeight: 146, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, marginBottom: 0 },
-  emptyNoticeIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center', marginRight: 18 },
+  emptyCartNotice: { minHeight: 130, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingVertical: 17, marginBottom: 0 },
+  emptyNoticeIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
   emptyNoticeTextBox: { flex: 1 },
-  emptyNoticeTitle: { fontSize: 21, fontWeight: '900', color: '#222222', marginBottom: 8 },
-  emptyNoticeText: { fontSize: 16, lineHeight: 23, color: '#374151' },
+  emptyNoticeTitle: { fontSize: 19, fontWeight: '900', color: '#222222', marginBottom: 6 },
+  emptyNoticeText: { fontSize: 14.5, lineHeight: 21, color: '#374151' },
   cartTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 22, paddingTop: 22 },
   cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222' },
   editPromoText: { fontSize: 15, fontWeight: '700', color: '#1976A3' },
@@ -564,26 +565,26 @@ const styles = StyleSheet.create({
   itemTotalPrice: { fontSize: 20, fontWeight: '900', color: '#111827' },
   moreText: { fontSize: 13, fontWeight: '700', color: '#1976A3' },
   savedSection: { marginTop: 0, marginBottom: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
-  savedTabsRow: { flexDirection: 'row', minHeight: 62, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  savedTab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: 'transparent' },
+  savedTabsRow: { flexDirection: 'row', minHeight: 56, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  savedTab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
   savedTabActive: { borderBottomColor: '#2E7D32' },
-  savedTabText: { fontSize: 20, fontWeight: '900', color: '#222222' },
+  savedTabText: { fontSize: 17, fontWeight: '900', color: '#222222' },
   savedTabTextActive: { color: '#2E7D32' },
-  postponedList: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 22 },
-  productTilesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
-  postponedCount: { fontSize: 22, fontWeight: '900', color: '#222222', marginBottom: 22 },
-  postponedCard: { width: 190, marginBottom: 10 },
-  postponedImageWrap: { width: 176, height: 150, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  postponedImage: { width: 96, height: 128, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
-  postponedFloatingCart: { position: 'absolute', right: 18, bottom: 18, width: 58, height: 58, borderRadius: 29, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
-  postponedName: { fontSize: 21, lineHeight: 29, fontWeight: '400', color: '#2C2C2C', marginBottom: 12 },
-  postponedMeta: { fontSize: 14, lineHeight: 18, color: '#6B7280', marginBottom: 8 },
-  postponedRating: { fontSize: 15, color: '#EAB308', marginBottom: 12 },
-  postponedPrice: { fontSize: 24, fontWeight: '900', color: '#111827', marginBottom: 20 },
-  postponedRemoveText: { fontSize: 16, lineHeight: 21, fontWeight: '900', color: '#2C2C2C', textDecorationLine: 'underline' },
-  savedPreviewCard: { padding: 24 },
-  savedHintTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 6 },
-  savedHintText: { fontSize: 15, lineHeight: 21, color: '#6B7280', marginBottom: 8 },
+  postponedList: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 20 },
+  productTilesWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 18 },
+  postponedCount: { fontSize: 18, lineHeight: 23, fontWeight: '900', color: '#222222', marginBottom: 16 },
+  postponedCard: { width: 154, marginBottom: 4 },
+  postponedImageWrap: { width: 148, height: 122, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  postponedImage: { width: 78, height: 102, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
+  postponedFloatingCart: { position: 'absolute', right: 14, bottom: 10, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
+  postponedName: { fontSize: 16, lineHeight: 21, fontWeight: '400', color: '#2C2C2C', marginBottom: 8 },
+  postponedMeta: { fontSize: 12.5, lineHeight: 16, color: '#6B7280', marginBottom: 6 },
+  postponedRating: { fontSize: 12.5, color: '#EAB308', marginBottom: 8 },
+  postponedPrice: { fontSize: 19, lineHeight: 24, fontWeight: '900', color: '#111827', marginBottom: 12 },
+  postponedRemoveText: { fontSize: 14, lineHeight: 19, fontWeight: '900', color: '#2C2C2C', textDecorationLine: 'underline' },
+  savedPreviewCard: { padding: 22 },
+  savedHintTitle: { fontSize: 18, fontWeight: '900', color: '#111827', marginBottom: 5 },
+  savedHintText: { fontSize: 14, lineHeight: 20, color: '#6B7280', marginBottom: 8 },
   promoSection: { marginTop: 18, marginHorizontal: 12, marginBottom: 20, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 22, borderRadius: 12 },
   promoLabel: { fontSize: 23, fontWeight: '900', color: '#2C2C2C', marginBottom: 18 },
   promoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
