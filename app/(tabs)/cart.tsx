@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFavoritesStore } from '../../store/favoritesStore';
 
 type Product = {
   id: number;
@@ -58,6 +59,7 @@ export default function CartScreen() {
     appliedPromoCode,
     finalPrice,
   } = useCart();
+  const { favorites } = useFavoritesStore();
 
   const [promoCode, setPromoCode] = useState('');
   const [quantityPickerItem, setQuantityPickerItem] = useState<Product | null>(null);
@@ -67,7 +69,8 @@ export default function CartScreen() {
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
   const hasCartItems = cartItems.length > 0;
   const hasPostponedItems = postponedItems.length > 0;
-  const hasAnyContent = hasCartItems || hasPostponedItems;
+  const hasFavoriteItems = favorites.length > 0;
+  const hasAnyContent = hasCartItems || hasPostponedItems || hasFavoriteItems;
   const hasPromo = discount > 0 || discountAmount > 0;
   const totalAmount = finalPrice;
 
@@ -211,6 +214,23 @@ export default function CartScreen() {
     Vibration.vibrate(60);
   };
 
+  const addFavoriteToCart = (item: Product) => {
+    const unit = item.unit || item.packSize || item.variantSize || 'шт';
+    addItem(
+      {
+        ...item,
+        image: item.image || item.image_url || item.picture || '',
+        image_url: item.image || item.image_url || item.picture || '',
+        unit,
+      },
+      1,
+      unit,
+      unit,
+      Number(item.price || 0)
+    );
+    Vibration.vibrate(50);
+  };
+
   const removePostponedItem = (item: Product) => {
     const compositeId = getCompositeId(item);
     setPostponedItems((prev) => prev.filter((saved) => getCompositeId(saved) !== compositeId));
@@ -232,27 +252,33 @@ export default function CartScreen() {
     );
   };
 
-  const renderPostponedItem = (item: Product) => {
-    const compositeId = getCompositeId(item);
+  const renderProductTile = (item: Product, options?: { postponed?: boolean; index?: number }) => {
     const sizeKey = getSizeKey(item);
+    const key = options?.postponed ? getCompositeId(item) : `favorite-${item.id}-${options?.index || 0}`;
 
     return (
-      <View key={compositeId} style={styles.postponedCard}>
+      <View key={key} style={styles.postponedCard}>
         <View style={styles.postponedImageWrap}>
           <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
-          <TouchableOpacity onPress={() => restorePostponedItem(item)} style={styles.postponedFloatingCart} activeOpacity={0.84}>
+          <TouchableOpacity
+            onPress={() => options?.postponed ? restorePostponedItem(item) : addFavoriteToCart(item)}
+            style={styles.postponedFloatingCart}
+            activeOpacity={0.84}
+          >
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         <Text numberOfLines={3} style={styles.postponedName}>{item.name}</Text>
-        <Text style={styles.postponedMeta}>{sizeKey} · {Number(item.quantity || 1)} шт.</Text>
-        <Text style={styles.postponedRating}>★ ★ ★ ★ ☆ 486 067</Text>
+        <Text style={styles.postponedMeta}>{sizeKey}{options?.postponed ? ` · ${Number(item.quantity || 1)} шт.` : ''}</Text>
+        <Text style={styles.postponedRating}>★ ★ ★ ★ ☆</Text>
         <Text style={styles.postponedPrice}>{formatPrice(Number(item.price || 0))}</Text>
 
-        <TouchableOpacity onPress={() => removePostponedItem(item)} activeOpacity={0.78}>
-          <Text style={styles.postponedRemoveText}>Видалити</Text>
-        </TouchableOpacity>
+        {options?.postponed && (
+          <TouchableOpacity onPress={() => removePostponedItem(item)} activeOpacity={0.78}>
+            <Text style={styles.postponedRemoveText}>Видалити</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -285,14 +311,14 @@ export default function CartScreen() {
           </View>
         ) : (
           <>
-            {!hasCartItems && hasPostponedItems && (
+            {!hasCartItems && (hasPostponedItems || hasFavoriteItems) && (
               <View style={styles.emptyCartNotice}>
                 <View style={styles.emptyNoticeIcon}>
                   <Ionicons name="cart-outline" size={52} color="#7A7A7A" />
                 </View>
                 <View style={styles.emptyNoticeTextBox}>
                   <Text style={styles.emptyNoticeTitle}>Ваш кошик порожній</Text>
-                  <Text style={styles.emptyNoticeText}>Відкладені товари залишаються нижче на цій самій сторінці.</Text>
+                  <Text style={styles.emptyNoticeText}>Відкладені товари та мої списки залишаються нижче на цій самій сторінці.</Text>
                 </View>
               </View>
             )}
@@ -378,7 +404,9 @@ export default function CartScreen() {
                   {hasPostponedItems ? (
                     <>
                       <Text style={styles.postponedCount}>{postponedItems.length} товар</Text>
-                      {postponedItems.map(renderPostponedItem)}
+                      <View style={styles.productTilesWrap}>
+                        {postponedItems.map(item => renderProductTile(item, { postponed: true }))}
+                      </View>
                     </>
                   ) : (
                     <View style={styles.savedPreviewCard}>
@@ -388,9 +416,20 @@ export default function CartScreen() {
                   )}
                 </View>
               ) : (
-                <View style={styles.savedPreviewCard}>
-                  <Text style={styles.savedHintTitle}>Мої списки</Text>
-                  <Text style={styles.savedHintText}>Тут будуть списки покупок. Натискання не відкриває сторінку обраного.</Text>
+                <View style={styles.postponedList}>
+                  {hasFavoriteItems ? (
+                    <>
+                      <Text style={styles.postponedCount}>{favorites.length} товар</Text>
+                      <View style={styles.productTilesWrap}>
+                        {favorites.map((item: any, index: number) => renderProductTile(item, { index }))}
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.savedPreviewCard}>
+                      <Text style={styles.savedHintTitle}>Мої списки порожні</Text>
+                      <Text style={styles.savedHintText}>Тут будуть товари, які ви додали в обране. Переходу на сторінку обраного немає.</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -531,6 +570,7 @@ const styles = StyleSheet.create({
   savedTabText: { fontSize: 20, fontWeight: '900', color: '#222222' },
   savedTabTextActive: { color: '#2E7D32' },
   postponedList: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 22 },
+  productTilesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
   postponedCount: { fontSize: 22, fontWeight: '900', color: '#222222', marginBottom: 22 },
   postponedCard: { width: 190, marginBottom: 10 },
   postponedImageWrap: { width: 176, height: 150, alignItems: 'center', justifyContent: 'center', position: 'relative' },
