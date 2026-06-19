@@ -1,8 +1,11 @@
+import { useCart } from '@/context/CartContext';
+import { trackEvent } from '@/utils/analytics';
+import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeader } from './AppHeader';
 import ProductCard from './ProductCard';
@@ -72,8 +75,15 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
   const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
+  const [selectedQuantity, setSelectedQuantity] = React.useState(1);
+  const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { addItem } = useCart() as any;
+  void onAddToCart;
+  void variantRows;
+
+  const quantityOptions = React.useMemo(() => Array.from({ length: 10 }, (_, index) => index + 1), []);
 
   const selectedSignature = React.useMemo(() => {
     const selected = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
@@ -152,14 +162,55 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const resolvedIsInCart = isInCart || localAddedToCart;
   const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
 
-  const handleMainCartPress = React.useCallback(() => {
-    if (resolvedIsInCart) {
+  const selectedVariantLabel = React.useMemo(() => {
+    return internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
+  }, [internalKeys, selectedOptions]);
+
+  const selectedUnit = product?.unit || 'шт';
+  const selectedPack = selectedVariantLabel || selectedUnit;
+
+  const addSelectedToCart = React.useCallback((goToCheckout: boolean) => {
+    setQuantityMenuOpen(false);
+
+    if (resolvedIsInCart && !goToCheckout) {
       router.push('/(tabs)/cart' as any);
       return;
     }
-    setLocalAddedToCart(true);
-    onAddToCart();
-  }, [resolvedIsInCart, router, onAddToCart]);
+
+    if (!resolvedIsInCart) {
+      Vibration.vibrate(10);
+      addItem(product, selectedQuantity, selectedPack, selectedUnit, currentPrice);
+      setLocalAddedToCart(true);
+
+      const analyticsItem = {
+        item_id: String(product?.id),
+        item_name: product?.name,
+        price: currentPrice,
+        quantity: selectedQuantity,
+        item_variant: selectedPack,
+      };
+
+      trackEvent('AddToCart', {
+        content_ids: [product?.id],
+        content_type: 'product',
+        content_name: product?.name,
+        value: currentPrice * selectedQuantity,
+        currency: 'UAH',
+        quantity: selectedQuantity,
+        items: [analyticsItem],
+      });
+
+      logFirebaseEvent('add_to_cart', {
+        currency: 'UAH',
+        value: currentPrice * selectedQuantity,
+        items: [analyticsItem],
+      });
+    }
+
+    if (goToCheckout) {
+      router.push('/checkout' as any);
+    }
+  }, [addItem, currentPrice, product, resolvedIsInCart, router, selectedPack, selectedQuantity, selectedUnit]);
 
   const handleImageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextIndex = Math.round((event.nativeEvent.contentOffset.x || 0) / screenWidth);
@@ -197,7 +248,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     <View style={styles.root}>
       <AppHeader showLogo showBack backIcon="chevron-back" showSearch showFavoriteToggle />
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 195 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 210 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         <View style={styles.imageWrap}>
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={handleImageScroll}>
             {images.map((img, index) => (
@@ -326,9 +377,40 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       </ScrollView>
 
       <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4), paddingBottom: 10 }]}>
-        <TouchableOpacity style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]} onPress={handleMainCartPress} disabled={!activeAvailable}>
-          <Text style={styles.addToCartText}>{activeAvailable ? (resolvedIsInCart ? 'Перейти в кошик' : (cartButtonLabel || 'В кошик')) : 'Немає в наявності'}</Text>
-        </TouchableOpacity>
+        {quantityMenuOpen && (
+          <View style={styles.quantityDropdown}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {quantityOptions.map((qty) => (
+                <TouchableOpacity
+                  key={qty}
+                  style={[styles.quantityOption, qty === selectedQuantity && styles.quantityOptionActive]}
+                  onPress={() => {
+                    setSelectedQuantity(qty);
+                    setQuantityMenuOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quantityOptionText, qty === selectedQuantity && styles.quantityOptionTextActive]}>{qty}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={styles.cartControlsRow}>
+          <TouchableOpacity style={styles.quantitySelector} onPress={() => setQuantityMenuOpen(v => !v)} activeOpacity={0.8}>
+            <Text style={styles.quantityText}>{selectedQuantity}</Text>
+            <Ionicons name={quantityMenuOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#6B7280" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.quickOrderBtn, !activeAvailable && styles.actionBtnDisabled]} onPress={() => addSelectedToCart(true)} disabled={!activeAvailable} activeOpacity={0.88}>
+            <Text style={styles.quickOrderText}>Швидке{`\n`}замовлення</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.addToCartBtn, !activeAvailable && styles.actionBtnDisabled]} onPress={() => addSelectedToCart(false)} disabled={!activeAvailable} activeOpacity={0.88}>
+            <Text style={styles.addToCartText}>{activeAvailable ? (resolvedIsInCart ? 'Перейти в кошик' : (cartButtonLabel || 'В кошик')) : 'Немає в наявності'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -383,10 +465,20 @@ const styles = StyleSheet.create({
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   bulletDot: { width: 16, color: '#10b981', lineHeight: 22, fontSize: 16 },
   bulletText: { flex: 1, color: '#4b5563', lineHeight: 22, fontSize: 15 },
-  stickyCartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 14, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#EEF0F2', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 300, zIndex: 300 },
-  addToCartBtn: { backgroundColor: '#2E7D32', height: 52, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
-  addToCartText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  stickyCartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#EEF0F2', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 300, zIndex: 300, overflow: 'visible' },
+  cartControlsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  quantitySelector: { width: 70, height: 52, borderRadius: 10, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  quantityText: { fontSize: 22, fontWeight: '500', color: '#4B5563' },
+  quantityDropdown: { position: 'absolute', left: 12, bottom: 72, width: 70, maxHeight: 260, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#D1D5DB', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 10, elevation: 310, overflow: 'hidden' },
+  quantityOption: { height: 42, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  quantityOptionActive: { backgroundColor: '#EEF7EC' },
+  quantityOptionText: { fontSize: 18, fontWeight: '700', color: '#374151' },
+  quantityOptionTextActive: { color: '#2E7D32' },
+  quickOrderBtn: { flex: 1, height: 52, borderRadius: 11, backgroundColor: '#3F8F00', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  quickOrderText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15, lineHeight: 19, textAlign: 'center' },
+  addToCartBtn: { flex: 1.15, backgroundColor: '#FF9500', height: 52, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  actionBtnDisabled: { backgroundColor: '#9CA3AF' },
+  addToCartText: { color: '#fff', fontWeight: '900', fontSize: 15, lineHeight: 19, textAlign: 'center' },
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' },
   writeReviewBtn: { backgroundColor: '#f0f0f0', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
