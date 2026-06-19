@@ -77,6 +77,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
   const [selectedQuantity, setSelectedQuantity] = React.useState(1);
   const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { addItem } = useCart() as any;
@@ -93,6 +94,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   React.useEffect(() => {
     setLocalAddedToCart(false);
   }, [selectedSignature]);
+
+  React.useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [product?.id]);
 
   const normalizeText = React.useCallback((value: any) => {
     const decodeEntities = (source: string) => source
@@ -277,7 +282,9 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       .filter(Boolean);
 
     const intro = paragraphs[0] || 'Опис товару буде оновлено найближчим часом.';
-    const details = paragraphs.slice(1, 4);
+    const details = paragraphs.slice(1);
+    const hasMore = details.length > 2;
+    const visibleDetails = descriptionExpanded ? details : details.slice(0, 2);
 
     return (
       <View style={styles.productInfoBlock}>
@@ -297,13 +304,26 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           <Text style={styles.infoHeading}>Коротко про товар</Text>
           <Text style={styles.infoText}>{intro}</Text>
 
-          {details.length > 0 && (
+          {visibleDetails.length > 0 && (
             <>
               <Text style={styles.infoHeading}>Детальніше</Text>
-              {details.map((item, index) => (
+              {visibleDetails.map((item, index) => (
                 <Text key={`detail-${index}`} style={styles.infoText}>{item}</Text>
               ))}
             </>
+          )}
+
+          {hasMore && !descriptionExpanded && <View style={styles.infoFade} pointerEvents="none" />}
+
+          {hasMore && (
+            <TouchableOpacity
+              onPress={() => setDescriptionExpanded(value => !value)}
+              style={styles.expandButton}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.expandButtonText}>{descriptionExpanded ? 'Згорнути' : 'Розгорнути'}</Text>
+              <Ionicons name={descriptionExpanded ? 'chevron-up' : 'chevron-down'} size={17} color="#374151" />
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -527,7 +547,7 @@ const styles = StyleSheet.create({
   tabBtnTextActive: { fontWeight: 'bold', color: '#000' },
   productInfoBlock: { marginBottom: 30 },
   infoSectionTitle: { fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 14 },
-  infoCard: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1.2, borderColor: '#BFD8E0', padding: 16 },
+  infoCard: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1.2, borderColor: '#BFD8E0', padding: 16, paddingBottom: 28, overflow: 'hidden' },
   infoHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   infoIconCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#2E9DB4', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   infoHeaderText: { flex: 1 },
@@ -535,6 +555,9 @@ const styles = StyleSheet.create({
   infoCardNote: { fontSize: 13.5, lineHeight: 18, color: '#6B7280' },
   infoHeading: { fontSize: 17, fontWeight: '900', color: '#111827', marginTop: 10, marginBottom: 8 },
   infoText: { fontSize: 16, lineHeight: 24, color: '#2F343B', marginBottom: 10 },
+  infoFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, backgroundColor: 'rgba(255,255,255,0.88)' },
+  expandButton: { position: 'absolute', alignSelf: 'center', bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 18, height: 38, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 },
+  expandButtonText: { fontSize: 15, fontWeight: '700', color: '#111827' },
   structuredWrap: { marginBottom: 30 },
   structuredSpacer: { height: 13 },
   paragraphText: { color: '#4b5563', lineHeight: 23, fontSize: 15.5, marginBottom: 6 },
