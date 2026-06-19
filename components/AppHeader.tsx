@@ -67,12 +67,12 @@ export function AppHeader({
 
   if (showLogo && !showBack) {
     return (
-      <View style={[styles.header, { height: 54 + insets.top, paddingTop: insets.top }, style]}>
+      <View style={[styles.header, { height: 48 + insets.top, paddingTop: insets.top }, style]}>
         <View style={styles.logoCenteredRow}>
           <View style={styles.logoActionSlot}>
             {showSearch ? (
               <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name="search" size={23} color="#111827" />
+                <Ionicons name="search" size={22} color="#111827" />
               </TouchableOpacity>
             ) : (
               <View style={styles.iconButtonPlaceholder} />
@@ -94,7 +94,7 @@ export function AppHeader({
           <View style={styles.logoActionSlot}>
             {showFavorites ? (
               <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name="heart-outline" size={23} color="#111827" />
+                <Ionicons name="heart-outline" size={22} color="#111827" />
               </TouchableOpacity>
             ) : (
               <View style={styles.iconButtonPlaceholder} />
@@ -106,12 +106,12 @@ export function AppHeader({
   }
 
   return (
-    <View style={[styles.header, { height: 54 + insets.top, paddingTop: insets.top }, style]}>
+    <View style={[styles.header, { height: 48 + insets.top, paddingTop: insets.top }, style]}>
       <View style={styles.row}>
         <View style={styles.leftArea}>
           {showBack ? (
             <TouchableOpacity onPress={goBack} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name={backIcon as any} size={25} color="#111827" />
+              <Ionicons name={backIcon as any} size={24} color="#111827" />
             </TouchableOpacity>
           ) : (
             <View style={styles.iconButtonPlaceholder} />
@@ -142,43 +142,43 @@ export function AppHeader({
         <View style={styles.rightArea}>
           {showSearch && (
             <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="search" size={23} color="#111827" />
+              <Ionicons name="search" size={22} color="#111827" />
             </TouchableOpacity>
           )}
 
           {showFilter && (
             <TouchableOpacity onPress={onFilter} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="options-outline" size={23} color="#111827" />
+              <Ionicons name="options-outline" size={22} color="#111827" />
             </TouchableOpacity>
           )}
 
           {showFavorites && (
             <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="heart-outline" size={23} color="#111827" />
+              <Ionicons name="heart-outline" size={22} color="#111827" />
             </TouchableOpacity>
           )}
 
           {showShare && (
             <TouchableOpacity onPress={onShare} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="share-outline" size={21} color="#111827" />
+              <Ionicons name="share-outline" size={20} color="#111827" />
             </TouchableOpacity>
           )}
 
           {showFavoriteToggle && (
             <TouchableOpacity onPress={onFavoritePress} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={23} color={isFavorite ? '#EF4444' : '#111827'} />
+              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={22} color={isFavorite ? '#EF4444' : '#111827'} />
             </TouchableOpacity>
           )}
 
           {showTrash && (
             <TouchableOpacity onPress={onTrash} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="trash-outline" size={22} color="#EF4444" />
+              <Ionicons name="trash-outline" size={21} color="#EF4444" />
             </TouchableOpacity>
           )}
 
           {showLogout && (
             <TouchableOpacity onPress={onLogout} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="log-out-outline" size={23} color="#EF4444" />
+              <Ionicons name="log-out-outline" size={22} color="#EF4444" />
             </TouchableOpacity>
           )}
         </View>
@@ -195,13 +195,13 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   row: {
-    height: 54,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
   },
   logoCenteredRow: {
-    height: 54,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -236,35 +236,35 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconButtonPlaceholder: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
   },
   logoButton: {
     width: 146,
-    height: 42,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logo: {
-    width: 128,
-    height: 34,
+    width: 126,
+    height: 30,
   },
   title: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: '900',
     color: '#111827',
     textAlign: 'center',
   },
   subtitle: {
     marginTop: 1,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#6B7280',
     textAlign: 'center',
