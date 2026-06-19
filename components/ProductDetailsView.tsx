@@ -252,38 +252,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     };
   }, [normalizeText, product?.description, product?.composition, product?.usage]);
 
-  const renderInlineBold = (text: string) => {
-    const terms = [
-      'Мухоморний мікродозинг',
-      'червоний мухомор',
-      'Amanita muscaria',
-      'веганські капсули',
-      '60 капсул',
-      '120 капсул',
-      '0,5 г',
-      'сорт Еліт',
-      'Еліт',
-      'капсули',
-      'мікродозинг',
-      'мухомор',
-    ];
-
-    const escapedTerms = terms
-      .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .sort((a, b) => b.length - a.length);
-    const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
-
-    return text.split(pattern).map((part, index) => {
-      const isBold = terms.some((term) => part.toLowerCase() === term.toLowerCase());
-      return (
-        <Text key={`${part}-${index}`} style={isBold ? styles.boldText : undefined}>
-          {part}
-        </Text>
-      );
-    });
-  };
-
-  const renderText = (text: string) => (
+  const renderParagraphs = (text: string) => (
     <View style={styles.structuredWrap}>
       {String(text || '').split(/\r?\n/).map((line, index) => {
         const trimmed = line.trim();
@@ -292,14 +261,54 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           return (
             <View key={`b-${index}`} style={styles.bulletRow}>
               <Text style={styles.bulletDot}>•</Text>
-              <Text style={styles.bulletText}>{renderInlineBold(trimmed.slice(2))}</Text>
+              <Text style={styles.bulletText}>{trimmed.slice(2)}</Text>
             </View>
           );
         }
-        return <Text key={`p-${index}`} style={styles.paragraphText}>{renderInlineBold(trimmed)}</Text>;
+        return <Text key={`p-${index}`} style={styles.paragraphText}>{trimmed}</Text>;
       })}
     </View>
   );
+
+  const renderProductInfo = (text: string) => {
+    const paragraphs = String(text || '')
+      .split(/\n{2,}|\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const intro = paragraphs[0] || 'Опис товару буде оновлено найближчим часом.';
+    const details = paragraphs.slice(1, 4);
+
+    return (
+      <View style={styles.productInfoBlock}>
+        <Text style={styles.infoSectionTitle}>Інформація про продукт</Text>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoHeaderRow}>
+            <View style={styles.infoIconCircle}>
+              <Ionicons name="leaf-outline" size={23} color="#FFFFFF" />
+            </View>
+            <View style={styles.infoHeaderText}>
+              <Text style={styles.infoCardTitle}>Огляд продукту</Text>
+              <Text style={styles.infoCardNote}>Коротка інформація. Не є медичною рекомендацією.</Text>
+            </View>
+          </View>
+
+          <Text style={styles.infoHeading}>Коротко про товар</Text>
+          <Text style={styles.infoText}>{intro}</Text>
+
+          {details.length > 0 && (
+            <>
+              <Text style={styles.infoHeading}>Детальніше</Text>
+              {details.map((item, index) => (
+                <Text key={`detail-${index}`} style={styles.infoText}>{item}</Text>
+              ))}
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -392,7 +401,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             ))}
           </View>
 
-          {renderText(tabText[tab])}
+          {tab === 'desc' ? renderProductInfo(tabText.desc) : renderParagraphs(tabText[tab])}
 
           {similarProducts.length > 0 && (
             <View style={styles.similarSection}>
@@ -516,10 +525,19 @@ const styles = StyleSheet.create({
   tabBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, elevation: 2 },
   tabBtnText: { fontWeight: '500', fontSize: 14, color: '#666' },
   tabBtnTextActive: { fontWeight: 'bold', color: '#000' },
+  productInfoBlock: { marginBottom: 30 },
+  infoSectionTitle: { fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 14 },
+  infoCard: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1.2, borderColor: '#BFD8E0', padding: 16 },
+  infoHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+  infoIconCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#2E9DB4', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  infoHeaderText: { flex: 1 },
+  infoCardTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 2 },
+  infoCardNote: { fontSize: 13.5, lineHeight: 18, color: '#6B7280' },
+  infoHeading: { fontSize: 17, fontWeight: '900', color: '#111827', marginTop: 10, marginBottom: 8 },
+  infoText: { fontSize: 16, lineHeight: 24, color: '#2F343B', marginBottom: 10 },
   structuredWrap: { marginBottom: 30 },
   structuredSpacer: { height: 13 },
   paragraphText: { color: '#4b5563', lineHeight: 23, fontSize: 15.5, marginBottom: 6 },
-  boldText: { fontWeight: '900', color: '#111827' },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 7 },
   bulletDot: { width: 16, color: '#10b981', lineHeight: 23, fontSize: 16 },
   bulletText: { flex: 1, color: '#4b5563', lineHeight: 23, fontSize: 15.5 },
