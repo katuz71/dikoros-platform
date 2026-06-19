@@ -29,6 +29,7 @@ import { useCart } from '../context/CartContext';
 
 const POPULAR_CITIES = ['Київ', 'Львів', 'Одеса', 'Дніпро', 'Харків', 'Івано-Франківськ'];
 const MIN_ORDER_AMOUNT = 200;
+const UA_PHONE_MASK_MAX_LENGTH = 17;
 
 type DeliveryMethod = 'ukrposhta_branch' | 'nova_poshta' | 'nova_poshta_international';
 type PaymentMethod = 'postpaid' | 'bank_transfer' | 'paypal_request';
@@ -65,6 +66,26 @@ const getPaymentOptionLabel = (option: { id: PaymentMethod; label: string }, del
     return 'Післяплата на пошті (Контроль оплати)';
   }
   return option.label;
+};
+
+const getUaSubscriberDigits = (value: string) => {
+  let digits = (value || '').replace(/\D/g, '');
+  if (digits.startsWith('380')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return digits.slice(0, 9);
+};
+
+const formatUaPhoneInput = (value: string) => {
+  const digits = getUaSubscriberDigits(value);
+  if (!digits && !(value || '').includes('380') && !(value || '').includes('+')) return '';
+
+  const parts = ['+380'];
+  if (digits.length > 0) parts.push(digits.slice(0, 2));
+  if (digits.length > 2) parts.push(digits.slice(2, 5));
+  if (digits.length > 5) parts.push(digits.slice(5, 7));
+  if (digits.length > 7) parts.push(digits.slice(7, 9));
+
+  return parts.filter(Boolean).join(' ');
 };
 
 const canonicalizePhone = (value: string) => {
@@ -153,7 +174,7 @@ export default function CheckoutScreen() {
 
       if (storedPhone) {
         const canon = canonicalizePhone(storedPhone);
-        setPhone(canon);
+        setPhone(formatUaPhoneInput(canon));
       }
 
       if (savedInfo) {
@@ -161,8 +182,9 @@ export default function CheckoutScreen() {
         if (parsed.name) setName(parsed.name);
         if (parsed.lastName) setLastName(parsed.lastName);
         if (parsed.middleName) setMiddleName(parsed.middleName);
+        if (parsed.phone && !storedPhone) setPhone(formatUaPhoneInput(parsed.phone));
         if (parsed.recipientName) setRecipientName(parsed.recipientName);
-        if (parsed.recipientPhone) setRecipientPhone(parsed.recipientPhone);
+        if (parsed.recipientPhone) setRecipientPhone(formatUaPhoneInput(parsed.recipientPhone));
         if (parsed.isDifferentRecipient) setIsDifferentRecipient(Boolean(parsed.isDifferentRecipient));
         if (parsed.doNotCall) setDoNotCall(Boolean(parsed.doNotCall));
         if (parsed.email) setEmail(parsed.email);
@@ -306,6 +328,7 @@ export default function CheckoutScreen() {
       name,
       lastName,
       middleName,
+      phone,
       recipientName,
       recipientPhone,
       isDifferentRecipient,
@@ -336,14 +359,22 @@ export default function CheckoutScreen() {
     }
 
     const cleanBuyerPhone = canonicalizePhone(phone);
-    if (cleanBuyerPhone.length < 10) {
-      Alert.alert('Увага', 'Введіть коректний телефон покупця.');
+    if (cleanBuyerPhone.length !== 10 || !cleanBuyerPhone.startsWith('0')) {
+      Alert.alert('Увага', 'Введіть коректний телефон покупця у форматі +380 XX XXX XX XX.');
       return;
     }
 
     if (isDifferentRecipient && (!recipientName.trim() || !recipientPhone.trim())) {
       Alert.alert('Увага', 'Заповніть ПІБ та телефон отримувача.');
       return;
+    }
+
+    if (isDifferentRecipient) {
+      const cleanRecipientPhone = canonicalizePhone(recipientPhone);
+      if (cleanRecipientPhone.length !== 10 || !cleanRecipientPhone.startsWith('0')) {
+        Alert.alert('Увага', 'Введіть коректний телефон отримувача у форматі +380 XX XXX XX XX.');
+        return;
+      }
     }
 
     const accessToken = await AsyncStorage.getItem('accessToken');
@@ -514,9 +545,9 @@ export default function CheckoutScreen() {
   const submitDisabled = loading;
 
   const buyerFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
-  const contactComplete = Boolean(lastName.trim() && name.trim() && phone.trim());
+  const contactComplete = Boolean(lastName.trim() && name.trim() && canonicalizePhone(phone).length === 10);
   const deliveryComplete = Boolean(city.name && warehouse.name);
-  const recipientComplete = !isDifferentRecipient || Boolean(recipientName.trim() && recipientPhone.trim());
+  const recipientComplete = !isDifferentRecipient || Boolean(recipientName.trim() && canonicalizePhone(recipientPhone).length === 10);
   const currentDeliveryLabel = DELIVERY_OPTIONS.find(option => option.id === deliveryMethod)?.label || 'Оберіть доставку';
   const currentPaymentOption = PAYMENT_OPTIONS.find(option => option.id === paymentMethod);
   const currentPaymentLabel = currentPaymentOption ? getPaymentOptionLabel(currentPaymentOption, deliveryMethod) : 'Оберіть оплату';
@@ -568,7 +599,16 @@ export default function CheckoutScreen() {
           <TextInput style={styles.input} placeholder="Прізвище" value={lastName} onChangeText={setLastName} />
           <TextInput style={styles.input} placeholder="Ім’я" value={name} onChangeText={setName} />
           <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
-          <TextInput style={styles.input} placeholder="Телефон покупця" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <TextInput
+            style={styles.input}
+            placeholder="+380 XX XXX XX XX"
+            value={phone}
+            onChangeText={(text) => setPhone(formatUaPhoneInput(text))}
+            onFocus={() => !phone && setPhone('+380 ')}
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            maxLength={UA_PHONE_MASK_MAX_LENGTH}
+          />
           <TextInput style={styles.input} placeholder="Email (не обов’язково)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
           <Text style={styles.sheetSubTitle}>Зручний спосіб зв’язку</Text>
@@ -598,7 +638,16 @@ export default function CheckoutScreen() {
           {isDifferentRecipient ? (
             <>
               <TextInput style={styles.input} placeholder="ПІБ отримувача" value={recipientName} onChangeText={setRecipientName} />
-              <TextInput style={styles.input} placeholder="Телефон отримувача" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
+              <TextInput
+                style={styles.input}
+                placeholder="+380 XX XXX XX XX"
+                value={recipientPhone}
+                onChangeText={(text) => setRecipientPhone(formatUaPhoneInput(text))}
+                onFocus={() => !recipientPhone && setRecipientPhone('+380 ')}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                maxLength={UA_PHONE_MASK_MAX_LENGTH}
+              />
             </>
           ) : (
             <Text style={styles.sheetInfoText}>Отримувачем буде покупець: {buyerFullName || 'заповніть контакти покупця'}.</Text>
