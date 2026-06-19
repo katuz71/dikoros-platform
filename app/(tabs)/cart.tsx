@@ -38,6 +38,13 @@ type Product = {
   unit?: string;
   packSize?: string;
   variantSize?: string;
+  rating?: number;
+  averageRating?: number;
+  average_rating?: number;
+  totalReviews?: number;
+  total_reviews?: number;
+  review_count?: number;
+  reviews_count?: number;
 };
 
 const quantityOptions = Array.from({ length: 11 }, (_, index) => index);
@@ -76,6 +83,32 @@ export default function CartScreen() {
 
   const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
   const formatItemCount = (count: number) => `${count} товарів`;
+
+  const getReviewStats = (item: any) => {
+    const rating = Number(
+      item?.averageRating ??
+      item?.average_rating ??
+      item?.rating ??
+      0
+    );
+    const count = Number(
+      item?.totalReviews ??
+      item?.total_reviews ??
+      item?.reviews_count ??
+      item?.review_count ??
+      0
+    );
+
+    if (!Number.isFinite(rating) || !Number.isFinite(count) || rating <= 0 || count <= 0) {
+      return null;
+    }
+
+    const filled = Math.max(0, Math.min(5, Math.round(rating)));
+    return {
+      count,
+      stars: `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`,
+    };
+  };
 
   const applyPromo = async () => {
     const normalizedPromoCode = promoCode.trim().toUpperCase();
@@ -256,6 +289,7 @@ export default function CartScreen() {
   const renderProductTile = (item: Product, options?: { postponed?: boolean; index?: number }) => {
     const sizeKey = getSizeKey(item);
     const key = options?.postponed ? getCompositeId(item) : `favorite-${item.id}-${options?.index || 0}`;
+    const reviewStats = getReviewStats(item);
 
     return (
       <View key={key} style={styles.postponedCard}>
@@ -272,7 +306,9 @@ export default function CartScreen() {
 
         <Text numberOfLines={3} style={styles.postponedName}>{item.name}</Text>
         <Text style={styles.postponedMeta}>{sizeKey}{options?.postponed ? ` · ${Number(item.quantity || 1)} шт.` : ''}</Text>
-        <Text style={styles.postponedRating}>★ ★ ★ ★ ☆</Text>
+        {reviewStats && (
+          <Text style={styles.reviewSummary}>{reviewStats.stars} {reviewStats.count}</Text>
+        )}
         <Text style={styles.postponedPrice}>{formatPrice(Number(item.price || 0))}</Text>
 
         {options?.postponed && (
@@ -579,7 +615,7 @@ const styles = StyleSheet.create({
   postponedFloatingCart: { position: 'absolute', right: 14, bottom: 10, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
   postponedName: { fontSize: 16, lineHeight: 21, fontWeight: '400', color: '#2C2C2C', marginBottom: 8 },
   postponedMeta: { fontSize: 12.5, lineHeight: 16, color: '#6B7280', marginBottom: 6 },
-  postponedRating: { fontSize: 12.5, color: '#EAB308', marginBottom: 8 },
+  reviewSummary: { fontSize: 12.5, color: '#EAB308', marginBottom: 8 },
   postponedPrice: { fontSize: 19, lineHeight: 24, fontWeight: '900', color: '#111827', marginBottom: 12 },
   postponedRemoveText: { fontSize: 14, lineHeight: 19, fontWeight: '900', color: '#2C2C2C', textDecorationLine: 'underline' },
   savedPreviewCard: { padding: 22 },
