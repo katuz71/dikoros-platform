@@ -1,12 +1,13 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
+import { useOrders } from '@/context/OrdersContext';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -66,6 +67,7 @@ export default function CartScreen() {
     appliedPromoCode,
     finalPrice,
   } = useCart();
+  const { products, fetchProducts } = useOrders();
   const { favorites } = useFavoritesStore();
 
   const [promoCode, setPromoCode] = useState('');
@@ -80,6 +82,24 @@ export default function CartScreen() {
   const hasAnyContent = hasCartItems || hasPostponedItems || hasFavoriteItems;
   const hasPromo = discount > 0 || discountAmount > 0;
   const totalAmount = finalPrice;
+
+  useEffect(() => {
+    if (!Array.isArray(products) || products.length === 0) {
+      fetchProducts().catch(() => {});
+    }
+  }, []);
+
+  const recommendationProducts = useMemo(() => {
+    const blockedIds = new Set<number>();
+
+    cartItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
+    postponedItems.forEach((item: any) => blockedIds.add(Number(item?.id)));
+    favorites.forEach((item: any) => blockedIds.add(Number(item?.id)));
+
+    return (Array.isArray(products) ? products : [])
+      .filter((item: any) => Number(item?.id) && !blockedIds.has(Number(item.id)) && Number(item?.price || 0) > 0)
+      .slice(0, 8) as Product[];
+  }, [products, cartItems, postponedItems, favorites]);
 
   const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
   const formatItemCount = (count: number) => `${count} товарів`;
@@ -490,6 +510,20 @@ export default function CartScreen() {
                 </View>
               )}
             </View>
+
+            {recommendationProducts.length > 0 && (
+              <View style={styles.recommendSection}>
+                <View style={styles.recommendHeader}>
+                  <View style={styles.recommendLine} />
+                  <Text style={styles.recommendTitle}>Це може вас зацікавити</Text>
+                  <View style={styles.recommendLine} />
+                </View>
+
+                <View style={styles.productTilesWrap}>
+                  {recommendationProducts.map((item, index) => renderProductTile(item, { index }))}
+                </View>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -618,6 +652,10 @@ const styles = StyleSheet.create({
   promoHint: { marginTop: 6, fontSize: 13, color: '#6B7280' },
   discountBox: { marginTop: 9, flexDirection: 'row', alignItems: 'center', gap: 6 },
   discountText: { flex: 1, color: '#2E7D32', fontSize: 13.5, fontWeight: '800' },
+  recommendSection: { backgroundColor: '#F7F7F7', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 24 },
+  recommendHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+  recommendLine: { flex: 1, height: 1, backgroundColor: '#D1D5DB' },
+  recommendTitle: { paddingHorizontal: 12, fontSize: 15, lineHeight: 19, fontWeight: '900', color: '#222222' },
   stickyCheckout: { position: 'absolute', left: 0, right: 0, minHeight: 88, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingHorizontal: 18, paddingTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16, zIndex: 850, elevation: 850 },
   totalToggle: { minWidth: 105, height: 58, flexDirection: 'row', alignItems: 'center', gap: 5 },
   stickyTotal: { fontSize: 22, fontWeight: '900', color: '#111827' },
