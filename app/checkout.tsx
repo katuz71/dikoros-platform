@@ -1,4 +1,4 @@
-﻿import { AppHeader } from '@/components/AppHeader';
+import { AppHeader } from '@/components/AppHeader';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { trackEvent } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +31,7 @@ const MIN_ORDER_AMOUNT = 200;
 
 type DeliveryMethod = 'ukrposhta_branch' | 'nova_poshta' | 'nova_poshta_international';
 type PaymentMethod = 'postpaid' | 'bank_transfer' | 'paypal_request';
+type EditSection = 'contact' | 'recipient' | 'delivery' | 'payment' | 'comment' | 'order' | null;
 
 type SelectValue = { ref: string; name: string };
 
@@ -114,6 +115,7 @@ export default function CheckoutScreen() {
   const [saveUserData, setSaveUserData] = useState(false);
   const saveUserDataRef = useRef(false);
 
+  const [editSection, setEditSection] = useState<EditSection>(null);
   const [modalVisible, setModalVisible] = useState<'city' | 'warehouse' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SelectValue[]>([]);
@@ -509,214 +511,391 @@ export default function CheckoutScreen() {
   const allowedPaymentOptions = getAllowedPaymentOptions(deliveryMethod);
   const submitDisabled = loading;
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+  const buyerFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
+  const contactComplete = Boolean(lastName.trim() && name.trim() && phone.trim());
+  const deliveryComplete = Boolean(city.name && warehouse.name);
+  const recipientComplete = !isDifferentRecipient || Boolean(recipientName.trim() && recipientPhone.trim());
+  const currentDeliveryLabel = DELIVERY_OPTIONS.find(option => option.id === deliveryMethod)?.label || 'Оберіть доставку';
+  const currentPaymentOption = PAYMENT_OPTIONS.find(option => option.id === paymentMethod);
+  const currentPaymentLabel = currentPaymentOption ? getPaymentOptionLabel(currentPaymentOption, deliveryMethod) : 'Оберіть оплату';
+  const orderItemsCount = (items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 1), 0);
 
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.unifiedTitleButton}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+  const renderSectionRow = ({
+    title,
+    value,
+    detail,
+    icon,
+    complete = true,
+    onPress,
+  }: {
+    title: string;
+    value: string;
+    detail?: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    complete?: boolean;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity style={styles.checkoutRow} onPress={onPress} activeOpacity={0.84}>
+      <View style={[styles.rowIconWrap, !complete && styles.rowIconWarn]}>
+        <Ionicons name={complete ? icon : 'alert-circle-outline'} size={22} color={complete ? '#2E7D32' : '#B45309'} />
+      </View>
+      <View style={styles.checkoutRowBody}>
+        <Text style={styles.checkoutRowTitle}>{title}</Text>
+        <Text style={[styles.checkoutRowValue, !complete && styles.checkoutRowValueWarn]} numberOfLines={2}>{value}</Text>
+        {!!detail && <Text style={styles.checkoutRowDetail} numberOfLines={2}>{detail}</Text>}
+      </View>
+      <Text style={styles.editText}>Змінити</Text>
+    </TouchableOpacity>
+  );
+
+  const renderMethodChip = (
+    label: string,
+    active: boolean,
+    onPress: () => void,
+  ) => (
+    <TouchableOpacity style={[styles.sheetChip, active && styles.sheetChipActive]} onPress={onPress} activeOpacity={0.84}>
+      <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+
+  const renderEditContent = () => {
+    if (editSection === 'contact') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Контакти покупця</Text>
+          <TextInput style={styles.input} placeholder="Прізвище" value={lastName} onChangeText={setLastName} />
+          <TextInput style={styles.input} placeholder="Ім’я" value={name} onChangeText={setName} />
+          <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
+          <TextInput style={styles.input} placeholder="Телефон покупця" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <TextInput style={styles.input} placeholder="Email (не обов’язково)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+
+          <Text style={styles.sheetSubTitle}>Зручний спосіб зв’язку</Text>
+          <View style={styles.chipsRow}>
+            {renderMethodChip('Дзвінок', contactMethod === 'call', () => setContactMethod('call'))}
+            {renderMethodChip('Telegram', contactMethod === 'telegram', () => setContactMethod('telegram'))}
+            {renderMethodChip('Viber', contactMethod === 'viber', () => setContactMethod('viber'))}
+          </View>
+
+          <TouchableOpacity style={styles.sheetSwitchRow} onPress={() => setDoNotCall(!doNotCall)} activeOpacity={0.84}>
+            <Text style={styles.sheetSwitchText}>Не перезвонювати, тільки повідомлення</Text>
+            <Switch value={doNotCall} onValueChange={setDoNotCall} />
+          </TouchableOpacity>
+        </>
+      );
+    }
+
+    if (editSection === 'recipient') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Отримувач</Text>
+          <TouchableOpacity style={styles.sheetSwitchRow} onPress={() => setIsDifferentRecipient(!isDifferentRecipient)} activeOpacity={0.84}>
+            <Text style={styles.sheetSwitchText}>Отримує інша людина</Text>
+            <Switch value={isDifferentRecipient} onValueChange={setIsDifferentRecipient} />
+          </TouchableOpacity>
+
+          {isDifferentRecipient ? (
+            <>
+              <TextInput style={styles.input} placeholder="ПІБ отримувача" value={recipientName} onChangeText={setRecipientName} />
+              <TextInput style={styles.input} placeholder="Телефон отримувача" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
+            </>
+          ) : (
+            <Text style={styles.sheetInfoText}>Отримувачем буде покупець: {buyerFullName || 'заповніть контакти покупця'}.</Text>
+          )}
+        </>
+      );
+    }
+
+    if (editSection === 'delivery') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Доставка</Text>
+          <View style={styles.sheetOptionsList}>
+            {DELIVERY_OPTIONS.map(option => {
+              const active = deliveryMethod === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.sheetOption, active && styles.sheetOptionActive]}
+                  onPress={() => handleDeliveryMethodChange(option.id)}
+                  activeOpacity={0.84}
+                >
+                  <View style={[styles.radioCircle, active && styles.radioCircleActive]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
+                  <Text style={[styles.sheetOptionText, active && styles.sheetOptionTextActive]}>{option.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {(deliveryMethod === 'nova_poshta' || deliveryMethod === 'ukrposhta_branch') ? (
+            <>
+              <TouchableOpacity style={styles.selectBtn} onPress={() => openModal('city')} activeOpacity={0.84}>
+                <Text style={city.name ? styles.selectBtnTextActive : styles.selectBtnText}>{city.name || 'Оберіть місто'}</Text>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectBtn} onPress={() => openModal('warehouse')} activeOpacity={0.84}>
+                <Text style={warehouse.name ? styles.selectBtnTextActive : styles.selectBtnText}>{warehouse.name || 'Оберіть відділення'}</Text>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput style={styles.input} placeholder="Країна та місто" value={city.name} onChangeText={(text) => setCity({ ref: '', name: text })} />
+              <TextInput style={styles.input} placeholder="Адреса доставки" value={warehouse.name} onChangeText={(text) => setWarehouse({ ref: '', name: text })} />
+            </>
+          )}
+        </>
+      );
+    }
+
+    if (editSection === 'payment') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Оплата</Text>
+          <View style={styles.sheetOptionsList}>
+            {allowedPaymentOptions.map(option => {
+              const active = paymentMethod === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.sheetOption, active && styles.sheetOptionActive]}
+                  onPress={() => setPaymentMethod(option.id)}
+                  activeOpacity={0.84}
+                >
+                  <View style={[styles.radioCircle, active && styles.radioCircleActive]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
+                  <Text style={[styles.sheetOptionText, active && styles.sheetOptionTextActive]}>{getPaymentOptionLabel(option, deliveryMethod)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      );
+    }
+
+    if (editSection === 'comment') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Коментар до замовлення</Text>
+          <TextInput
+            style={[styles.input, styles.commentInput]}
+            placeholder="Напишіть коментар для менеджера (не обов’язково)"
+            value={orderComment}
+            onChangeText={setOrderComment}
+            multiline
+          />
+        </>
+      );
+    }
+
+    if (editSection === 'order') {
+      return (
+        <>
+          <Text style={styles.sheetTitle}>Ваше замовлення</Text>
+          {(items || []).map((item: any, index: number) => (
+            <View key={`${item.id}_${index}`} style={styles.orderItemRow}>
+              {!!item.image && <Image source={{ uri: item.image }} style={styles.itemImage} resizeMode="contain" />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+                <Text style={styles.itemVariant}>
+                  {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || 'Стандарт'}
+                  {item.quantity > 1 ? ` x ${item.quantity} шт` : ''}
+                </Text>
+              </View>
+              <Text style={styles.itemPrice}>{formatPrice(Number(item.price || 0) * Number(item.quantity || 1))}</Text>
+            </View>
+          ))}
+        </>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <AppHeader showLogo showSearch showFavorites />
+
+      <View style={styles.checkoutTitleRow}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.titleIconButton} activeOpacity={0.75}>
+          <Ionicons name="arrow-back" size={23} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.checkoutTitle} numberOfLines={1}>Оформлення</Text>
+        <View style={styles.titleIconButton} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {!isLoggedIn && (
+          <View style={styles.guestNotice}>
+            <Ionicons name="flash-outline" size={19} color="#2E7D32" />
+            <Text style={styles.guestNoticeText}>Можна оформити без реєстрації. Для бонусів увійдіть у профіль.</Text>
+          </View>
+        )}
+
+        {isBelowMinOrder && !!items?.length && (
+          <View style={styles.minOrderNotice}>
+            <View style={styles.minOrderIconWrap}>
+              <Ionicons name="basket" size={21} color="#B45309" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.minOrderTitle}>Мінімальне замовлення — {formatPrice(MIN_ORDER_AMOUNT)}</Text>
+              <Text style={styles.minOrderText}>Додайте товарів ще на {formatPrice(minOrderMissing)}, щоб оформити покупку.</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.checkoutCard}>
+          {renderSectionRow({
+            title: 'Контакт',
+            value: contactComplete ? buyerFullName : 'Додайте ім’я, прізвище і телефон',
+            detail: contactComplete ? [phone, email].filter(Boolean).join(' · ') : undefined,
+            icon: 'person-outline',
+            complete: contactComplete,
+            onPress: () => setEditSection('contact'),
+          })}
+
+          <View style={styles.rowDivider} />
+
+          {renderSectionRow({
+            title: 'Доставка',
+            value: deliveryComplete ? currentDeliveryLabel : 'Оберіть місто і відділення',
+            detail: deliveryComplete ? `${city.name} · ${warehouse.name}` : undefined,
+            icon: 'cube-outline',
+            complete: deliveryComplete,
+            onPress: () => setEditSection('delivery'),
+          })}
+
+          <View style={styles.rowDivider} />
+
+          {renderSectionRow({
+            title: 'Отримувач',
+            value: recipientComplete
+              ? (isDifferentRecipient ? recipientName : 'Покупець отримує сам')
+              : 'Заповніть отримувача',
+            detail: isDifferentRecipient ? recipientPhone : undefined,
+            icon: 'people-outline',
+            complete: recipientComplete,
+            onPress: () => setEditSection('recipient'),
+          })}
+
+          <View style={styles.rowDivider} />
+
+          {renderSectionRow({
+            title: 'Оплата',
+            value: currentPaymentLabel,
+            icon: 'card-outline',
+            complete: true,
+            onPress: () => setEditSection('payment'),
+          })}
+        </View>
+
+        <View style={styles.checkoutCard}>
+          {renderSectionRow({
+            title: 'Ваше замовлення',
+            value: `${orderItemsCount} товарів`,
+            detail: (items || []).slice(0, 2).map((item: any) => item.name).join(' · '),
+            icon: 'bag-outline',
+            complete: Boolean(items?.length),
+            onPress: () => setEditSection('order'),
+          })}
+        </View>
+
+        <View style={styles.checkoutCard}>
+          {renderSectionRow({
+            title: 'Коментар',
+            value: orderComment.trim() || 'Додати коментар для менеджера',
+            icon: 'chatbox-ellipses-outline',
+            complete: true,
+            onPress: () => setEditSection('comment'),
+          })}
+        </View>
+
+        {canUseBonuses && (
+          <View style={styles.bonusCard}>
+            <View style={styles.bonusLeft}>
+              <View style={styles.bonusIconBg}>
+                <Ionicons name="gift" size={20} color="#FFD700" />
+              </View>
+              <View>
+                <Text style={styles.bonusTitle}>Використати бонуси</Text>
+                <Text style={styles.bonusSubtitle}>На рахунку: {bonusBalance} ₴</Text>
+              </View>
+            </View>
+            <Switch value={useBonuses} onValueChange={setUseBonuses} trackColor={{ false: '#767577', true: '#4CAF50' }} />
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.saveDataRow} onPress={() => setSaveUserData(prev => !prev)} activeOpacity={0.84}>
+          <View style={[styles.checkbox, saveUserData && styles.checkboxActive]}>
+            {saveUserData && <Ionicons name="checkmark" size={16} color="#FFF" />}
+          </View>
+          <Text style={styles.saveDataText}>Зберегти дані для наступних замовлень</Text>
         </TouchableOpacity>
 
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Оформлення замовлення</Text>
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Підсумок</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Товари</Text>
+            <Text style={styles.summaryValue}>{formatPrice(cartTotal)}</Text>
+          </View>
+          {cartFinal < cartTotal && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: '#FF6B35' }]}>Знижка промокодом</Text>
+              <Text style={[styles.summaryValue, { color: '#FF6B35' }]}>-{formatPrice(cartTotal - cartFinal)}</Text>
+            </View>
+          )}
+          {bonusesToUse > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: '#4CAF50' }]}>Знижка бонусами</Text>
+              <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>-{formatPrice(bonusesToUse)}</Text>
+            </View>
+          )}
+          <View style={styles.divider} />
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>До сплати</Text>
+            <Text style={styles.totalValue}>{formatPrice(finalPriceWithBonuses)}</Text>
+          </View>
+        </View>
+      </ScrollView>
 
-        <View style={styles.unifiedTitleButton} />
+      <View style={styles.stickySubmitWrap}>
+        <View style={styles.stickyTotalBlock}>
+          <Text style={styles.stickyTotalLabel}>До сплати</Text>
+          <Text style={styles.stickyTotalValue}>{formatPrice(finalPriceWithBonuses)}</Text>
+        </View>
+        <TouchableOpacity style={[styles.submitBtn, loading && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitDisabled} activeOpacity={0.9}>
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.submitBtnText}>{isBelowMinOrder ? 'Додати товари' : 'Підтвердити'}</Text>
+          )}
+        </TouchableOpacity>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {!isLoggedIn && (
-            <View style={styles.guestNotice}>
-              <Ionicons name="flash-outline" size={20} color="#2E7D32" />
-              <Text style={styles.guestNoticeText}>Можна оформити замовлення без реєстрації. Для бонусів увійдіть у профіль.</Text>
-            </View>
-          )}
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Ваше замовлення</Text>
-            {(items || []).map((item: any, index: number) => (
-              <View key={`${item.id}_${index}`} style={styles.orderItemRow}>
-                {!!item.image && (
-                  <Image source={{ uri: item.image }} style={styles.itemImage} resizeMode="cover" />
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.itemVariant}>
-                    {item?.variantSize || item?.packSize || item?.label || item?.weight || item?.unit || 'Стандарт'}
-                    {item.quantity > 1 ? ` x ${item.quantity} шт` : ''}
-                  </Text>
-                </View>
-                <Text style={styles.itemPrice}>{formatPrice(Number(item.price || 0) * Number(item.quantity || 1))}</Text>
-              </View>
-            ))}
-          </View>
-
-          {isBelowMinOrder && !!items?.length && (
-            <View style={styles.minOrderNotice}>
-              <View style={styles.minOrderIconWrap}>
-                <Ionicons name="basket" size={21} color="#B45309" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.minOrderTitle}>Мінімальне замовлення — {formatPrice(MIN_ORDER_AMOUNT)}</Text>
-                <Text style={styles.minOrderText}>Додайте товарів ще на {formatPrice(minOrderMissing)}, щоб оформити покупку.</Text>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Контакти покупця</Text>
-            <TextInput style={styles.input} placeholder="Прізвище" value={lastName} onChangeText={setLastName} />
-            <TextInput style={styles.input} placeholder="Ім’я" value={name} onChangeText={setName} />
-            <TextInput style={styles.input} placeholder="По батькові (не обов’язково)" value={middleName} onChangeText={setMiddleName} />
-            <TextInput style={styles.input} placeholder="Телефон покупця" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-            <TextInput style={styles.input} placeholder="Email (не обов’язково)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-
-            <TouchableOpacity style={styles.switchRow} onPress={() => setIsDifferentRecipient(!isDifferentRecipient)}>
-              <Text style={styles.switchText}>Інший отримувач</Text>
-              <Switch value={isDifferentRecipient} onValueChange={setIsDifferentRecipient} />
-            </TouchableOpacity>
-
-            {isDifferentRecipient && (
-              <>
-                <TextInput style={styles.input} placeholder="ПІБ отримувача" value={recipientName} onChangeText={setRecipientName} />
-                <TextInput style={styles.input} placeholder="Телефон отримувача" value={recipientPhone} onChangeText={setRecipientPhone} keyboardType="phone-pad" />
-              </>
-            )}
-
-            <Text style={styles.subLabel}>Зручний спосіб зв’язку:</Text>
-            <View style={styles.methodContainer}>
-              <TouchableOpacity style={[styles.methodChip, contactMethod === 'call' && styles.methodChipActive]} onPress={() => setContactMethod('call')}>
-                <Text style={[styles.methodText, contactMethod === 'call' && styles.methodTextActive]}>📞 Дзвінок</Text>
+      <Modal visible={editSection !== null} animationType="slide" transparent onRequestClose={() => setEditSection(null)}>
+        <View style={styles.sheetRoot}>
+          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setEditSection(null)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetKeyboardWrap}>
+            <View style={styles.sheetContainer}>
+              <View style={styles.sheetHandle} />
+              <TouchableOpacity style={styles.sheetCloseButton} onPress={() => setEditSection(null)} activeOpacity={0.75}>
+                <Ionicons name="close" size={28} color="#222" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.methodChip, contactMethod === 'telegram' && styles.methodChipActive]} onPress={() => setContactMethod('telegram')}>
-                <Text style={[styles.methodText, contactMethod === 'telegram' && styles.methodTextActive]}>✈️ Telegram</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.methodChip, contactMethod === 'viber' && styles.methodChipActive]} onPress={() => setContactMethod('viber')}>
-                <Text style={[styles.methodText, contactMethod === 'viber' && styles.methodTextActive]}>💬 Viber</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.switchRow} onPress={() => setDoNotCall(!doNotCall)}>
-              <Text style={styles.switchText}>Не перезванивати, тільки повідомлення</Text>
-              <Switch value={doNotCall} onValueChange={setDoNotCall} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Доставка</Text>
-            <View style={styles.paymentRow}>
-              {DELIVERY_OPTIONS.map(option => {
-                const isActive = deliveryMethod === option.id;
-                return (
-                  <View key={option.id} style={styles.deliveryOptionBlock}>
-                    <TouchableOpacity style={[styles.paymentOption, isActive && styles.paymentOptionActive]} onPress={() => handleDeliveryMethodChange(option.id)}>
-                      <Text style={[styles.paymentText, isActive && { color: '#FFF' }]}>{option.label}</Text>
-                    </TouchableOpacity>
-
-                    {isActive && (
-                      <View style={styles.deliveryDetails}>
-                        {(option.id === 'nova_poshta' || option.id === 'ukrposhta_branch') ? (
-                          <>
-                            <TouchableOpacity style={styles.selectBtn} onPress={() => openModal('city')}>
-                              <Text style={city.name ? styles.selectBtnTextActive : styles.selectBtnText}>{city.name || 'Оберіть місто...'}</Text>
-                              <Ionicons name="chevron-forward" size={20} color="#666" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.selectBtn} onPress={() => openModal('warehouse')}>
-                              <Text style={warehouse.name ? styles.selectBtnTextActive : styles.selectBtnText}>{warehouse.name || 'Оберіть відділення...'}</Text>
-                              <Ionicons name="chevron-forward" size={20} color="#666" />
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <>
-                            <TextInput style={styles.input} placeholder="Країна та місто" value={city.name} onChangeText={(text) => setCity({ ref: '', name: text })} />
-                            <TextInput style={styles.input} placeholder="Адреса доставки" value={warehouse.name} onChangeText={(text) => setWarehouse({ ref: '', name: text })} />
-                          </>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Оплата</Text>
-            <View style={styles.paymentRow}>
-              {allowedPaymentOptions.map(option => (
-                <TouchableOpacity key={option.id} style={[styles.paymentOption, paymentMethod === option.id && styles.paymentOptionActive]} onPress={() => setPaymentMethod(option.id)}>
-                  <Text style={[styles.paymentText, paymentMethod === option.id && { color: '#FFF' }]}>{getPaymentOptionLabel(option, deliveryMethod)}</Text>
+              <ScrollView contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {renderEditContent()}
+                <TouchableOpacity style={styles.sheetDoneButton} onPress={() => setEditSection(null)} activeOpacity={0.9}>
+                  <Text style={styles.sheetDoneText}>Готово</Text>
                 </TouchableOpacity>
-              ))}
+              </ScrollView>
             </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Коментар до замовлення</Text>
-            <TextInput style={[styles.input, styles.commentInput]} placeholder="Напишіть коментар для менеджера (не обов’язково)" value={orderComment} onChangeText={setOrderComment} multiline />
-          </View>
-
-          {canUseBonuses && (
-            <View style={styles.bonusCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={styles.bonusIconBg}>
-                  <Ionicons name="gift" size={20} color="#FFD700" />
-                </View>
-                <View style={{ marginLeft: 10 }}>
-                  <Text style={styles.bonusTitle}>Використати бонуси</Text>
-                  <Text style={styles.bonusSubtitle}>На рахунку: {bonusBalance} ₴</Text>
-                </View>
-              </View>
-              <Switch value={useBonuses} onValueChange={setUseBonuses} trackColor={{ false: '#767577', true: '#4CAF50' }} />
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.saveDataRow} onPress={() => setSaveUserData(prev => !prev)}>
-            <View style={[styles.checkbox, saveUserData && styles.checkboxActive]}>
-              {saveUserData && <Ionicons name="checkmark" size={16} color="#FFF" />}
-            </View>
-            <Text style={styles.saveDataText}>Зберегти дані для наступних замовлень</Text>
-          </TouchableOpacity>
-
-          <View style={styles.summaryContainer}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Вартість товарів:</Text>
-              <Text style={styles.summaryValue}>{formatPrice(cartTotal)}</Text>
-            </View>
-            {cartFinal < cartTotal && (
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: '#FF6B35' }]}>Знижка промокодом:</Text>
-                <Text style={[styles.summaryValue, { color: '#FF6B35' }]}>-{formatPrice(cartTotal - cartFinal)}</Text>
-              </View>
-            )}
-            {bonusesToUse > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: '#4CAF50' }]}>Знижка бонусами:</Text>
-                <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>-{formatPrice(bonusesToUse)}</Text>
-              </View>
-            )}
-            <View style={styles.divider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>До сплати:</Text>
-              <Text style={styles.totalValue}>{formatPrice(finalPriceWithBonuses)}</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={[styles.submitBtn, loading && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitDisabled}>
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.submitBtnText}>{isBelowMinOrder ? 'ДОДАТИ ТОВАРИ' : 'ПІДТВЕРДИТИ ЗАМОВЛЕННЯ'}</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <Modal visible={modalVisible !== null} animationType="slide">
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={styles.locationModalSafeArea}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{modalVisible === 'city' ? 'Пошук міста' : 'Оберіть відділення'}</Text>
             <TouchableOpacity onPress={() => setModalVisible(null)}>
@@ -757,86 +936,119 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
+  safeArea: { flex: 1, backgroundColor: '#F5F5F5' },
+  checkoutTitleRow: {
+    height: 52,
+    paddingHorizontal: 12,
     backgroundColor: '#F8FAF8',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  unifiedTitleButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  scrollContent: { padding: 15, paddingBottom: 260 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 20, color: '#333', textAlign: 'center' },
-  guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  guestNoticeText: { color: '#2E7D32', fontSize: 14, fontWeight: '600', flex: 1, lineHeight: 19 },
-  minOrderNotice: { backgroundColor: '#FFF7ED', borderColor: '#FDBA74', borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  minOrderIconWrap: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' },
-  minOrderTitle: { color: '#92400E', fontSize: 15, fontWeight: '900', marginBottom: 3 },
+  titleIconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  checkoutTitle: { flex: 1, textAlign: 'center', fontSize: 20, lineHeight: 25, fontWeight: '900', color: '#111827' },
+  scrollContent: { padding: 12, paddingBottom: 132 },
+  guestNotice: { backgroundColor: '#E8F5E9', borderRadius: 10, padding: 11, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  guestNoticeText: { color: '#2E7D32', fontSize: 13.5, fontWeight: '700', flex: 1, lineHeight: 18 },
+  minOrderNotice: { backgroundColor: '#FFF7ED', borderColor: '#FDBA74', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  minOrderIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' },
+  minOrderTitle: { color: '#92400E', fontSize: 14.5, fontWeight: '900', marginBottom: 2 },
   minOrderText: { color: '#9A3412', fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 15 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-  input: { borderWidth: 1, borderColor: '#EEE', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 10, backgroundColor: '#FAFAFA' },
-  selectBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EEE', borderRadius: 8, padding: 15, marginBottom: 10, backgroundColor: '#FAFAFA' },
+  checkoutCard: { backgroundColor: '#FFFFFF', borderRadius: 12, marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB' },
+  checkoutRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 14, minHeight: 76 },
+  rowIconWrap: { width: 39, height: 39, borderRadius: 20, backgroundColor: '#EAF6E7', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  rowIconWarn: { backgroundColor: '#FFF7ED' },
+  checkoutRowBody: { flex: 1, paddingRight: 10 },
+  checkoutRowTitle: { fontSize: 13, lineHeight: 17, color: '#6B7280', fontWeight: '800', marginBottom: 3 },
+  checkoutRowValue: { fontSize: 16, lineHeight: 21, color: '#222222', fontWeight: '900' },
+  checkoutRowValueWarn: { color: '#B45309' },
+  checkoutRowDetail: { marginTop: 3, fontSize: 13, lineHeight: 18, color: '#6B7280', fontWeight: '500' },
+  editText: { fontSize: 13, lineHeight: 17, color: '#1976A3', fontWeight: '900' },
+  rowDivider: { height: 1, backgroundColor: '#EEF0F2', marginLeft: 64 },
+  bonusCard: { backgroundColor: '#333333', borderRadius: 12, padding: 14, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  bonusLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  bonusIconBg: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  bonusTitle: { color: '#FFF', fontWeight: '900', fontSize: 15.5 },
+  bonusSubtitle: { color: '#FFD700', fontSize: 13, marginTop: 2 },
+  saveDataRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4, paddingVertical: 6 },
+  checkbox: { width: 23, height: 23, borderRadius: 6, borderWidth: 2, borderColor: '#2E7D32', marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  checkboxActive: { backgroundColor: '#2E7D32' },
+  saveDataText: { fontSize: 14, lineHeight: 19, color: '#555', fontWeight: '600', flex: 1 },
+  summaryContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  summaryTitle: { fontSize: 18, lineHeight: 23, fontWeight: '900', color: '#111827', marginBottom: 12 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  summaryLabel: { fontSize: 15, color: '#666', fontWeight: '600' },
+  summaryValue: { fontSize: 15, fontWeight: '800', color: '#222222' },
+  divider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
+  totalLabel: { fontSize: 18, fontWeight: '900', color: '#111827' },
+  totalValue: { fontSize: 22, fontWeight: '900', color: '#2E7D32' },
+  stickySubmitWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stickyTotalBlock: { minWidth: 110 },
+  stickyTotalLabel: { fontSize: 12.5, lineHeight: 16, color: '#6B7280', fontWeight: '700' },
+  stickyTotalValue: { fontSize: 20, lineHeight: 25, color: '#111827', fontWeight: '900' },
+  submitBtn: { flex: 1, height: 56, backgroundColor: '#2E7D32', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  submitBtnDisabled: { backgroundColor: '#A3A3A3' },
+  submitBtnText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
+  input: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 9, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, marginBottom: 10, backgroundColor: '#FFFFFF', color: '#111827' },
+  selectBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 9, padding: 14, marginBottom: 10, backgroundColor: '#FFFFFF' },
   selectBtnText: { color: '#999', fontSize: 16 },
-  selectBtnTextActive: { color: '#333', fontSize: 16 },
-  paymentRow: { flexDirection: 'column', gap: 10 },
-  paymentOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#EEE', gap: 8 },
-  paymentOptionActive: { backgroundColor: '#333', borderColor: '#333' },
-  paymentText: { fontWeight: '600', color: '#333' },
-  deliveryOptionBlock: { marginBottom: 10 },
-  deliveryDetails: { marginTop: 10 },
-  commentInput: { minHeight: 90, textAlignVertical: 'top' },
+  selectBtnTextActive: { color: '#333', fontSize: 16, flex: 1, paddingRight: 8 },
+  commentInput: { minHeight: 132, textAlignVertical: 'top' },
   orderItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F1F1' },
   itemImage: { width: 54, height: 54, borderRadius: 10, marginRight: 10, backgroundColor: '#F0F0F0' },
-  itemName: { fontSize: 15, fontWeight: '700', color: '#333' },
+  itemName: { fontSize: 14.5, fontWeight: '800', color: '#333', lineHeight: 19 },
   itemVariant: { fontSize: 13, color: '#777', marginTop: 3 },
-  itemPrice: { fontSize: 15, fontWeight: '800', color: '#333', marginLeft: 8 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  switchText: { fontSize: 15, color: '#333', flex: 1 },
-  subLabel: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 8 },
-  methodContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  methodChip: { paddingVertical: 9, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: '#DDD', backgroundColor: '#FFF' },
-  methodChipActive: { backgroundColor: '#2E7D32', borderColor: '#2E7D32' },
-  methodText: { color: '#333', fontWeight: '700' },
-  methodTextActive: { color: '#FFF' },
-  bonusCard: { backgroundColor: '#333', borderRadius: 12, padding: 15, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  bonusIconBg: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  bonusTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  bonusSubtitle: { color: '#FFD700', fontSize: 13 },
-  saveDataRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 5 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#4CAF50', marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
-  checkboxActive: { backgroundColor: '#4CAF50' },
-  saveDataText: { fontSize: 14, color: '#555' },
-  summaryContainer: { marginVertical: 10, paddingHorizontal: 5 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel: { fontSize: 16, color: '#666' },
-  summaryValue: { fontSize: 16, fontWeight: '500' },
-  divider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
-  totalLabel: { fontSize: 20, fontWeight: 'bold' },
-  totalValue: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50' },
-  submitBtn: { backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 20, marginBottom: Platform.OS === 'ios' ? 110 : 150 },
-  submitBtnDisabled: { backgroundColor: '#A3A3A3' },
-  submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
-  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  itemPrice: { fontSize: 15, fontWeight: '900', color: '#333', marginLeft: 8 },
+  sheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheetKeyboardWrap: { justifyContent: 'flex-end' },
+  sheetContainer: { maxHeight: '88%', backgroundColor: '#F7F7F7', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 8, overflow: 'hidden' },
+  sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 6, marginBottom: 4 },
+  sheetCloseButton: { position: 'absolute', top: 12, right: 14, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  sheetContent: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: Platform.OS === 'ios' ? 34 : 24 },
+  sheetTitle: { fontSize: 23, lineHeight: 29, fontWeight: '900', color: '#111827', marginBottom: 16, paddingRight: 48 },
+  sheetSubTitle: { fontSize: 15, lineHeight: 20, fontWeight: '900', color: '#374151', marginTop: 4, marginBottom: 8 },
+  sheetInfoText: { fontSize: 15, lineHeight: 22, color: '#374151', backgroundColor: '#FFFFFF', padding: 13, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  sheetChip: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' },
+  sheetChipActive: { backgroundColor: '#2E7D32', borderColor: '#2E7D32' },
+  sheetChipText: { color: '#333', fontWeight: '800', fontSize: 14 },
+  sheetChipTextActive: { color: '#FFF' },
+  sheetSwitchRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 13, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  sheetSwitchText: { fontSize: 15, color: '#333', flex: 1, fontWeight: '700', paddingRight: 10 },
+  sheetOptionsList: { gap: 9, marginBottom: 12 },
+  sheetOption: { flexDirection: 'row', alignItems: 'center', minHeight: 58, borderRadius: 10, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 10 },
+  sheetOptionActive: { borderColor: '#2E7D32', backgroundColor: '#F0F8EF' },
+  radioCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#BDBDBD', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  radioCircleActive: { borderColor: '#2E7D32' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2E7D32' },
+  sheetOptionText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#333', fontWeight: '700' },
+  sheetOptionTextActive: { color: '#111827', fontWeight: '900' },
+  sheetDoneButton: { height: 54, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  sheetDoneText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
+  locationModalSafeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  modalHeader: { padding: 18, borderBottomWidth: 1, borderBottomColor: '#EEE', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: '#111827' },
   modalInput: { margin: 15, borderWidth: 1, borderColor: '#DDD', borderRadius: 10, padding: 15, fontSize: 16 },
   popularCitiesWrap: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 15, marginBottom: 10, gap: 8 },
   popularCityChip: { backgroundColor: '#E8F5E9', borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
-  popularCityText: { color: '#2E7D32', fontWeight: '600' },
+  popularCityText: { color: '#2E7D32', fontWeight: '700' },
   resultItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#EEE' },
   resultText: { fontSize: 16, color: '#333' },
 });
-
