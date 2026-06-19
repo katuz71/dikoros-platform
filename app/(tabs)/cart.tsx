@@ -23,7 +23,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFavoritesStore } from '../../store/favoritesStore';
 
 type Product = {
   id: number;
@@ -59,7 +58,6 @@ export default function CartScreen() {
     appliedPromoCode,
     finalPrice,
   } = useCart();
-  const { favorites } = useFavoritesStore();
 
   const [promoCode, setPromoCode] = useState('');
   const [quantityPickerItem, setQuantityPickerItem] = useState<Product | null>(null);
@@ -276,110 +274,101 @@ export default function CartScreen() {
           </View>
         ) : (
           <>
-            {hasCartItems && (
-              <>
-                <View style={styles.cartTopRow}>
-                  <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
-                  <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
-                    <Text style={styles.editPromoText}>Редагувати промокод</Text>
+            <View style={styles.cartTopRow}>
+              <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
+              {hasCartItems && (
+                <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
+                  <Text style={styles.editPromoText}>Редагувати промокод</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {hasCartItems && cartItems.map((item: any) => {
+              const sizeKey = getSizeKey(item);
+              const compositeId = getCompositeId(item);
+              const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
+
+              return (
+                <View key={compositeId} style={styles.cartCard}>
+                  <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.cartImageWrap} activeOpacity={0.82}>
+                    <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.cartImage} />
                   </TouchableOpacity>
-                </View>
 
-                {cartItems.map((item: any) => {
-                  const sizeKey = getSizeKey(item);
-                  const compositeId = getCompositeId(item);
-                  const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
+                  <View style={styles.cartItemBody}>
+                    <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
+                    <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
+                    <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.variantRow} activeOpacity={0.75}>
+                      <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
+                      <Ionicons name="chevron-forward" size={15} color="#6B7280" />
+                    </TouchableOpacity>
 
-                  return (
-                    <View key={compositeId} style={styles.cartCard}>
-                      <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.cartImageWrap} activeOpacity={0.82}>
-                        <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.cartImage} />
+                    <View style={styles.itemActionsRow}>
+                      {renderQuantitySelector(item)}
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          Vibration.vibrate(70);
+                          removeItem(compositeId);
+                        }}
+                        style={styles.trashRoundButton}
+                        activeOpacity={0.78}
+                      >
+                        <Ionicons name="trash-outline" size={21} color="#374151" />
                       </TouchableOpacity>
 
-                      <View style={styles.cartItemBody}>
-                        <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
-                        <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
-                        <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.variantRow} activeOpacity={0.75}>
-                          <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
-                          <Ionicons name="chevron-forward" size={15} color="#6B7280" />
-                        </TouchableOpacity>
+                      <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
+                        <Text style={styles.postponeText}>Відкласти</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                        <View style={styles.itemActionsRow}>
-                          {renderQuantitySelector(item)}
-
-                          <TouchableOpacity
-                            onPress={() => {
-                              Vibration.vibrate(70);
-                              removeItem(compositeId);
-                            }}
-                            style={styles.trashRoundButton}
-                            activeOpacity={0.78}
-                          >
-                            <Ionicons name="trash-outline" size={21} color="#374151" />
-                          </TouchableOpacity>
-
-                          <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
-                            <Text style={styles.postponeText}>Відкласти</Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.itemBottomRow}>
-                          <Text style={styles.promoMismatchText}>Промокод застосовується за умовами акції</Text>
-                          <View style={styles.itemPriceBlock}>
-                            <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
-                            <Text style={styles.moreText}>Детальніше</Text>
-                          </View>
-                        </View>
+                    <View style={styles.itemBottomRow}>
+                      <Text style={styles.promoMismatchText}>Промокод застосовується за умовами акції</Text>
+                      <View style={styles.itemPriceBlock}>
+                        <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
+                        <Text style={styles.moreText}>Детальніше</Text>
                       </View>
                     </View>
-                  );
-                })}
-              </>
-            )}
-
-            {(hasPostponedItems || favorites.length > 0) && (
-              <View style={styles.savedSection}>
-                <View style={styles.savedTabsRow}>
-                  <TouchableOpacity
-                    onPress={() => setActiveListTab('saved')}
-                    style={[styles.savedTab, activeListTab === 'saved' && styles.savedTabActive]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.savedTabText, activeListTab === 'saved' && styles.savedTabTextActive]}>Відкладено</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setActiveListTab('lists')}
-                    style={[styles.savedTab, activeListTab === 'lists' && styles.savedTabActive]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.savedTabText, activeListTab === 'lists' && styles.savedTabTextActive]}>Мої списки</Text>
-                  </TouchableOpacity>
+                  </View>
                 </View>
+              );
+            })}
 
-                {activeListTab === 'saved' ? (
-                  <View style={styles.postponedList}>
-                    {hasPostponedItems ? (
-                      postponedItems.map(renderPostponedItem)
-                    ) : (
-                      <View style={styles.savedPreviewCard}>
-                        <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
-                        <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар з’явився тут.</Text>
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.savedPreviewCard}>
-                    <Text style={styles.savedHintTitle}>Мої списки</Text>
-                    <Text style={styles.savedHintText}>
-                      {favorites.length > 0 ? `В обраному товарів: ${favorites.length}` : 'Тут будуть ваші списки та обрані товари.'}
-                    </Text>
-                    <TouchableOpacity onPress={() => router.replace('/(tabs)/favorites' as any)} activeOpacity={0.78}>
-                      <Text style={styles.savedOpenText}>Відкрити обране</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+            <View style={styles.savedSection}>
+              <View style={styles.savedTabsRow}>
+                <TouchableOpacity
+                  onPress={() => setActiveListTab('saved')}
+                  style={[styles.savedTab, activeListTab === 'saved' && styles.savedTabActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.savedTabText, activeListTab === 'saved' && styles.savedTabTextActive]}>Відкладено</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setActiveListTab('lists')}
+                  style={[styles.savedTab, activeListTab === 'lists' && styles.savedTabActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.savedTabText, activeListTab === 'lists' && styles.savedTabTextActive]}>Мої списки</Text>
+                </TouchableOpacity>
               </View>
-            )}
+
+              {activeListTab === 'saved' ? (
+                <View style={styles.postponedList}>
+                  {hasPostponedItems ? (
+                    postponedItems.map(renderPostponedItem)
+                  ) : (
+                    <View style={styles.savedPreviewCard}>
+                      <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
+                      <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар залишився тут, у корзині.</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.savedPreviewCard}>
+                  <Text style={styles.savedHintTitle}>Мої списки</Text>
+                  <Text style={styles.savedHintText}>Списки залишаються в корзині. Обрані товари відкриваються через меню або іконку серця в хедері.</Text>
+                </View>
+              )}
+            </View>
 
             {hasCartItems && (
               <View style={styles.promoSection}>
@@ -466,470 +455,78 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F7F7F7',
-  },
-  emptyContainer: {
-    flexGrow: 1,
-    padding: 20,
-    paddingBottom: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyView: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginBottom: 8,
-    color: '#1F2937',
-  },
-  emptyText: {
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 32,
-    width: '86%',
-    lineHeight: 24,
-    fontSize: 16,
-  },
-  emptyButton: {
-    backgroundColor: '#2E7D32',
-    paddingVertical: 15,
-    paddingHorizontal: 34,
-    borderRadius: 12,
-  },
-  emptyButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 16,
-  },
-  scrollContent: {
-    paddingHorizontal: 12,
-    paddingTop: 22,
-    paddingBottom: 182,
-  },
-  cartTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 10,
-  },
-  cartTitle: {
-    fontSize: 25,
-    fontWeight: '900',
-    color: '#222222',
-  },
-  editPromoText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1976A3',
-  },
-  cartCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    flexDirection: 'row',
-  },
-  cartImageWrap: {
-    width: 96,
-    paddingTop: 6,
-    alignItems: 'center',
-  },
-  cartImage: {
-    width: 76,
-    height: 92,
-    resizeMode: 'contain',
-    backgroundColor: '#FFFFFF',
-  },
-  cartItemBody: {
-    flex: 1,
-    paddingLeft: 12,
-  },
-  brandText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 5,
-  },
-  cartItemName: {
-    fontSize: 18,
-    lineHeight: 25,
-    fontWeight: '500',
-    color: '#2C2C2C',
-  },
-  variantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 5,
-    marginBottom: 14,
-  },
-  variantText: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginRight: 4,
-  },
-  itemActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginBottom: 16,
-  },
-  quantitySelector: {
-    height: 44,
-    minWidth: 92,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  quantityText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  trashRoundButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  postponeButton: {
-    height: 44,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  postponeText: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#374151',
-  },
-  itemBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  promoMismatchText: {
-    flex: 1,
-    fontSize: 12.5,
-    lineHeight: 17,
-    color: '#6B7280',
-  },
-  itemPriceBlock: {
-    alignItems: 'flex-end',
-  },
-  itemTotalPrice: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  moreText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1976A3',
-  },
-  savedSection: {
-    marginTop: 8,
-    marginBottom: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  savedTabsRow: {
-    flexDirection: 'row',
-    minHeight: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  savedTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 4,
-    borderBottomColor: 'transparent',
-  },
-  savedTabActive: {
-    borderBottomColor: '#2E7D32',
-  },
-  savedTabText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#374151',
-  },
-  savedTabTextActive: {
-    color: '#2E7D32',
-    fontWeight: '900',
-  },
-  postponedList: {
-    padding: 12,
-    gap: 10,
-  },
-  postponedCard: {
-    minHeight: 118,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EEF0F2',
-    padding: 10,
-  },
-  postponedImage: {
-    width: 74,
-    height: 86,
-    resizeMode: 'contain',
-    backgroundColor: '#FFFFFF',
-  },
-  postponedBody: {
-    flex: 1,
-    paddingHorizontal: 10,
-  },
-  postponedName: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: '#2C2C2C',
-    marginBottom: 4,
-  },
-  postponedMeta: {
-    fontSize: 13,
-    lineHeight: 17,
-    color: '#6B7280',
-    marginBottom: 5,
-  },
-  postponedPrice: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  postponedActions: {
-    alignItems: 'center',
-    gap: 9,
-  },
-  postponedCartButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FF9500',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  postponedRemoveButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  savedPreviewCard: {
-    padding: 16,
-  },
-  savedHintTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  savedHintText: {
-    fontSize: 14,
-    lineHeight: 19,
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  savedOpenText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1976A3',
-  },
-  promoSection: {
-    marginTop: 18,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingTop: 18,
-    paddingBottom: 22,
-    borderRadius: 12,
-  },
-  promoLabel: {
-    fontSize: 23,
-    fontWeight: '900',
-    color: '#2C2C2C',
-    marginBottom: 18,
-  },
-  promoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  promoInput: {
-    flex: 1,
-    height: 70,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.2,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    fontSize: 18,
-    color: '#111827',
-  },
-  promoButton: {
-    height: 70,
-    minWidth: 150,
-    backgroundColor: '#2E7D32',
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  promoButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 19,
-  },
-  promoHint: {
-    marginTop: 8,
-    fontSize: 13.5,
-    color: '#6B7280',
-  },
-  discountBox: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  discountText: {
-    flex: 1,
-    color: '#2E7D32',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  stickyCheckout: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    minHeight: 88,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    zIndex: 850,
-    elevation: 850,
-  },
-  totalToggle: {
-    minWidth: 105,
-    height: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  stickyTotal: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  checkoutButton: {
-    flex: 1,
-    height: 58,
-    borderRadius: 10,
-    backgroundColor: '#2E7D32',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  checkoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  quantityModalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  quantityBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.58)',
-  },
-  quantitySheet: {
-    maxHeight: '56%',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingTop: 24,
-    paddingHorizontal: 30,
-  },
-  quantitySheetHeader: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  quantitySheetTitle: {
-    flex: 1,
-    paddingRight: 12,
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-    color: '#2A2A2A',
-  },
-  quantityCloseButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quantitySheetScroll: {
-    maxHeight: 380,
-  },
-  quantitySheetOption: {
-    minHeight: 58,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    borderRadius: 9,
-    marginBottom: 6,
-  },
-  quantitySheetOptionActive: {
-    backgroundColor: '#E2F4E2',
-  },
-  quantitySheetOptionText: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: '#2B2B2B',
-  },
+  container: { flex: 1, backgroundColor: '#F7F7F7' },
+  emptyContainer: { flexGrow: 1, padding: 20, paddingBottom: 150, justifyContent: 'center', alignItems: 'center' },
+  emptyView: { alignItems: 'center', justifyContent: 'center', width: '100%' },
+  emptyIconContainer: { width: 120, height: 120, backgroundColor: '#FFFFFF', borderRadius: 60, alignItems: 'center', justifyContent: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyTitle: { fontSize: 20, fontWeight: '900', marginBottom: 8, color: '#1F2937' },
+  emptyText: { color: '#6B7280', textAlign: 'center', marginBottom: 32, width: '86%', lineHeight: 24, fontSize: 16 },
+  emptyButton: { backgroundColor: '#2E7D32', paddingVertical: 15, paddingHorizontal: 34, borderRadius: 12 },
+  emptyButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 16 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 22, paddingBottom: 182 },
+  cartTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 10 },
+  cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222' },
+  editPromoText: { fontSize: 15, fontWeight: '700', color: '#1976A3' },
+  cartCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: 'row' },
+  cartImageWrap: { width: 96, paddingTop: 6, alignItems: 'center' },
+  cartImage: { width: 76, height: 92, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
+  cartItemBody: { flex: 1, paddingLeft: 12 },
+  brandText: { fontSize: 14, color: '#6B7280', marginBottom: 5 },
+  cartItemName: { fontSize: 18, lineHeight: 25, fontWeight: '500', color: '#2C2C2C' },
+  variantRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, marginBottom: 14 },
+  variantText: { fontSize: 15, color: '#6B7280', marginRight: 4 },
+  itemActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginBottom: 16 },
+  quantitySelector: { height: 44, minWidth: 92, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  quantityText: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  trashRoundButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  postponeButton: { height: 44, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  postponeText: { fontSize: 15, fontWeight: '900', color: '#374151' },
+  itemBottomRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
+  promoMismatchText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: '#6B7280' },
+  itemPriceBlock: { alignItems: 'flex-end' },
+  itemTotalPrice: { fontSize: 20, fontWeight: '900', color: '#111827' },
+  moreText: { fontSize: 13, fontWeight: '700', color: '#1976A3' },
+  savedSection: { marginTop: 8, marginBottom: 10, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' },
+  savedTabsRow: { flexDirection: 'row', minHeight: 56, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  savedTab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: 'transparent' },
+  savedTabActive: { borderBottomColor: '#2E7D32' },
+  savedTabText: { fontSize: 17, fontWeight: '800', color: '#374151' },
+  savedTabTextActive: { color: '#2E7D32', fontWeight: '900' },
+  postponedList: { padding: 12, gap: 10 },
+  postponedCard: { minHeight: 118, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#EEF0F2', padding: 10 },
+  postponedImage: { width: 74, height: 86, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
+  postponedBody: { flex: 1, paddingHorizontal: 10 },
+  postponedName: { fontSize: 15, lineHeight: 20, fontWeight: '700', color: '#2C2C2C', marginBottom: 4 },
+  postponedMeta: { fontSize: 13, lineHeight: 17, color: '#6B7280', marginBottom: 5 },
+  postponedPrice: { fontSize: 16, fontWeight: '900', color: '#111827' },
+  postponedActions: { alignItems: 'center', gap: 9 },
+  postponedCartButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF9500', alignItems: 'center', justifyContent: 'center' },
+  postponedRemoveButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  savedPreviewCard: { padding: 16 },
+  savedHintTitle: { fontSize: 17, fontWeight: '900', color: '#111827', marginBottom: 4 },
+  savedHintText: { fontSize: 14, lineHeight: 19, color: '#6B7280', marginBottom: 8 },
+  promoSection: { marginTop: 18, marginBottom: 20, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 22, borderRadius: 12 },
+  promoLabel: { fontSize: 23, fontWeight: '900', color: '#2C2C2C', marginBottom: 18 },
+  promoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  promoInput: { flex: 1, height: 70, backgroundColor: '#FFFFFF', borderWidth: 1.2, borderColor: '#D1D5DB', paddingHorizontal: 16, borderRadius: 10, fontSize: 18, color: '#111827' },
+  promoButton: { height: 70, minWidth: 150, backgroundColor: '#2E7D32', paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  promoButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 19 },
+  promoHint: { marginTop: 8, fontSize: 13.5, color: '#6B7280' },
+  discountBox: { marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  discountText: { flex: 1, color: '#2E7D32', fontSize: 14, fontWeight: '800' },
+  stickyCheckout: { position: 'absolute', left: 0, right: 0, minHeight: 88, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingHorizontal: 18, paddingTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16, zIndex: 850, elevation: 850 },
+  totalToggle: { minWidth: 105, height: 58, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  stickyTotal: { fontSize: 22, fontWeight: '900', color: '#111827' },
+  checkoutButton: { flex: 1, height: 58, borderRadius: 10, backgroundColor: '#2E7D32', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  checkoutButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', textAlign: 'center' },
+  quantityModalRoot: { flex: 1, justifyContent: 'flex-end' },
+  quantityBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.58)' },
+  quantitySheet: { maxHeight: '56%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 24, paddingHorizontal: 30 },
+  quantitySheetHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  quantitySheetTitle: { flex: 1, paddingRight: 12, fontSize: 24, lineHeight: 30, fontWeight: '900', color: '#2A2A2A' },
+  quantityCloseButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  quantitySheetScroll: { maxHeight: 380 },
+  quantitySheetOption: { minHeight: 58, justifyContent: 'center', paddingHorizontal: 24, borderRadius: 9, marginBottom: 6 },
+  quantitySheetOptionActive: { backgroundColor: '#E2F4E2' },
+  quantitySheetOptionText: { fontSize: 22, fontWeight: '500', color: '#2B2B2B' },
 });
