@@ -362,10 +362,7 @@ export default function CartScreen() {
 
             {hasCartItems && (
               <View style={styles.cartTopRow}>
-                <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
-                <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
-                  <Text style={styles.editPromoText}>Редагувати промокод</Text>
-                </TouchableOpacity>
+                <Text style={styles.cartTitle}>Кошик</Text>
               </View>
             )}
 
@@ -381,7 +378,6 @@ export default function CartScreen() {
                   </View>
 
                   <View style={styles.cartItemBody}>
-                    <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
                     <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
                     <View style={styles.variantRow}>
                       <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
@@ -398,7 +394,7 @@ export default function CartScreen() {
                         style={styles.trashRoundButton}
                         activeOpacity={0.78}
                       >
-                        <Ionicons name="trash-outline" size={21} color="#374151" />
+                        <Ionicons name="trash-outline" size={20} color="#374151" />
                       </TouchableOpacity>
 
                       <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
@@ -407,11 +403,7 @@ export default function CartScreen() {
                     </View>
 
                     <View style={styles.itemBottomRow}>
-                      <Text style={styles.promoMismatchText}>Промокод застосовується за умовами акції</Text>
-                      <View style={styles.itemPriceBlock}>
-                        <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
-                        <Text style={styles.moreText}>Детальніше</Text>
-                      </View>
+                      <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
                     </View>
                   </View>
                 </View>
@@ -578,28 +570,24 @@ const styles = StyleSheet.create({
   emptyNoticeTextBox: { flex: 1 },
   emptyNoticeTitle: { fontSize: 19, fontWeight: '900', color: '#222222', marginBottom: 6 },
   emptyNoticeText: { fontSize: 14.5, lineHeight: 21, color: '#374151' },
-  cartTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingHorizontal: 22, paddingTop: 22 },
-  cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222' },
-  editPromoText: { fontSize: 15, fontWeight: '700', color: '#1976A3' },
+  cartTopRow: { alignItems: 'center', justifyContent: 'center', marginBottom: 14, paddingHorizontal: 22, paddingTop: 22 },
+  cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222', textAlign: 'center' },
   cartCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginHorizontal: 12, marginBottom: 12, flexDirection: 'row' },
-  cartImageWrap: { width: 96, paddingTop: 6, alignItems: 'center' },
+  cartImageWrap: { width: 96, paddingTop: 2, alignItems: 'center' },
   cartImage: { width: 76, height: 92, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
   cartItemBody: { flex: 1, paddingLeft: 12 },
-  brandText: { fontSize: 14, color: '#6B7280', marginBottom: 5 },
-  cartItemName: { fontSize: 18, lineHeight: 25, fontWeight: '500', color: '#2C2C2C' },
+  cartItemName: { fontSize: 17, lineHeight: 24, fontWeight: '500', color: '#2C2C2C' },
   variantRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, marginBottom: 14 },
   variantText: { fontSize: 15, color: '#6B7280', marginRight: 4 },
-  itemActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginBottom: 16 },
-  quantitySelector: { height: 44, minWidth: 92, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  itemActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginBottom: 14 },
+  quantitySelector: { height: 42, minWidth: 90, paddingHorizontal: 17, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   quantityText: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  trashRoundButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  postponeButton: { height: 44, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  trashRoundButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  postponeButton: { height: 42, paddingHorizontal: 17, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   postponeText: { fontSize: 15, fontWeight: '900', color: '#374151' },
-  itemBottomRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
-  promoMismatchText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: '#6B7280' },
+  itemBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   itemPriceBlock: { alignItems: 'flex-end' },
   itemTotalPrice: { fontSize: 20, fontWeight: '900', color: '#111827' },
-  moreText: { fontSize: 13, fontWeight: '700', color: '#1976A3' },
   savedSection: { marginTop: 0, marginBottom: 10, backgroundColor: '#FFFFFF', overflow: 'hidden' },
   savedTabsRow: { flexDirection: 'row', minHeight: 56, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   savedTab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
