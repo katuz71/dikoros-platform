@@ -1,4 +1,3 @@
-import { useCart } from '@/context/CartContext';
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -42,7 +41,6 @@ export function AppHeader({
   showFilter = false,
   onFilter,
   showFavorites = false,
-  showCart = false,
   showShare = false,
   onShare,
   showFavoriteToggle = false,
@@ -58,11 +56,6 @@ export function AppHeader({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSearch } = useGlobalSearch();
-  const { items: cartItems } = useCart() as any;
-
-  const cartCount = Array.isArray(cartItems)
-    ? cartItems.reduce((sum: number, item: any) => sum + (Number(item?.quantity) || 1), 0)
-    : 0;
 
   const goBack = () => {
     if (onBack) {
@@ -72,6 +65,46 @@ export function AppHeader({
     router.back();
   };
 
+  if (showLogo && !showBack) {
+    return (
+      <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }, style]}>
+        <View style={styles.logoCenteredRow}>
+          <View style={styles.logoActionSlot}>
+            {showSearch ? (
+              <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
+                <Ionicons name="search" size={24} color="#111827" />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.iconButtonPlaceholder} />
+            )}
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={onLogoPress || (() => router.replace('/(tabs)' as any))}
+            style={styles.logoButton}
+          >
+            <Image
+              source={require('../assets/images/dikoros-logo.webp')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          <View style={styles.logoActionSlot}>
+            {showFavorites ? (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={styles.iconButton} activeOpacity={0.75}>
+                <Ionicons name="heart-outline" size={24} color="#111827" />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.iconButtonPlaceholder} />
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }, style]}>
       <View style={styles.row}>
@@ -79,10 +112,6 @@ export function AppHeader({
           {showBack ? (
             <TouchableOpacity onPress={goBack} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name={backIcon as any} size={26} color="#111827" />
-            </TouchableOpacity>
-          ) : showLogo && showSearch ? (
-            <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="search" size={24} color="#111827" />
             </TouchableOpacity>
           ) : (
             <View style={styles.iconButtonPlaceholder} />
@@ -111,7 +140,7 @@ export function AppHeader({
         </View>
 
         <View style={styles.rightArea}>
-          {showSearch && !(showLogo && !showBack) && (
+          {showSearch && (
             <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name="search" size={24} color="#111827" />
             </TouchableOpacity>
@@ -125,18 +154,7 @@ export function AppHeader({
 
           {showFavorites && (
             <TouchableOpacity onPress={() => router.push('/(tabs)/favorites')} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="heart" size={24} color="#EF4444" />
-            </TouchableOpacity>
-          )}
-
-          {showCart && (
-            <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="cart-outline" size={25} color="#111827" />
-              {cartCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-                </View>
-              )}
+              <Ionicons name="heart-outline" size={24} color="#111827" />
             </TouchableOpacity>
           )}
 
@@ -182,6 +200,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
   },
+  logoCenteredRow: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  logoActionSlot: {
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   leftArea: {
     width: 48,
     alignItems: 'flex-start',
@@ -211,14 +241,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
   },
   iconButtonPlaceholder: {
     width: 40,
     height: 40,
   },
   logoButton: {
-    minWidth: 150,
+    width: 150,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
@@ -239,24 +268,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6B7280',
     textAlign: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    right: 1,
-    top: 1,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 9,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '900',
   },
 });
