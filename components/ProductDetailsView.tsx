@@ -2,16 +2,7 @@ import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import {
-  Dimensions,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeader } from './AppHeader';
 import ProductCard from './ProductCard';
@@ -80,267 +71,160 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 }) => {
   const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
+  const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const cartButtonSignature = React.useMemo(() => {
+  const selectedSignature = React.useMemo(() => {
     const selected = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
     return `${Number(product?.id || 0)}::${clean(selected || product?.unit || 'шт')}::${clean(activeRow?.rowId || '')}`;
   }, [product?.id, product?.unit, activeRow?.rowId, internalKeys, selectedOptions, clean]);
 
-  const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
-
   React.useEffect(() => {
     setLocalAddedToCart(false);
-  }, [cartButtonSignature]);
+  }, [selectedSignature]);
 
+  const normalizeText = React.useCallback((value: any) => {
+    return String(value || '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }, []);
+
+  const getImages = React.useCallback((item: any) => {
+    const gallery: string[] = [];
+    const pushImage = (value: any) => {
+      const src = String(value || '').trim();
+      if (src) gallery.push(src);
+    };
+
+    pushImage(item?.image || item?.picture || item?.image_url);
+
+    if (Array.isArray(item?.images)) {
+      item.images.forEach(pushImage);
+    } else if (typeof item?.images === 'string') {
+      if (item.images.trim().startsWith('[')) {
+        try {
+          const parsed = JSON.parse(item.images);
+          if (Array.isArray(parsed)) parsed.forEach(pushImage);
+        } catch {}
+      } else {
+        item.images.split(',').forEach(pushImage);
+      }
+    }
+
+    const seen = new Set<string>();
+    const out = gallery
+      .map((src) => getImageUrl(src))
+      .filter((src) => src && src !== 'null' && src !== 'undefined')
+      .filter((src) => {
+        if (seen.has(src)) return false;
+        seen.add(src);
+        return true;
+      });
+
+    return out.length ? out : [getImageUrl('')];
+  }, []);
+
+  const images = React.useMemo(() => getImages(product), [getImages, product]);
+
+  React.useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product?.id, product?.image]);
+
+  const isAvailable = React.useCallback((row: any) => {
+    const raw = row?.raw || row || {};
+    const status = clean(raw?.status || product?.status).toLowerCase();
+    const disabled = ['unavailable', 'out_of_stock', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии'];
+    return !disabled.some((word) => status.includes(word));
+  }, [clean, product?.status]);
+
+  const activeAvailable = activeRow ? isAvailable(activeRow) : isAvailable(product);
   const resolvedIsInCart = isInCart || localAddedToCart;
+  const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
 
   const handleMainCartPress = React.useCallback(() => {
     if (resolvedIsInCart) {
       router.push('/(tabs)/cart' as any);
       return;
     }
-
     setLocalAddedToCart(true);
     onAddToCart();
   }, [resolvedIsInCart, router, onAddToCart]);
 
-  const cleanProductHtml = (html: any) => {
-    const decode = (value: string) => {
-      return String(value || '')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&mdash;/g, '\u2014')
-        .replace(/&ndash;/g, '\u2013')
-        .replace(/&deg;/g, '\u00b0')
-        .replace(/&rsquo;/g, '\u2019')
-        .replace(/&lsquo;/g, '\u2018')
-        .replace(/&ldquo;/g, '\u201c')
-        .replace(/&rdquo;/g, '\u201d')
-        .replace(/&laquo;/g, '\u00ab')
-        .replace(/&raquo;/g, '\u00bb')
-        .replace(/&hellip;/g, '\u2026')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&')
-        .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
-        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
-    };
-
-    let text = String(html || '');
-    text = decode(text);
-    text = decode(text);
-    text = decode(text);
-
-    return text
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<\/li>/gi, '\n')
-      .replace(/<li[^>]*>/gi, '- ')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n\s+/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  };
-
-  const splitProductText = () => {
-    const source = cleanProductHtml(product?.description);
-    const compositionField = cleanProductHtml(product?.composition);
-    const usageField = cleanProductHtml(product?.usage);
-
-    const lines = source
-      .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(Boolean);
-
-    const skladWords = ['склад', 'інгредієнт'];
-    const usageWords = ['застосування', 'використання', 'прийом', 'дозування', 'вживати', 'наносити', 'зовнішнього', 'внутрішнього'];
-
-    const findLines = (words: string[]) => {
-      return lines
-        .filter(line => {
-          const lower = line.toLowerCase();
-          return words.some(word => lower.includes(word));
-        })
-        .join('\n')
-        .trim();
-    };
-
-    const extractedComposition = findLines(skladWords);
-    const extractedUsage = findLines(usageWords);
-
-    return {
-      desc: source || '—',
-      composition: compositionField || extractedComposition || 'Інформація про склад не вказана.',
-      usage: usageField || extractedUsage || 'Спосіб використання не вказаний.',
-    };
-  };
-
-  const toDisplayText = (value: any) => {
-    const s = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-    return s.length > 0 ? s : '—';
-  };
-
-  const renderStructuredText = (raw: any) => {
-    const text = toDisplayText(raw);
-    const lines = String(text || '').split(/\r?\n/);
-    const headings = new Set([
-      'Опис',
-      'Переваги',
-      'Характеристики',
-      'Як використовувати',
-      'Зберігання',
-      'Важливо',
-    ]);
-
-    return (
-      <View style={styles.structuredWrap}>
-        {lines.map((line, idx) => {
-          const trimmed = String(line || '').trim();
-          if (!trimmed) return <View key={`sp-${idx}`} style={styles.structuredSpacer} />;
-
-          if (headings.has(trimmed)) {
-            return <Text key={`h-${idx}`} style={styles.sectionHeading}>{trimmed}</Text>;
-          }
-
-          if (trimmed.startsWith('- ')) {
-            return (
-              <View key={`b-${idx}`} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>{'•'}</Text>
-                <Text style={styles.bulletText}>{trimmed.slice(2)}</Text>
-              </View>
-            );
-          }
-
-          return <Text key={`p-${idx}`} style={styles.paragraphText}>{trimmed}</Text>;
-        })}
-      </View>
-    );
-  };
-
-  const getAllImages = (p: any) => {
-    let gallery: string[] = [];
-
-    if (Array.isArray(p?.images)) {
-      gallery = p.images.map((u: any) => String(u ?? '').trim()).filter(Boolean);
-    } else if (p?.images && typeof p.images === 'string') {
-      if (p.images.startsWith('[') && p.images.endsWith(']')) {
-        try {
-          const parsed = JSON.parse(p.images);
-          if (Array.isArray(parsed)) gallery = parsed.map((u: any) => String(u ?? '').trim()).filter(Boolean);
-        } catch {}
-      } else {
-        gallery = p.images.split(',').map((u: string) => u.trim()).filter(Boolean);
-      }
-    }
-
-    const main = String(p?.image || p?.picture || p?.image_url || '').trim();
-    const ordered = [main, ...gallery]
-      .map((u: any) => String(u ?? '').trim())
-      .filter(Boolean);
-
-    const listFull = ordered
-      .map((u: any) => getImageUrl(String(u ?? '').trim()))
-      .filter((u: string) => !!u && u !== 'null' && u !== 'undefined');
-
-    const seen = new Set<string>();
-    const deduped: string[] = [];
-    listFull.forEach((u: any) => {
-      const s = String(u ?? '').trim();
-      if (!s || seen.has(s)) return;
-      seen.add(s);
-      deduped.push(s);
-    });
-
-    return deduped;
-  };
-
-  const isVariantAvailable = (row: any) => {
-    const raw = row?.raw || row || {};
-    const status = clean(raw?.status || product?.status).toLowerCase();
-    const disabledStatuses = ['unavailable', 'not_available', 'out_of_stock', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии'];
-    if (status && disabledStatuses.some(s => status.includes(s))) return false;
-    return true;
-  };
-
-  const images = getAllImages(product);
-  const slideImages = React.useMemo(() => {
-    const cleaned = (images || [])
-      .map((u: any) => String(u ?? '').trim())
-      .filter((u: string) => u && u !== 'null' && u !== 'undefined');
-    return cleaned.length > 0 ? cleaned : [''];
-  }, [images]);
-
-  const slideImagesFull = React.useMemo(() => {
-    return (slideImages || []).map((u: any) => getImageUrl(String(u ?? '').trim()));
-  }, [slideImages]);
-
-  React.useEffect(() => {
-    setActiveImageIndex(0);
-  }, [product?.id, product?.image]);
-
-  const productTextTabs = splitProductText();
-  const activeAvailable = activeRow ? isVariantAvailable(activeRow) : isVariantAvailable(product);
-  const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
-
   const handleImageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x || 0;
-    const nextIndex = Math.round(offsetX / screenWidth);
-    setActiveImageIndex(Math.max(0, Math.min(nextIndex, slideImagesFull.length - 1)));
+    const nextIndex = Math.round((event.nativeEvent.contentOffset.x || 0) / screenWidth);
+    setActiveImageIndex(Math.max(0, Math.min(nextIndex, images.length - 1)));
   };
+
+  const tabText = React.useMemo(() => {
+    const desc = normalizeText(product?.description) || '—';
+    return {
+      desc,
+      ingr: normalizeText(product?.composition) || 'Інформація про склад не вказана.',
+      use: normalizeText(product?.usage) || 'Спосіб використання не вказаний.',
+    };
+  }, [normalizeText, product?.description, product?.composition, product?.usage]);
+
+  const renderText = (text: string) => (
+    <View style={styles.structuredWrap}>
+      {String(text || '').split(/\r?\n/).map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <View key={`sp-${index}`} style={styles.structuredSpacer} />;
+        if (trimmed.startsWith('- ')) {
+          return (
+            <View key={`b-${index}`} style={styles.bulletRow}>
+              <Text style={styles.bulletDot}>•</Text>
+              <Text style={styles.bulletText}>{trimmed.slice(2)}</Text>
+            </View>
+          );
+        }
+        return <Text key={`p-${index}`} style={styles.paragraphText}>{trimmed}</Text>;
+      })}
+    </View>
+  );
 
   return (
     <View style={styles.root}>
-      <AppHeader
-        showLogo
-        showBack
-        backIcon="chevron-back"
-        showSearch
-        showFavoriteToggle
-        isFavorite={isFavorite}
-        onFavoritePress={onToggleFavorite}
-      />
+      <AppHeader showLogo showBack backIcon="chevron-back" showSearch showFavoriteToggle />
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 195 + insets.bottom }]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 195 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         <View style={styles.imageWrap}>
-          <ScrollView
-            key={`${String(product?.id ?? '')}:${String(product?.image ?? '')}`}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={handleImageScroll}
-          >
-            {slideImagesFull.map((img: string, i: number) => {
-              const placeholder = getImageUrl('');
-              const candidates = [img, ...slideImagesFull.filter((_, j) => j !== i), placeholder];
-              return (
-                <ProductImage
-                  key={`${img}-${i}`}
-                  uri={img}
-                  uris={candidates}
-                  cacheKey={`pdp:${String(product?.id ?? '')}:${i}`}
-                  style={styles.mainImage}
-                  size={screenWidth}
-                  contentFit="contain"
-                />
-              );
-            })}
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={handleImageScroll}>
+            {images.map((img, index) => (
+              <ProductImage
+                key={`${img}-${index}`}
+                uri={img}
+                uris={[img, ...images.filter((_, i) => i !== index), getImageUrl('')]}
+                cacheKey={`pdp:${String(product?.id || '')}:${index}`}
+                style={styles.mainImage}
+                size={screenWidth}
+                contentFit="contain"
+              />
+            ))}
           </ScrollView>
 
-          {slideImagesFull.length > 1 && (
+          <View style={styles.imageActions}>
+            <TouchableOpacity onPress={onToggleFavorite} style={[styles.imageActionButton, isFavorite && styles.imageActionButtonActive]} activeOpacity={0.8}>
+              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={27} color={isFavorite ? '#EF4444' : '#111827'} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onShare} style={styles.imageActionButton} activeOpacity={0.8}>
+              <Ionicons name="share-social-outline" size={25} color="#111827" />
+            </TouchableOpacity>
+          </View>
+
+          {images.length > 1 && (
             <View style={styles.imageDots}>
-              {slideImagesFull.map((_, i) => (
-                <View key={i} style={[styles.imageDot, i === activeImageIndex && styles.imageDotActive]} />
-              ))}
+              {images.map((_, index) => <View key={index} style={[styles.imageDot, index === activeImageIndex && styles.imageDotActive]} />)}
             </View>
           )}
         </View>
@@ -349,75 +233,40 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           <View style={styles.statsRow}>
             <View style={styles.statusBadge}>
               <View style={[styles.statusDot, !activeAvailable && styles.statusDotDisabled]} />
-              <Text style={[styles.statusText, !activeAvailable && styles.statusTextDisabled]}>
-                {activeAvailable ? 'В наявності' : 'Немає в наявності'}
-              </Text>
+              <Text style={[styles.statusText, !activeAvailable && styles.statusTextDisabled]}>{activeAvailable ? 'В наявності' : 'Немає в наявності'}</Text>
             </View>
-
             <View style={styles.ratingRow}>
-              <View style={styles.stars}>
-                {[1, 2, 3, 4, 5].map(s => (
-                  <Ionicons key={s} name="star" size={14} color={s <= averageRating ? '#FFD700' : '#E5E7EB'} />
-                ))}
-              </View>
+              <View style={styles.stars}>{[1, 2, 3, 4, 5].map(s => <Ionicons key={s} name="star" size={14} color={s <= averageRating ? '#FFD700' : '#E5E7EB'} />)}</View>
               <Text style={styles.reviewCount}>{totalReviews} відгуки</Text>
             </View>
           </View>
 
           <View style={styles.titleSection}>
-            <Text style={styles.productTitle}>{product.name}</Text>
+            <Text style={styles.productTitle}>{product?.name}</Text>
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>{formatPrice(currentPrice)}</Text>
-              {!!oldPrice && oldPrice > currentPrice && (
-                <Text style={styles.oldPriceText}>{formatPrice(oldPrice)}</Text>
-              )}
+              {!!oldPrice && oldPrice > currentPrice && <Text style={styles.oldPriceText}>{formatPrice(oldPrice)}</Text>}
             </View>
             {!!displaySku && <Text style={styles.skuText}>Артикул: {displaySku}</Text>}
           </View>
 
           <View style={styles.trustBadges}>
-            <View style={styles.badgeItem}>
-              <Ionicons name="shield-checkmark-outline" size={22} color="#10b981" />
-              <Text style={styles.badgeText}>100% Оригінал</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Ionicons name="rocket-outline" size={22} color="#059669" />
-              <Text style={styles.badgeText}>Швидка доставка</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Ionicons name="leaf-outline" size={22} color="#059669" />
-              <Text style={styles.badgeText}>Еко продукт</Text>
-            </View>
+            <View style={styles.badgeItem}><Ionicons name="shield-checkmark-outline" size={22} color="#10b981" /><Text style={styles.badgeText}>100% Оригінал</Text></View>
+            <View style={styles.badgeItem}><Ionicons name="rocket-outline" size={22} color="#059669" /><Text style={styles.badgeText}>Швидка доставка</Text></View>
+            <View style={styles.badgeItem}><Ionicons name="leaf-outline" size={22} color="#059669" /><Text style={styles.badgeText}>Еко продукт</Text></View>
           </View>
 
-          {internalKeys.length > 0 ? (
+          {internalKeys.length > 0 && (
             <View style={styles.variationsSection}>
-              {internalKeys.map((ik, idx) => (
-                <View key={ik} style={styles.optionGroup}>
-                  <Text style={styles.optionTitle}>{optionKeys[idx]}</Text>
+              {internalKeys.map((key, index) => (
+                <View key={key} style={styles.optionGroup}>
+                  <Text style={styles.optionTitle}>{optionKeys[index]}</Text>
                   <View style={styles.optionValues}>
-                    {(matrix[ik] || []).map((val) => {
-                      const isSel = clean(selectedOptions[ik]) === clean(val);
-                      const isAvailable = variantRows.some((row: any) => {
-                        if (!isVariantAvailable(row)) return false;
-                        return internalKeys.every((key) => {
-                          const expected = key === ik ? val : selectedOptions[key];
-                          if (!expected) return true;
-                          return clean(row.options[key]) === clean(expected);
-                        });
-                      });
-
-                      if (!isAvailable) return null;
-
+                    {(matrix[key] || []).map((value) => {
+                      const selected = clean(selectedOptions[key]) === clean(value);
                       return (
-                        <TouchableOpacity
-                          key={val}
-                          onPress={() => applyOptionChange(ik, val)}
-                          style={[styles.optionBtn, isSel && styles.optionBtnActive]}
-                        >
-                          <Text numberOfLines={1} style={[styles.optionBtnText, isSel && styles.optionBtnTextActive]}>
-                            {val}
-                          </Text>
+                        <TouchableOpacity key={value} onPress={() => applyOptionChange(key, value)} style={[styles.optionBtn, selected && styles.optionBtnActive]}>
+                          <Text numberOfLines={1} style={[styles.optionBtnText, selected && styles.optionBtnTextActive]}>{value}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -425,38 +274,30 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 </View>
               ))}
             </View>
-          ) : null}
+          )}
 
           <View style={styles.tabsContainer}>
-            {['desc', 'ingr', 'use'].map((t) => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setTab(t as 'desc' | 'ingr' | 'use')}
-                style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
-              >
-                <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-                  {t === 'desc' ? 'Опис' : t === 'ingr' ? 'Склад' : 'Використання'}
-                </Text>
+            {(['desc', 'ingr', 'use'] as const).map((key) => (
+              <TouchableOpacity key={key} onPress={() => setTab(key)} style={[styles.tabBtn, tab === key && styles.tabBtnActive]}>
+                <Text style={[styles.tabBtnText, tab === key && styles.tabBtnTextActive]}>{key === 'desc' ? 'Опис' : key === 'ingr' ? 'Склад' : 'Використання'}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {tab === 'desc'
-            ? renderStructuredText(productTextTabs.desc)
-            : <Text style={styles.descriptionText}>{tab === 'ingr' ? productTextTabs.composition : productTextTabs.usage}</Text>}
+          {renderText(tabText[tab])}
 
           {similarProducts.length > 0 && (
             <View style={styles.similarSection}>
               <Text style={styles.sectionTitle}>Схожі товари</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.similarList}>
-                {similarProducts.map((p) => (
-                  <View key={p.id} style={styles.similarCardContainer}>
+                {similarProducts.map((item) => (
+                  <View key={item.id} style={styles.similarCardContainer}>
                     <ProductCard
-                      item={p}
-                      onPress={() => onSimilarProductPress?.(p.id)}
-                      onCartPress={() => onSimilarProductAddToCart?.(p)}
-                      onFavoritePress={() => onSimilarProductToggleFavorite?.(p)}
-                      isFavorite={favorites.some((f: any) => f.id === p.id)}
+                      item={item}
+                      onPress={() => onSimilarProductPress?.(item.id)}
+                      onCartPress={() => onSimilarProductAddToCart?.(item)}
+                      onFavoritePress={() => onSimilarProductToggleFavorite?.(item)}
+                      isFavorite={favorites.some((f: any) => f.id === item.id)}
                       style={{ flex: 0, width: '100%', marginLeft: 0 }}
                     />
                   </View>
@@ -467,42 +308,26 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
           <View style={styles.reviewsHeader}>
             <Text style={styles.sectionTitle}>Відгуки</Text>
-            <TouchableOpacity onPress={onWriteReview} style={styles.writeReviewBtn}>
-              <Text style={styles.writeReviewText}>Написати</Text>
-            </TouchableOpacity>
+            <TouchableOpacity onPress={onWriteReview} style={styles.writeReviewBtn}><Text style={styles.writeReviewText}>Написати</Text></TouchableOpacity>
           </View>
 
-          {reviews.length > 0 ? (
-            reviews.slice(0, 3).map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
-                <View style={styles.reviewMain}>
-                  <Text style={styles.reviewerName}>{review.user_name}</Text>
-                  <View style={styles.starsMini}>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Ionicons key={star} name={star <= review.rating ? 'star' : 'star-outline'} size={12} color="#FFD700" />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.reviewComment}>{review.comment}</Text>
+          {reviews.length > 0 ? reviews.slice(0, 3).map((review) => (
+            <View key={review.id} style={styles.reviewCard}>
+              <View style={styles.reviewMain}>
+                <Text style={styles.reviewerName}>{review.user_name}</Text>
+                <View style={styles.starsMini}>{[1, 2, 3, 4, 5].map(star => <Ionicons key={star} name={star <= review.rating ? 'star' : 'star-outline'} size={12} color="#FFD700" />)}</View>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyReviews}>
-              <Text style={styles.emptyReviewsText}>Поки немає відгуків</Text>
+              <Text style={styles.reviewComment}>{review.comment}</Text>
             </View>
+          )) : (
+            <View style={styles.emptyReviews}><Text style={styles.emptyReviewsText}>Поки немає відгуків</Text></View>
           )}
         </View>
       </ScrollView>
 
       <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4), paddingBottom: 10 }]}>
-        <TouchableOpacity
-          style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]}
-          onPress={handleMainCartPress}
-          disabled={!activeAvailable}
-        >
-          <Text style={styles.addToCartText}>
-            {activeAvailable ? (resolvedIsInCart ? 'Перейти в кошик' : (cartButtonLabel || 'В кошик')) : 'Немає в наявності'}
-          </Text>
+        <TouchableOpacity style={[styles.addToCartBtn, !activeAvailable && styles.addToCartBtnDisabled]} onPress={handleMainCartPress} disabled={!activeAvailable}>
+          <Text style={styles.addToCartText}>{activeAvailable ? (resolvedIsInCart ? 'Перейти в кошик' : (cartButtonLabel || 'В кошик')) : 'Немає в наявності'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -510,40 +335,16 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    position: 'relative',
-    zIndex: 200,
-    elevation: 200,
-    backgroundColor: '#fff',
-  },
+  root: { flex: 1, position: 'relative', zIndex: 200, elevation: 200, backgroundColor: '#fff' },
   scrollContent: { paddingTop: 0 },
-  imageWrap: {
-    width: screenWidth,
-    height: 312,
-    backgroundColor: '#fff',
-  },
+  imageWrap: { width: screenWidth, height: 312, backgroundColor: '#fff' },
   mainImage: { width: screenWidth, height: 312 },
-  imageDots: {
-    position: 'absolute',
-    bottom: 10,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  imageDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D1D5DB',
-  },
-  imageDotActive: {
-    width: 16,
-    backgroundColor: '#111827',
-  },
+  imageActions: { position: 'absolute', right: 16, top: 52, gap: 14, zIndex: 5, elevation: 5 },
+  imageActionButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
+  imageActionButtonActive: { borderColor: '#FCA5A5' },
+  imageDots: { position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
+  imageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#D1D5DB' },
+  imageDotActive: { width: 16, backgroundColor: '#111827' },
   content: { padding: 20 },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   statusBadge: { flexDirection: 'row', alignItems: 'center' },
@@ -576,31 +377,13 @@ const styles = StyleSheet.create({
   tabBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, elevation: 2 },
   tabBtnText: { fontWeight: '500', fontSize: 14, color: '#666' },
   tabBtnTextActive: { fontWeight: 'bold', color: '#000' },
-  descriptionText: { color: '#4b5563', lineHeight: 22, fontSize: 15, marginBottom: 30, minHeight: 80 },
   structuredWrap: { marginBottom: 30 },
   structuredSpacer: { height: 10 },
-  sectionHeading: { fontSize: 16, fontWeight: '800', color: '#1a1a1a', marginBottom: 6 },
   paragraphText: { color: '#4b5563', lineHeight: 22, fontSize: 15 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   bulletDot: { width: 16, color: '#10b981', lineHeight: 22, fontSize: 16 },
   bulletText: { flex: 1, color: '#4b5563', lineHeight: 22, fontSize: 15 },
-  stickyCartBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#EEF0F2',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 300,
-    zIndex: 300,
-  },
+  stickyCartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 14, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#EEF0F2', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 300, zIndex: 300 },
   addToCartBtn: { backgroundColor: '#2E7D32', height: 52, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
   addToCartText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
