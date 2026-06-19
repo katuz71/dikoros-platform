@@ -6,7 +6,7 @@ import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Image,
@@ -50,6 +50,7 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const {
     items: cartItems,
+    addItem,
     removeItem,
     updateQuantity,
     setPromoDiscount,
@@ -58,21 +59,21 @@ export default function CartScreen() {
     appliedPromoCode,
     finalPrice,
   } = useCart();
-  const { favorites, toggleFavorite, isFavorite } = useFavoritesStore();
+  const { favorites } = useFavoritesStore();
 
   const [promoCode, setPromoCode] = useState('');
   const [quantityPickerItem, setQuantityPickerItem] = useState<Product | null>(null);
-  const [activeListTab, setActiveListTab] = useState<'saved' | 'lists'>('lists');
+  const [activeListTab, setActiveListTab] = useState<'saved' | 'lists'>('saved');
+  const [postponedItems, setPostponedItems] = useState<Product[]>([]);
 
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
+  const hasCartItems = cartItems.length > 0;
+  const hasPostponedItems = postponedItems.length > 0;
+  const hasAnyContent = hasCartItems || hasPostponedItems;
   const hasPromo = discount > 0 || discountAmount > 0;
   const totalAmount = finalPrice;
 
   const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
-
-  const savedProducts = useMemo(() => {
-    return favorites.filter((fav: any) => !cartItems.some((item: any) => Number(item.id) === Number(fav.id)));
-  }, [favorites, cartItems]);
 
   const applyPromo = async () => {
     const normalizedPromoCode = promoCode.trim().toUpperCase();
@@ -162,19 +163,46 @@ export default function CartScreen() {
 
   const postponeItem = (item: Product) => {
     const compositeId = getCompositeId(item);
-    if (!isFavorite(item.id)) {
-      toggleFavorite({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        image: item.image || item.image_url || item.picture || '',
-        category: item.category,
-        old_price: item.old_price || null,
-        unit: item.unit || item.packSize || item.variantSize || 'шт',
-      });
-    }
+    const normalizedItem = {
+      ...item,
+      image: item.image || item.image_url || item.picture || '',
+      quantity: Number(item.quantity || 1),
+      packSize: item.packSize || item.variantSize || item.unit || 'шт',
+      unit: item.unit || item.packSize || item.variantSize || 'шт',
+      variantSize: item.variantSize || item.packSize || item.unit || 'шт',
+    };
+
+    setPostponedItems((prev) => {
+      const existingIndex = prev.findIndex((saved) => getCompositeId(saved) === compositeId);
+      if (existingIndex === -1) return [normalizedItem, ...prev];
+
+      const next = [...prev];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        quantity: Number(next[existingIndex].quantity || 1) + Number(normalizedItem.quantity || 1),
+      };
+      return next;
+    });
+
+    setActiveListTab('saved');
     removeItem(compositeId);
     Vibration.vibrate(60);
+  };
+
+  const restorePostponedItem = (item: Product) => {
+    const compositeId = getCompositeId(item);
+    const sizeKey = getSizeKey(item);
+    const unit = item.unit || sizeKey || 'шт';
+
+    addItem(item, Number(item.quantity || 1), sizeKey, unit, item.price);
+    setPostponedItems((prev) => prev.filter((saved) => getCompositeId(saved) !== compositeId));
+    Vibration.vibrate(60);
+  };
+
+  const removePostponedItem = (item: Product) => {
+    const compositeId = getCompositeId(item);
+    setPostponedItems((prev) => prev.filter((saved) => getCompositeId(saved) !== compositeId));
+    Vibration.vibrate(50);
   };
 
   const renderQuantitySelector = (item: any) => {
@@ -192,6 +220,34 @@ export default function CartScreen() {
     );
   };
 
+  const renderPostponedItem = (item: Product) => {
+    const compositeId = getCompositeId(item);
+    const sizeKey = getSizeKey(item);
+
+    return (
+      <View key={compositeId} style={styles.postponedCard}>
+        <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} activeOpacity={0.84}>
+          <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.postponedImage} />
+        </TouchableOpacity>
+
+        <View style={styles.postponedBody}>
+          <Text numberOfLines={2} style={styles.postponedName}>{item.name}</Text>
+          <Text style={styles.postponedMeta}>{sizeKey} · {Number(item.quantity || 1)} шт.</Text>
+          <Text style={styles.postponedPrice}>{formatPrice(Number(item.price || 0))}</Text>
+        </View>
+
+        <View style={styles.postponedActions}>
+          <TouchableOpacity onPress={() => restorePostponedItem(item)} style={styles.postponedCartButton} activeOpacity={0.84}>
+            <Ionicons name="cart-outline" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => removePostponedItem(item)} style={styles.postponedRemoveButton} activeOpacity={0.78}>
+            <Ionicons name="close" size={22} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const pickerQuantity = Number(quantityPickerItem?.quantity || 1);
 
   return (
@@ -203,11 +259,11 @@ export default function CartScreen() {
       <AppHeader showLogo showSearch showFavorites />
 
       <ScrollView
-        contentContainerStyle={cartItems.length === 0 ? styles.emptyContainer : styles.scrollContent}
+        contentContainerStyle={!hasAnyContent ? styles.emptyContainer : styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {cartItems.length === 0 ? (
+        {!hasAnyContent ? (
           <View style={styles.emptyView}>
             <View style={styles.emptyIconContainer}>
               <Ionicons name="cart-outline" size={60} color="#D1D5DB" />
@@ -220,64 +276,68 @@ export default function CartScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.cartTopRow}>
-              <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
-              <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
-                <Text style={styles.editPromoText}>Редагувати промокод</Text>
-              </TouchableOpacity>
-            </View>
-
-            {cartItems.map((item: any) => {
-              const sizeKey = getSizeKey(item);
-              const compositeId = getCompositeId(item);
-              const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
-
-              return (
-                <View key={compositeId} style={styles.cartCard}>
-                  <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.cartImageWrap} activeOpacity={0.82}>
-                    <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.cartImage} />
+            {hasCartItems && (
+              <>
+                <View style={styles.cartTopRow}>
+                  <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
+                  <TouchableOpacity onPress={() => setPromoCode(appliedPromoCode || promoCode)} activeOpacity={0.75}>
+                    <Text style={styles.editPromoText}>Редагувати промокод</Text>
                   </TouchableOpacity>
+                </View>
 
-                  <View style={styles.cartItemBody}>
-                    <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
-                    <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
-                    <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.variantRow} activeOpacity={0.75}>
-                      <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
-                      <Ionicons name="chevron-forward" size={15} color="#6B7280" />
-                    </TouchableOpacity>
+                {cartItems.map((item: any) => {
+                  const sizeKey = getSizeKey(item);
+                  const compositeId = getCompositeId(item);
+                  const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
 
-                    <View style={styles.itemActionsRow}>
-                      {renderQuantitySelector(item)}
-
-                      <TouchableOpacity
-                        onPress={() => {
-                          Vibration.vibrate(70);
-                          removeItem(compositeId);
-                        }}
-                        style={styles.trashRoundButton}
-                        activeOpacity={0.78}
-                      >
-                        <Ionicons name="trash-outline" size={21} color="#374151" />
+                  return (
+                    <View key={compositeId} style={styles.cartCard}>
+                      <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.cartImageWrap} activeOpacity={0.82}>
+                        <Image source={{ uri: getImageUrl(item.image || item.image_url || item.picture) }} style={styles.cartImage} />
                       </TouchableOpacity>
 
-                      <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
-                        <Text style={styles.postponeText}>Відкласти</Text>
-                      </TouchableOpacity>
-                    </View>
+                      <View style={styles.cartItemBody}>
+                        <Text numberOfLines={1} style={styles.brandText}>{item.category || 'DIKOROS'}</Text>
+                        <Text numberOfLines={2} style={styles.cartItemName}>{item.name}</Text>
+                        <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)} style={styles.variantRow} activeOpacity={0.75}>
+                          <Text numberOfLines={1} style={styles.variantText}>{sizeKey}</Text>
+                          <Ionicons name="chevron-forward" size={15} color="#6B7280" />
+                        </TouchableOpacity>
 
-                    <View style={styles.itemBottomRow}>
-                      <Text style={styles.promoMismatchText}>Промокод застосовується за умовами акції</Text>
-                      <View style={styles.itemPriceBlock}>
-                        <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
-                        <Text style={styles.moreText}>Детальніше</Text>
+                        <View style={styles.itemActionsRow}>
+                          {renderQuantitySelector(item)}
+
+                          <TouchableOpacity
+                            onPress={() => {
+                              Vibration.vibrate(70);
+                              removeItem(compositeId);
+                            }}
+                            style={styles.trashRoundButton}
+                            activeOpacity={0.78}
+                          >
+                            <Ionicons name="trash-outline" size={21} color="#374151" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
+                            <Text style={styles.postponeText}>Відкласти</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.itemBottomRow}>
+                          <Text style={styles.promoMismatchText}>Промокод застосовується за умовами акції</Text>
+                          <View style={styles.itemPriceBlock}>
+                            <Text style={styles.itemTotalPrice}>{formatPrice(itemTotal)}</Text>
+                            <Text style={styles.moreText}>Детальніше</Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </View>
-              );
-            })}
+                  );
+                })}
+              </>
+            )}
 
-            {(savedProducts.length > 0 || favorites.length > 0) && (
+            {(hasPostponedItems || favorites.length > 0) && (
               <View style={styles.savedSection}>
                 <View style={styles.savedTabsRow}>
                   <TouchableOpacity
@@ -296,48 +356,63 @@ export default function CartScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.savedPreviewCard}>
-                  <Text style={styles.savedHintTitle}>{activeListTab === 'saved' ? 'Відкладені товари' : 'Мої списки'}</Text>
-                  <Text style={styles.savedHintText}>
-                    {favorites.length > 0 ? `Збережено товарів: ${favorites.length}` : 'Тут будуть товари, які ви відкладете з кошика.'}
-                  </Text>
-                  <TouchableOpacity onPress={() => router.replace('/(tabs)/favorites' as any)} activeOpacity={0.78}>
-                    <Text style={styles.savedOpenText}>Відкрити обране</Text>
-                  </TouchableOpacity>
-                </View>
+                {activeListTab === 'saved' ? (
+                  <View style={styles.postponedList}>
+                    {hasPostponedItems ? (
+                      postponedItems.map(renderPostponedItem)
+                    ) : (
+                      <View style={styles.savedPreviewCard}>
+                        <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
+                        <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар з’явився тут.</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.savedPreviewCard}>
+                    <Text style={styles.savedHintTitle}>Мої списки</Text>
+                    <Text style={styles.savedHintText}>
+                      {favorites.length > 0 ? `В обраному товарів: ${favorites.length}` : 'Тут будуть ваші списки та обрані товари.'}
+                    </Text>
+                    <TouchableOpacity onPress={() => router.replace('/(tabs)/favorites' as any)} activeOpacity={0.78}>
+                      <Text style={styles.savedOpenText}>Відкрити обране</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
-            <View style={styles.promoSection}>
-              <Text style={styles.promoLabel}>Промокод</Text>
-              <View style={styles.promoContainer}>
-                <TextInput
-                  value={promoCode}
-                  onChangeText={setPromoCode}
-                  autoCapitalize="characters"
-                  placeholder=""
-                  placeholderTextColor="#9CA3AF"
-                  style={styles.promoInput}
-                />
-                <TouchableOpacity onPress={applyPromo} style={styles.promoButton} activeOpacity={0.88}>
-                  <Text style={styles.promoButtonText}>Застосувати</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.promoHint}>Один код в замовленні</Text>
-              {hasPromo && (
-                <View style={styles.discountBox}>
-                  <Ionicons name="checkmark-circle" size={17} color="#2E7D32" />
-                  <Text style={styles.discountText}>
-                    {appliedPromoCode} застосовано · {discount > 0 ? `знижка ${Math.round(discount * 100)}%` : `знижка ${formatPrice(discountAmount)}`}
-                  </Text>
+            {hasCartItems && (
+              <View style={styles.promoSection}>
+                <Text style={styles.promoLabel}>Промокод</Text>
+                <View style={styles.promoContainer}>
+                  <TextInput
+                    value={promoCode}
+                    onChangeText={setPromoCode}
+                    autoCapitalize="characters"
+                    placeholder=""
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.promoInput}
+                  />
+                  <TouchableOpacity onPress={applyPromo} style={styles.promoButton} activeOpacity={0.88}>
+                    <Text style={styles.promoButtonText}>Застосувати</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
+                <Text style={styles.promoHint}>Один код в замовленні</Text>
+                {hasPromo && (
+                  <View style={styles.discountBox}>
+                    <Ionicons name="checkmark-circle" size={17} color="#2E7D32" />
+                    <Text style={styles.discountText}>
+                      {appliedPromoCode} застосовано · {discount > 0 ? `знижка ${Math.round(discount * 100)}%` : `знижка ${formatPrice(discountAmount)}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         )}
       </ScrollView>
 
-      {cartItems.length > 0 && (
+      {hasCartItems && (
         <View style={[styles.stickyCheckout, { bottom: 58 + Math.max(insets.bottom, 4) }]}> 
           <TouchableOpacity style={styles.totalToggle} activeOpacity={0.8}>
             <Text style={styles.stickyTotal}>{formatPrice(totalAmount)}</Text>
@@ -615,6 +690,67 @@ const styles = StyleSheet.create({
   savedTabTextActive: {
     color: '#2E7D32',
     fontWeight: '900',
+  },
+  postponedList: {
+    padding: 12,
+    gap: 10,
+  },
+  postponedCard: {
+    minHeight: 118,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EEF0F2',
+    padding: 10,
+  },
+  postponedImage: {
+    width: 74,
+    height: 86,
+    resizeMode: 'contain',
+    backgroundColor: '#FFFFFF',
+  },
+  postponedBody: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  postponedName: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: '#2C2C2C',
+    marginBottom: 4,
+  },
+  postponedMeta: {
+    fontSize: 13,
+    lineHeight: 17,
+    color: '#6B7280',
+    marginBottom: 5,
+  },
+  postponedPrice: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  postponedActions: {
+    alignItems: 'center',
+    gap: 9,
+  },
+  postponedCartButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FF9500',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postponedRemoveButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   savedPreviewCard: {
     padding: 16,
