@@ -362,7 +362,7 @@ export default function CartScreen() {
 
             {hasCartItems && (
               <View style={styles.cartTopRow}>
-                <Text style={styles.cartTitle}>Кошик</Text>
+                <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
               </View>
             )}
 
@@ -409,6 +409,34 @@ export default function CartScreen() {
                 </View>
               );
             })}
+
+            {hasCartItems && (
+              <View style={styles.promoSection}>
+                <Text style={styles.promoLabel}>Промокод</Text>
+                <View style={styles.promoContainer}>
+                  <TextInput
+                    value={promoCode}
+                    onChangeText={setPromoCode}
+                    autoCapitalize="characters"
+                    placeholder=""
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.promoInput}
+                  />
+                  <TouchableOpacity onPress={applyPromo} style={styles.promoButton} activeOpacity={0.88}>
+                    <Text style={styles.promoButtonText}>Застосувати</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.promoHint}>Один код в замовленні</Text>
+                {hasPromo && (
+                  <View style={styles.discountBox}>
+                    <Ionicons name="checkmark-circle" size={17} color="#2E7D32" />
+                    <Text style={styles.discountText}>
+                      {appliedPromoCode} застосовано · {discount > 0 ? `знижка ${Math.round(discount * 100)}%` : `знижка ${formatPrice(discountAmount)}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             <View style={styles.savedSection}>
               <View style={styles.savedTabsRow}>
@@ -462,34 +490,6 @@ export default function CartScreen() {
                 </View>
               )}
             </View>
-
-            {hasCartItems && (
-              <View style={styles.promoSection}>
-                <Text style={styles.promoLabel}>Промокод</Text>
-                <View style={styles.promoContainer}>
-                  <TextInput
-                    value={promoCode}
-                    onChangeText={setPromoCode}
-                    autoCapitalize="characters"
-                    placeholder=""
-                    placeholderTextColor="#9CA3AF"
-                    style={styles.promoInput}
-                  />
-                  <TouchableOpacity onPress={applyPromo} style={styles.promoButton} activeOpacity={0.88}>
-                    <Text style={styles.promoButtonText}>Застосувати</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.promoHint}>Один код в замовленні</Text>
-                {hasPromo && (
-                  <View style={styles.discountBox}>
-                    <Ionicons name="checkmark-circle" size={17} color="#2E7D32" />
-                    <Text style={styles.discountText}>
-                      {appliedPromoCode} застосовано · {discount > 0 ? `знижка ${Math.round(discount * 100)}%` : `знижка ${formatPrice(discountAmount)}`}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
           </>
         )}
       </ScrollView>
@@ -570,8 +570,8 @@ const styles = StyleSheet.create({
   emptyNoticeTextBox: { flex: 1 },
   emptyNoticeTitle: { fontSize: 19, fontWeight: '900', color: '#222222', marginBottom: 6 },
   emptyNoticeText: { fontSize: 14.5, lineHeight: 21, color: '#374151' },
-  cartTopRow: { alignItems: 'center', justifyContent: 'center', marginBottom: 14, paddingHorizontal: 22, paddingTop: 22 },
-  cartTitle: { fontSize: 25, fontWeight: '900', color: '#222222', textAlign: 'center' },
+  cartTopRow: { alignItems: 'flex-start', justifyContent: 'center', marginBottom: 10, paddingHorizontal: 24, paddingTop: 18 },
+  cartTitle: { fontSize: 23, lineHeight: 28, fontWeight: '900', color: '#222222' },
   cartCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginHorizontal: 12, marginBottom: 12, flexDirection: 'row' },
   cartImageWrap: { width: 96, paddingTop: 2, alignItems: 'center' },
   cartImage: { width: 76, height: 92, resizeMode: 'contain', backgroundColor: '#FFFFFF' },
@@ -609,11 +609,11 @@ const styles = StyleSheet.create({
   savedPreviewCard: { padding: 22 },
   savedHintTitle: { fontSize: 18, fontWeight: '900', color: '#111827', marginBottom: 5 },
   savedHintText: { fontSize: 14, lineHeight: 20, color: '#6B7280', marginBottom: 8 },
-  promoSection: { marginTop: 18, marginHorizontal: 12, marginBottom: 20, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 22, borderRadius: 12 },
-  promoLabel: { fontSize: 23, fontWeight: '900', color: '#2C2C2C', marginBottom: 18 },
-  promoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  promoInput: { flex: 1, height: 70, backgroundColor: '#FFFFFF', borderWidth: 1.2, borderColor: '#D1D5DB', paddingHorizontal: 16, borderRadius: 10, fontSize: 18, color: '#111827' },
-  promoButton: { height: 70, minWidth: 150, backgroundColor: '#2E7D32', paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  promoSection: { backgroundColor: '#F7F7F7', paddingHorizontal: 24, paddingTop: 14, paddingBottom: 22, marginTop: 0, marginBottom: 0, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  promoLabel: { fontSize: 22, lineHeight: 28, fontWeight: '900', color: '#2C2C2C', marginBottom: 16 },
+  promoContainer: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  promoInput: { flex: 1, height: 64, backgroundColor: '#FFFFFF', borderWidth: 1.2, borderColor: '#D1D5DB', paddingHorizontal: 16, borderRadius: 9, fontSize: 17, color: '#111827' },
+  promoButton: { height: 64, minWidth: 150, backgroundColor: '#2E7D32', paddingHorizontal: 16, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   promoButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 19 },
   promoHint: { marginTop: 8, fontSize: 13.5, color: '#6B7280' },
   discountBox: { marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
