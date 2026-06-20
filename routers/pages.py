@@ -1,7 +1,11 @@
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from functools import lru_cache
 from html import unescape
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse
+from time import time
+from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException, Query
@@ -9,6 +13,42 @@ from fastapi import APIRouter, HTTPException, Query
 router = APIRouter()
 
 NEWS_SOURCE_URL = "https://dikoros-ua.com/aktsii/"
+BLOG_SOURCE_URL = "https://dikoros-ua.com/blog/?v=desktop"
+BLOG_PAGE_URLS = (
+    (BLOG_SOURCE_URL,),
+    (
+        "https://dikoros-ua.com/blog/page-2/?v=desktop",
+        "https://dikoros-ua.com/blog/filter/page=2/?v=desktop",
+    ),
+    (
+        "https://dikoros-ua.com/blog/page-3/?v=desktop",
+        "https://dikoros-ua.com/blog/filter/page=3/?v=desktop",
+    ),
+    (
+        "https://dikoros-ua.com/blog/page-4/?v=desktop",
+        "https://dikoros-ua.com/blog/filter/page=4/?v=desktop",
+    ),
+    (
+        "https://dikoros-ua.com/blog/page-5/?v=desktop",
+        "https://dikoros-ua.com/blog/filter/page=5/?v=desktop",
+    ),
+)
+BLOG_TITLE = "Блог"
+BLOG_CACHE_SECONDS = 15 * 60
+BLOG_BLOCKED_PATTERNS = (
+    r"(?:мікро|микро)доз\w*",
+    r"(?:mikro|mykro|micro)do[sz]\w*",
+    r"\bдоз(?:а|и|у|ою|ування|уван\w*|иров\w*)\b",
+    r"\bdozuv\w*|\bdosage\w*|\bdosing\w*",
+    r"\bмухомор\w*|\bmukhomor\w*|\bamanita\w*",
+    r"\bприйма\w*|\bвжива\w*|\bспожива\w*|\bупотреб\w*",
+    r"\bpryim\w*|\bvzhyva\w*|\bspozhyva\w*|\bupotrebl\w*",
+    r"\bліку\w*|\bвиліков\w*|\bлеч\w*|\bизлеч\w*|\bтерап\w*",
+    r"\blikuv\w*|\blikuie\w*|\btherapy\w*|\bcure\w*",
+    r"\bдепрес\w*|\bтривож\w*|\bптср\w*|\bptsr\w*",
+    r"\bdetoks\w*|\bдетокс\w*|\bсхуд\w*|\bskhud\w*",
+    r"\bімуніт\w*|\bimunit\w*|\bзапальн\w*|\bzapal\w*",
+)
 
 TITLE_FALLBACK = "\u0410\u043a\u0446\u0456\u0457"
 INFO_HEADING = "\u0406\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f"
@@ -103,16 +143,61 @@ def _is_date_text(value: str) -> bool:
     return any(month in low for month in MONTH_WORDS)
 
 
-def _fetch_html(url: str) -> str:
+def _fetch_html_once(url: str, challenge_cookie: str | None = None) -> str:
+    headers = {
+        "User-Agent": "DikorosUA-App/1.0 (+https://app.dikoros.ua)",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+    if challenge_cookie:
+        headers["Cookie"] = f"challenge_passed={challenge_cookie}"
+
     request = Request(
         url,
-        headers={
-            "User-Agent": "DikorosUA-App/1.0 (+https://app.dikoros.ua)",
-            "Accept": "text/html,application/xhtml+xml",
-        },
+        headers=headers,
     )
     with urlopen(request, timeout=8) as response:
         return response.read().decode("utf-8", errors="ignore")
+
+
+def _fetch_html(url: str) -> str:
+    html = _fetch_html_once(url)
+    challenge = re.search(r'defaultHash\s*=\s*["\']([^"\']+)["\']', html)
+    if challenge:
+        html = _fetch_html_once(url, challenge.group(1))
+    return html
+
+
+def _canonical_blog_url(value: str) -> str | None:
+    absolute_url = _absolute_page_url(value)
+    if not absolute_url:
+        return None
+
+    parsed = urlparse(absolute_url)
+    source = urlparse(BLOG_SOURCE_URL)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc.lower() != source.netloc.lower():
+        return None
+
+    path = parsed.path or "/"
+    normalized_path = "/" + path.strip("/") + "/" if path.strip("/") else "/"
+    lowered_path = normalized_path.lower()
+    blocked_paths = {"/", "/blog/", "/blog/./", "/en/blog/", "/ru/blog/"}
+    if (
+        lowered_path in blocked_paths
+        or lowered_path.startswith("/blog/page-")
+        or lowered_path.startswith("/blog/filter/")
+    ):
+        return None
+
+    query = parsed.query.lower()
+    if "v=mobile" in query:
+        return None
+
+    return urlunparse(("https", source.netloc, normalized_path, "", "", ""))
+
+
+def _has_blocked_blog_content(*values: object) -> bool:
+    text = " ".join(_normalize_text(str(value or "")) for value in values).lower()
+    return any(re.search(pattern, text, re.IGNORECASE) for pattern in BLOG_BLOCKED_PATTERNS)
 
 
 class ArticleDetailExtractor(HTMLParser):
@@ -128,6 +213,8 @@ class ArticleDetailExtractor(HTMLParser):
         self.title_parts = []
         self.date_parts = []
         self.image_url = None
+        self.meta_title = ""
+        self.meta_date = ""
 
     def _flush_paragraph(self):
         text = _normalize_text("".join(self.text_parts))
@@ -147,6 +234,19 @@ class ArticleDetailExtractor(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attr_map = dict(attrs)
+
+        if tag == "meta":
+            meta_name = attr_map.get("property") or attr_map.get("name") or attr_map.get("itemprop")
+            content = attr_map.get("content", "")
+            if meta_name in {"og:image", "twitter:image"}:
+                image_url = _absolute_image_url(content)
+                if image_url and _is_content_image(image_url):
+                    self.image_url = image_url
+            elif meta_name in {"og:title", "twitter:title"} and not self.meta_title:
+                self.meta_title = _normalize_text(content)
+            elif meta_name in {"article:published_time", "datePublished"} and not self.meta_date:
+                self.meta_date = _normalize_text(content).split("T", 1)[0]
+            return
 
         if tag in {"script", "style", "noscript", "svg"}:
             self.skip_depth += 1
@@ -230,8 +330,8 @@ class ArticleDetailExtractor(HTMLParser):
             self.text_parts.append(data)
 
     def result(self, source_url: str) -> dict[str, str | None]:
-        title = _normalize_text("".join(self.title_parts))
-        date = _normalize_text("".join(self.date_parts))
+        title = _normalize_text("".join(self.title_parts)) or self.meta_title
+        date = _normalize_text("".join(self.date_parts)) or self.meta_date
         body = "\n\n".join(self.paragraphs).strip()
 
         return {
@@ -383,6 +483,119 @@ def _extract_entries(html: str) -> list[dict[str, str | None]]:
     if parser.current:
         parser._finish_entry()
     return parser.entries
+
+
+def _blog_cache_bucket() -> int:
+    return int(time() // BLOG_CACHE_SECONDS)
+
+
+def _clean_blog_entry(entry: dict[str, str | None]) -> dict[str, str | None] | None:
+    heading = _normalize_text(str(entry.get("heading") or ""))
+    title = _normalize_text(str(entry.get("body") or ""))
+    source_url = _canonical_blog_url(str(entry.get("source_url") or ""))
+    image_url = entry.get("image_url") or None
+
+    if not heading or not title or not source_url:
+        return None
+    if _has_blocked_blog_content(title, source_url):
+        return None
+
+    return {
+        "heading": heading,
+        "body": title,
+        "image_url": image_url,
+        "source_url": source_url,
+    }
+
+
+def _fetch_blog_page_entries(urls: tuple[str, ...]) -> list[dict[str, str | None]]:
+    for url in urls:
+        try:
+            entries = _extract_entries(_fetch_html(url))
+        except Exception:
+            continue
+
+        cleaned = []
+        for entry in entries:
+            item = _clean_blog_entry(entry)
+            if item:
+                cleaned.append(item)
+
+        if cleaned:
+            return cleaned
+
+    return []
+
+
+@lru_cache(maxsize=512)
+def _load_blog_detail_cached(source_url: str, cache_bucket: int) -> dict[str, str | None] | None:
+    del cache_bucket
+    detail = _extract_article_detail(_fetch_html(source_url), source_url)
+    title = _normalize_text(str(detail.get("title") or ""))
+    body = str(detail.get("body") or "").strip()
+
+    if not title or not body:
+        return None
+    if _has_blocked_blog_content(title, source_url, body):
+        return None
+
+    return {
+        "title": title,
+        "heading": _normalize_text(str(detail.get("heading") or "")) or INFO_HEADING,
+        "body": body,
+        "image_url": detail.get("image_url") or None,
+        "source_url": source_url,
+    }
+
+
+def _check_blog_entry_content(
+    index: int,
+    entry: dict[str, str | None],
+    cache_bucket: int,
+) -> tuple[int, dict[str, str | None] | None]:
+    source_url = str(entry.get("source_url") or "")
+    try:
+        detail = _load_blog_detail_cached(source_url, cache_bucket)
+    except Exception:
+        return index, None
+
+    if not detail:
+        return index, None
+
+    if not entry.get("image_url") and detail.get("image_url"):
+        entry = {**entry, "image_url": detail.get("image_url")}
+    return index, entry
+
+
+@lru_cache(maxsize=4)
+def _load_blog_sections_cached(cache_bucket: int) -> tuple[dict[str, str | None], ...]:
+    entries = []
+    seen_urls = set()
+
+    for page_urls in BLOG_PAGE_URLS:
+        for entry in _fetch_blog_page_entries(page_urls):
+            source_url = str(entry.get("source_url") or "")
+            if not source_url or source_url in seen_urls:
+                continue
+            seen_urls.add(source_url)
+            entries.append(entry)
+
+    if not entries:
+        return ()
+
+    approved: dict[int, dict[str, str | None]] = {}
+    max_workers = min(8, len(entries))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_check_blog_entry_content, index, entry, cache_bucket)
+            for index, entry in enumerate(entries)
+        ]
+        for future in as_completed(futures):
+            index, entry = future.result()
+            if entry:
+                approved[index] = entry
+
+    return tuple(approved[index] for index in sorted(approved))
 
 
 class PageExtractor(HTMLParser):
@@ -593,6 +806,41 @@ def _extract_page_content(events: list[dict[str, str]]) -> tuple[str, list[dict[
     sections = [section for section in sections if section.get("body")]
 
     return title, sections
+
+
+@router.get("/api/pages/blog/detail")
+def get_blog_detail(source_url: str = Query(..., min_length=1)):
+    absolute_url = _canonical_blog_url(source_url)
+    if not absolute_url:
+        raise HTTPException(status_code=400, detail="Invalid blog source URL")
+
+    try:
+        detail = _load_blog_detail_cached(absolute_url, _blog_cache_bucket())
+    except Exception:
+        raise HTTPException(status_code=502, detail="Blog detail is temporarily unavailable")
+
+    if not detail:
+        raise HTTPException(status_code=404, detail="Blog article is not available")
+
+    return {
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **detail,
+    }
+
+
+@router.get("/api/pages/blog")
+def get_blog_page():
+    try:
+        sections = [dict(item) for item in _load_blog_sections_cached(_blog_cache_bucket())]
+    except Exception:
+        sections = []
+
+    return {
+        "title": BLOG_TITLE,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "sections": sections,
+        "source": BLOG_SOURCE_URL,
+    }
 
 
 @router.get("/api/pages/news/detail")

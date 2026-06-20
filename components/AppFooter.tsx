@@ -305,6 +305,13 @@ export function AppFooter() {
                 onPress={() => menuAction(() => router.push('/news' as any))}
               />
 
+              <MenuRow
+                icon="newspaper-outline"
+                title="Блог"
+                subtitle="Інформаційні статті Dikoros"
+                onPress={() => menuAction(() => router.push('/blog' as any))}
+              />
+
               <Text style={styles.menuSectionTitle}>Сервіс</Text>
 
               <MenuRow

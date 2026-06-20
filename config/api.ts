@@ -42,5 +42,7 @@ export const API_ENDPOINTS = {
   upload: '/upload',              // Было верно
   health: '/health',              // ИСПРАВЛЕНО (было /)
   newsPage: '/api/pages/news',
+  blogPage: '/api/pages/blog',
+  blogDetail: '/api/pages/blog/detail',
   admin: '/admin',                // Было верно
 };

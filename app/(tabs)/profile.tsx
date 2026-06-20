@@ -452,6 +452,7 @@ export default function ProfileScreen() {
 
       <MenuSection title="Інформація">
         <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
+        <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
         <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
@@ -507,6 +508,7 @@ export default function ProfileScreen() {
       </View>
       <MenuSection title="Інформація">
         <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
+        <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
         <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
