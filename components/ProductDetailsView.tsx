@@ -19,6 +19,7 @@ interface ProductDetailsViewProps {
   matrix: Record<string, string[]>;
   selectedOptions: Record<string, string>;
   applyOptionChange: (key: string, value: string) => void;
+  isOptionAvailable: (key: string, value: string) => boolean;
   currentPrice: number;
   oldPrice?: number;
   activeRow: any;
@@ -51,6 +52,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   matrix,
   selectedOptions,
   applyOptionChange,
+  isOptionAvailable,
   currentPrice,
   oldPrice,
   activeRow,
@@ -403,9 +405,16 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                   <View style={styles.optionValues}>
                     {(matrix[key] || []).map((value) => {
                       const selected = clean(selectedOptions[key]) === clean(value);
+                      const disabled = !isOptionAvailable(key, value);
                       return (
-                        <TouchableOpacity key={value} onPress={() => applyOptionChange(key, value)} style={[styles.optionBtn, selected && styles.optionBtnActive]}>
-                          <Text numberOfLines={1} style={[styles.optionBtnText, selected && styles.optionBtnTextActive]}>{value}</Text>
+                        <TouchableOpacity
+                          key={value}
+                          onPress={() => applyOptionChange(key, value)}
+                          disabled={disabled}
+                          accessibilityState={{ selected, disabled }}
+                          style={[styles.optionBtn, disabled && styles.optionBtnDisabled, selected && styles.optionBtnActive]}
+                        >
+                          <Text numberOfLines={1} style={[styles.optionBtnText, disabled && styles.optionBtnTextDisabled, selected && styles.optionBtnTextActive]}>{value}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -539,8 +548,10 @@ const styles = StyleSheet.create({
   optionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 10 },
   optionValues: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionBtn: { minHeight: 38, maxWidth: '100%', borderRadius: 999, borderWidth: 1.2, borderColor: '#D1D5DB', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8 },
+  optionBtnDisabled: { borderColor: '#E5E7EB', backgroundColor: '#F3F4F6', opacity: 0.55 },
   optionBtnActive: { borderColor: '#2E7D32', backgroundColor: '#2E7D32' },
   optionBtnText: { color: '#111827', fontWeight: '800', fontSize: 13, lineHeight: 16 },
+  optionBtnTextDisabled: { color: '#9CA3AF' },
   optionBtnTextActive: { color: 'white' },
   tabsContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 4 },
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },

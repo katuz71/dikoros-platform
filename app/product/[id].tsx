@@ -347,42 +347,39 @@ export default function ProductScreen() {
     };
   }, [variantRows, selectedOptions, product, internalKeys, selectedVariantRowId]);
 
-  // Keep the option the user changed and move all other chips to the closest
-  // real variant row. This makes the chip state and activeRow atomic.
-  const applyOptionChange = useCallback((key: string, value: string) => {
-    const normalizedValue = clean(value);
-    const candidates = variantRows.filter(row => clean(row.options[key]) === normalizedValue);
-    if (!candidates.length) return;
+  const findExactVariantRow = useCallback((selection: Record<string, string>) => {
+    if (!internalKeys.every(optionKey => !!clean(selection[optionKey]))) return null;
 
-    const rankedCandidates = candidates.map((row, index) => ({
-      row,
-      index,
-      matchingOptions: internalKeys.reduce((score, optionKey) => {
-        if (optionKey === key) return score;
-        const currentValue = clean(selectedOptions[optionKey]);
-        return currentValue && clean(row.options[optionKey]) === currentValue ? score + 1 : score;
-      }, 0),
-      isCurrentRow: !!selectedVariantRowId && clean(row.rowId) === clean(selectedVariantRowId),
-      isAvailable: isVariantAvailable(row),
-    }));
-
-    rankedCandidates.sort((left, right) =>
-      right.matchingOptions - left.matchingOptions
-      || Number(right.isCurrentRow) - Number(left.isCurrentRow)
-      || Number(right.isAvailable) - Number(left.isAvailable)
-      || left.index - right.index
+    const matches = variantRows.filter(row =>
+      internalKeys.every(optionKey =>
+        clean(row.options[optionKey]) === clean(selection[optionKey])
+      )
     );
 
-    const nextRow = rankedCandidates[0].row;
-    const nextOptions: Record<string, string> = {};
-    internalKeys.forEach(optionKey => {
-      const optionValue = clean(nextRow.options[optionKey]);
-      if (optionValue) nextOptions[optionKey] = optionValue;
-    });
+    const selectedStillMatches = selectedVariantRowId
+      ? matches.find(row => clean(row.rowId) === clean(selectedVariantRowId))
+      : null;
 
-    setSelectedOptions(nextOptions);
-    setSelectedVariantRowId(clean(nextRow.rowId) || null);
-  }, [internalKeys, selectedOptions, selectedVariantRowId, variantRows]);
+    return selectedStillMatches
+      || matches.find(isVariantAvailable)
+      || matches[0]
+      || null;
+  }, [internalKeys, selectedVariantRowId, variantRows]);
+
+  // Change only the requested option when the full combination exists.
+  const applyOptionChange = useCallback((key: string, value: string) => {
+    const nextSelection = { ...selectedOptions, [key]: value };
+    const exactRow = findExactVariantRow(nextSelection);
+    if (!exactRow) return;
+
+    setSelectedOptions(nextSelection);
+    setSelectedVariantRowId(clean(exactRow.rowId) || null);
+  }, [findExactVariantRow, selectedOptions]);
+
+  const isOptionAvailable = useCallback((key: string, value: string) => {
+    const nextSelection = { ...selectedOptions, [key]: value };
+    return !!findExactVariantRow(nextSelection);
+  }, [findExactVariantRow, selectedOptions]);
 
   // Data Loading
   useEffect(() => {
@@ -741,6 +738,7 @@ export default function ProductScreen() {
           matrix={matrix}
           selectedOptions={selectedOptions}
           applyOptionChange={applyOptionChange}
+          isOptionAvailable={isOptionAvailable}
           currentPrice={currentPrice}
           oldPrice={oldPrice}
           activeRow={activeRow}
