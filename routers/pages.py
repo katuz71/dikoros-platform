@@ -14,40 +14,29 @@ router = APIRouter()
 
 NEWS_SOURCE_URL = "https://dikoros-ua.com/aktsii/"
 BLOG_SOURCE_URL = "https://dikoros-ua.com/blog/?v=desktop"
-BLOG_PAGE_URLS = (
-    (BLOG_SOURCE_URL,),
-    (
-        "https://dikoros-ua.com/blog/page-2/?v=desktop",
-        "https://dikoros-ua.com/blog/filter/page=2/?v=desktop",
-    ),
-    (
-        "https://dikoros-ua.com/blog/page-3/?v=desktop",
-        "https://dikoros-ua.com/blog/filter/page=3/?v=desktop",
-    ),
-    (
-        "https://dikoros-ua.com/blog/page-4/?v=desktop",
-        "https://dikoros-ua.com/blog/filter/page=4/?v=desktop",
-    ),
-    (
-        "https://dikoros-ua.com/blog/page-5/?v=desktop",
-        "https://dikoros-ua.com/blog/filter/page=5/?v=desktop",
-    ),
-)
+BLOG_MAX_PAGES = 20
 BLOG_TITLE = "Блог"
 BLOG_CACHE_SECONDS = 15 * 60
-BLOG_BLOCKED_PATTERNS = (
-    r"(?:мікро|микро)доз\w*",
-    r"(?:mikro|mykro|micro)do[sz]\w*",
-    r"\bдоз(?:а|и|у|ою|ування|уван\w*|иров\w*)\b",
-    r"\bdozuv\w*|\bdosage\w*|\bdosing\w*",
-    r"\bмухомор\w*|\bmukhomor\w*|\bamanita\w*",
-    r"\bприйма\w*|\bвжива\w*|\bспожива\w*|\bупотреб\w*",
-    r"\bpryim\w*|\bvzhyva\w*|\bspozhyva\w*|\bupotrebl\w*",
-    r"\bліку\w*|\bвиліков\w*|\bлеч\w*|\bизлеч\w*|\bтерап\w*",
-    r"\blikuv\w*|\blikuie\w*|\btherapy\w*|\bcure\w*",
-    r"\bдепрес\w*|\bтривож\w*|\bптср\w*|\bptsr\w*",
-    r"\bdetoks\w*|\bдетокс\w*|\bсхуд\w*|\bskhud\w*",
-    r"\bімуніт\w*|\bimunit\w*|\bзапальн\w*|\bzapal\w*",
+BLOG_DIRECT_INSTRUCTION_PATTERNS = (
+    r"\bдозуван\w*\b|\bдозиров\w*\b|\bdozuvann\w*\b|\bdozirov\w*\b",
+    r"\bяк\s+(?:правильно\s+)?приймати\b|\bкак\s+(?:правильно\s+)?принимать\b",
+    r"\byak[-\s]+(?:pravylno[-\s]+)?pryimaty\b|\bkak[-\s]+(?:pravilno[-\s]+)?prinimat\w*\b",
+    r"\bвживати\b|\bупотреблять\b|\bvzhyvaty\b|\bupotreblyat\w*\b",
+    r"\bсхем\w*\s+прийом\w*\b|\bсхем\w*\s+при[её]м\w*\b|\bskhem\w*[-\s]+pryi?om\w*\b",
+    r"\bкурс\w*\s+прийом\w*\b|\bкурс\w*\s+при[её]м\w*\b|\bkurs\w*[-\s]+pryi?om\w*\b",
+    r"\bкапсул\w*\s+(?:на|в)\s+день\b|\bkapsul\w*[-\s]+(?:na|v)[-\s]+den\w*\b",
+    r"\bкрапел\w*\b|\bkrapel\w*\b",
+    r"\bграм\w*\s+на\s+день\b|\bgram\w*[-\s]+na[-\s]+den\w*\b",
+)
+BLOG_MICRODOSING_PATTERN = re.compile(
+    r"(?:мікро|микро)доз\w*|(?:mikro|mykro|micro)do[sz]\w*",
+    re.IGNORECASE,
+)
+BLOG_INSTRUCTION_CONTEXT_PATTERN = re.compile(
+    r"\bінструкц\w*\b|\bинструкц\w*\b|\binstruction\w*\b|"
+    r"\bсхем\w*\b|\bschem\w*\b|\bskhem\w*\b|"
+    r"\bдоз(?:а|и|у|ою|е|ы)\b|\bdose\w*\b",
+    re.IGNORECASE,
 )
 
 TITLE_FALLBACK = "\u0410\u043a\u0446\u0456\u0457"
@@ -197,7 +186,20 @@ def _canonical_blog_url(value: str) -> str | None:
 
 def _has_blocked_blog_content(*values: object) -> bool:
     text = " ".join(_normalize_text(str(value or "")) for value in values).lower()
-    return any(re.search(pattern, text, re.IGNORECASE) for pattern in BLOG_BLOCKED_PATTERNS)
+    if any(
+        re.search(pattern, text, re.IGNORECASE)
+        for pattern in BLOG_DIRECT_INSTRUCTION_PATTERNS
+    ):
+        return True
+
+    for match in BLOG_MICRODOSING_PATTERN.finditer(text):
+        context_start = max(0, match.start() - 160)
+        context_end = min(len(text), match.end() + 160)
+        context = text[context_start:match.start()] + " " + text[match.end():context_end]
+        if BLOG_INSTRUCTION_CONTEXT_PATTERN.search(context):
+            return True
+
+    return False
 
 
 class ArticleDetailExtractor(HTMLParser):
@@ -508,11 +510,26 @@ def _clean_blog_entry(entry: dict[str, str | None]) -> dict[str, str | None] | N
     }
 
 
-def _fetch_blog_page_entries(urls: tuple[str, ...]) -> list[dict[str, str | None]]:
-    for url in urls:
+def _blog_page_urls(page_number: int) -> tuple[str, ...]:
+    if page_number == 1:
+        return (BLOG_SOURCE_URL,)
+
+    return (
+        f"https://dikoros-ua.com/blog/page-{page_number}/?v=desktop",
+        f"https://dikoros-ua.com/blog/filter/page={page_number}/?v=desktop",
+    )
+
+
+def _fetch_blog_page_entries(
+    page_number: int,
+) -> tuple[bool, list[dict[str, str | None]]]:
+    for url in _blog_page_urls(page_number):
         try:
             entries = _extract_entries(_fetch_html(url))
         except Exception:
+            continue
+
+        if not entries:
             continue
 
         cleaned = []
@@ -521,10 +538,9 @@ def _fetch_blog_page_entries(urls: tuple[str, ...]) -> list[dict[str, str | None
             if item:
                 cleaned.append(item)
 
-        if cleaned:
-            return cleaned
+        return True, cleaned
 
-    return []
+    return False, []
 
 
 @lru_cache(maxsize=512)
@@ -572,8 +588,12 @@ def _load_blog_sections_cached(cache_bucket: int) -> tuple[dict[str, str | None]
     entries = []
     seen_urls = set()
 
-    for page_urls in BLOG_PAGE_URLS:
-        for entry in _fetch_blog_page_entries(page_urls):
+    for page_number in range(1, BLOG_MAX_PAGES + 1):
+        page_found, page_entries = _fetch_blog_page_entries(page_number)
+        if not page_found:
+            break
+
+        for entry in page_entries:
             source_url = str(entry.get("source_url") or "")
             if not source_url or source_url in seen_urls:
                 continue
