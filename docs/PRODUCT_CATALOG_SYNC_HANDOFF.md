@@ -1,8 +1,49 @@
 # Product Catalog Sync Handoff
 
+> [!IMPORTANT]
+> Every new chat working on `dikoros-platform` must begin by reading this document in full. This is mandatory before any product, catalog, sync, product API, frontend variant, price, stock, category, image, or Horoshop work. Do not work from memory or from an older chat summary.
+
 Last updated: 2026-06-20
 
 This document is the source of truth for product/catalog behavior in the DikorosUA app. Future chats must read this file before changing product sync, catalog endpoints, product cards, categories, homepage sections, variants, images, prices, discounts, stock status, or Horoshop integration.
+
+## Mandatory start protocol for every new chat
+
+Every new chat must follow this protocol before product/catalog/sync/frontend variant work:
+
+1. Read `docs/PRODUCT_CATALOG_SYNC_HANDOFF.md` completely before inspecting or changing code.
+2. Do not rely on memory, a previous conversation, or assumptions about production state.
+3. Confirm the repository and working tree state with Git before making changes.
+4. Inspect the current implementation in the relevant frontend, backend, sync, and test files.
+5. Preserve Horoshop as the catalog source of truth and preserve the backend API as the mobile app's catalog interface.
+6. Never replace the sync flow with hardcoded frontend product data or manual database edits as the primary fix.
+7. After changing catalog or variant generation behavior, run the relevant audits/tests and update this handoff in the same commit when behavior or operations change.
+
+Rule to repeat in every handoff: **new chats must read this document first before product, catalog, sync, or frontend variant work.**
+
+## Project map / production context
+
+| Context | Value |
+| --- | --- |
+| GitHub repository | `katuz71/dikoros-platform` |
+| Local Windows path | `C:\Work\dikoros-platform` |
+| Production server path | `/opt/dikoros-platform` |
+| Backend framework | FastAPI |
+| Backend Docker container | `fastapi_app` |
+| Production database | PostgreSQL in Docker |
+| PostgreSQL Docker container | `postgres_db` |
+| Production database name | `app_db` |
+| Catalog table | `products` |
+| Mobile application | Expo / React Native |
+
+Project data flow:
+
+1. The website/Horoshop catalog is the source of truth for products, variants, prices, images, categories, and stock.
+2. The FastAPI backend sync reads the Horoshop catalog and normalizes it into PostgreSQL.
+3. Synced catalog rows are stored in the production database `app_db`, primarily in the `products` table.
+4. PostgreSQL runs in `postgres_db`; the FastAPI backend runs in `fastapi_app`.
+5. The Expo / React Native mobile app reads the catalog through backend API endpoints.
+6. The mobile app must not maintain or treat a local/static product list as authoritative catalog data.
 
 ## Current production intent
 
