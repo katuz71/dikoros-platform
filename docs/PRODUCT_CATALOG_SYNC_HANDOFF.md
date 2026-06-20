@@ -605,3 +605,15 @@ Then open the app and verify:
 - `docs/REFERRAL_CASHBACK_HANDOFF.md` for referral, registration bonus, and cashback.
 
 If future work changes catalog behavior, update this document in the same PR/commit.
+
+## Catalog visibility exclusions: 2026-06-20
+
+Horoshop export can include products that are not visible in the storefront/menu.
+
+Current required sync behavior:
+
+- `presence.id == 2` -> `status = 'out_of_stock'`
+- `display_in_showcase = 0` -> `status = 'out_of_stock'`
+- category `Харчові добавки` -> `status = 'out_of_stock'`
+
+Reason: the mobile app catalog must mirror the visible Horoshop storefront, not every technically exported Horoshop product.

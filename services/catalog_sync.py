@@ -761,7 +761,11 @@ async def sync_catalog_from_horoshop() -> dict:
 
                 status = "available"
                 presence_obj = item.get("presence") or {}
-                if presence_obj.get("id") == 2:
+                display_in_showcase = item.get("display_in_showcase")
+                is_hidden_from_showcase = str(display_in_showcase).strip().lower() in {"0", "false", "no", "off"}
+                is_excluded_category = category in {"Харчові добавки"}
+
+                if presence_obj.get("id") == 2 or is_hidden_from_showcase or is_excluded_category:
                     status = "out_of_stock"
                 remains = _parse_remains(item, status)
 
