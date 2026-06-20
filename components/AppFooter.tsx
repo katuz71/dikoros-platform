@@ -82,7 +82,6 @@ export function AppFooter() {
   const { products, fetchProducts } = useOrders();
   const [menuVisible, setMenuVisible] = useState(false);
   const [categoriesVisible, setCategoriesVisible] = useState(false);
-  const [legalMenuOpen, setLegalMenuOpen] = useState(false);
 
   const cartCount = items.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
 
@@ -125,7 +124,6 @@ export function AppFooter() {
 
   const closeMenu = () => {
     setMenuVisible(false);
-    setLegalMenuOpen(false);
   };
 
   const closeCategories = () => {
@@ -365,15 +363,7 @@ export function AppFooter() {
 
               <Text style={styles.menuSectionTitle}>Юридична інформація</Text>
 
-              <MenuRow
-                icon="document-text-outline"
-                title="Юридичні сторінки"
-                subtitle="Оплата, повернення, оферта, політика"
-                onPress={() => setLegalMenuOpen(prev => !prev)}
-                rightIcon={legalMenuOpen ? 'chevron-up' : 'chevron-down'}
-              />
 
-              {legalMenuOpen && (
                 <View style={styles.legalMenuBox}>
                   <LegalMenuRow title="Оплата і доставка" page="delivery" />
                   <LegalMenuRow title="Обмін та повернення" page="returns" />
@@ -383,7 +373,6 @@ export function AppFooter() {
                   <LegalMenuRow title="Видалення акаунта" page="deleteAccount" />
                   <LegalMenuRow title="Часті питання" page="faq" isLast />
                 </View>
-              )}
             </ScrollView>
           </View>
         </View>
