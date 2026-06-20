@@ -206,10 +206,12 @@ export function AppFooter() {
   const LegalMenuRow = ({
     title,
     page,
+    icon,
     isLast = false,
   }: {
     title: string;
     page: string;
+    icon: keyof typeof Ionicons.glyphMap;
     isLast?: boolean;
   }) => (
     <TouchableOpacity
@@ -217,6 +219,10 @@ export function AppFooter() {
       onPress={() => menuAction(() => router.push({ pathname: '/policies', params: { page } } as any))}
       activeOpacity={0.78}
     >
+      <View style={styles.legalMenuIconBox}>
+        <Ionicons name={icon} size={18} color="#2E7D32" />
+      </View>
+
       <Text style={styles.legalMenuTitle}>{title}</Text>
       <Ionicons name="chevron-forward" size={17} color="#9CA3AF" />
     </TouchableOpacity>
@@ -365,13 +371,13 @@ export function AppFooter() {
 
 
                 <View style={styles.legalMenuBox}>
-                  <LegalMenuRow title="Оплата і доставка" page="delivery" />
-                  <LegalMenuRow title="Обмін та повернення" page="returns" />
-                  <LegalMenuRow title="Міжнародні відправки" page="international" />
-                  <LegalMenuRow title="Договір оферти" page="offer" />
-                  <LegalMenuRow title="Політика конфіденційності" page="privacy" />
-                  <LegalMenuRow title="Видалення акаунта" page="deleteAccount" />
-                  <LegalMenuRow title="Часті питання" page="faq" isLast />
+                  <LegalMenuRow title="Оплата і доставка" page="delivery" icon="card-outline" />
+                  <LegalMenuRow title="Обмін та повернення" page="returns" icon="swap-horizontal-outline" />
+                  <LegalMenuRow title="Міжнародні відправки" page="international" icon="airplane-outline" />
+                  <LegalMenuRow title="Договір оферти" page="offer" icon="document-text-outline" />
+                  <LegalMenuRow title="Політика конфіденційності" page="privacy" icon="shield-checkmark-outline" />
+                  <LegalMenuRow title="Видалення акаунта" page="deleteAccount" icon="trash-outline" />
+                  <LegalMenuRow title="Часті питання" page="faq" icon="help-circle-outline" isLast />
                 </View>
             </ScrollView>
           </View>
