@@ -1,6 +1,6 @@
 # Product Catalog Sync Handoff
 
-Last updated: 2026-06-11
+Last updated: 2026-06-20
 
 This document is the source of truth for product/catalog behavior in the DikorosUA app. Future chats must read this file before changing product sync, catalog endpoints, product cards, categories, homepage sections, variants, images, prices, discounts, stock status, or Horoshop integration.
 
@@ -79,6 +79,14 @@ POST /api/sync/catalog
 This endpoint calls the same `sync_catalog_from_horoshop()` function used by the hourly scheduler.
 
 Use this after changing products on the website when an immediate app refresh is needed.
+
+The route is protected by the admin guard. From the production server, call it with `X-Admin-Key` from the backend container environment:
+
+```bash
+ADMIN_KEY="$(docker exec fastapi_app printenv ADMIN_API_KEY)" && \
+  curl -s -X POST http://localhost:8000/api/sync/catalog \
+    -H "X-Admin-Key: $ADMIN_KEY" | python3 -m json.tool
+```
 
 Expected response shape:
 
@@ -341,7 +349,98 @@ Rules:
 - additional uniqueness options may be added when needed;
 - if options are still duplicate, `Артикул` is added as last uniqueness fallback;
 - year can be inferred from article suffixes like `23`, `24`, `25`;
-- format/sort/weight can be inferred from known Dikoros SKU patterns.
+- format/sort/weight can be inferred from known Dikoros SKU patterns;
+- explicit text formats such as `порошок`, `мелені`, `капсули`, `шоколад`, `набір`, and `приправа` must be preserved;
+- the word `сушені` is a weak format signal only: it may produce `Формат = цілі`, but a stronger article/SKU suffix must override it when the suffix clearly identifies another format.
+
+### SKU format precedence fix: 2026-06-20
+
+Bug fixed in commit `b82036f0f36ad179907b108ea3bbf5695e40d7e3` (`Fix variant format inference from SKU`).
+
+Observed production issue:
+
+- products with SKU suffixes like `ЕСП` were exported with titles containing `сушені`;
+- `_extract_format(text)` interpreted `сушені` as `Формат = цілі`;
+- `_infer_format_from_article()` was not allowed to override the already-filled format;
+- frontend then correctly treated combinations such as `200 г + порошок + Еліт` as unavailable because backend had emitted no matching `variant_options` row.
+
+Current required behavior:
+
+- `_raw_variant_options()` checks the article/SKU with `allow_group_default=True`;
+- article/SKU inference overrides only the weak `сушені -> цілі` result;
+- explicit format words from text still win and must not be overwritten;
+- suffixes `СП`, `ЕСП`, `СМ`, `ЕСМ`, `ЛСП`, `ЛСМ` infer `Формат = порошок`;
+- suffixes `С`, `ЕС`, `ЛС`, `СЛ` infer `Формат = цілі`, subject to the existing special-case logic.
+
+Regression examples that must remain correct:
+
+```text
+МХМЧ-200ЕС    -> Вага: 200 г, Формат: цілі,    Сорт: Еліт
+МХМЧ-200ЕСП   -> Вага: 200 г, Формат: порошок, Сорт: Еліт
+МХМЧ-200ЕС24  -> Вага: 200 г, Формат: цілі,    Сорт: Еліт, Рік: 2024
+МХМЧ-200ЕСП24 -> Вага: 200 г, Формат: порошок, Сорт: Еліт, Рік: 2024
+```
+
+Tests added/updated:
+
+- `tests/test_variant_options.py` covers the fixed examples and all six powder-like suffixes.
+- `python -m compileall services/variant_options.py services/catalog_sync.py` passed.
+- Local `pytest` may be unavailable in a minimal environment; run it where dependencies are installed.
+
+Production remediation performed after deployment:
+
+```bash
+ADMIN_KEY="$(docker exec fastapi_app printenv ADMIN_API_KEY)" && \
+  curl -s -X POST http://localhost:8000/api/sync/catalog \
+    -H "X-Admin-Key: $ADMIN_KEY" | python3 -m json.tool
+```
+
+Result:
+
+```text
+success: true
+count: 507
+stale_out_of_stock: 1
+home_sections.hit: 8
+home_sections.new: 16
+home_sections.promotion: 0
+```
+
+Verification commands:
+
+```bash
+docker exec -e PAGER=cat -it postgres_db psql -U postgres -d app_db -A -F " | " -c "SELECT id, sku, variant_options FROM products WHERE id IN (285,313) ORDER BY id;"
+```
+
+Expected/current result:
+
+```text
+285 | МХМЧ-200ЕСП   | ... "Формат": "порошок" ...
+313 | МХМЧ-200ЕСП24 | ... "Формат": "порошок" ...
+```
+
+```bash
+docker exec -e PAGER=cat -it postgres_db psql -U postgres -d app_db -A -F " | " -c "SELECT id, sku, variant_options FROM products WHERE sku ILIKE '%СП%' AND variant_options ILIKE '%цілі%' ORDER BY id;"
+```
+
+Expected/current result:
+
+```text
+(0 rows)
+```
+
+```bash
+curl -s http://localhost:8000/products/284 | python3 -c "import sys,json; d=json.load(sys.stdin); [print(v.get('id'), v.get('sku'), v.get('options')) for v in d.get('variants', []) if str(v.get('sku','')).startswith('МХМЧ-200')]"
+```
+
+Expected/current key rows:
+
+```text
+284 МХМЧ-200ЕС    {'Вага': '200 г', 'Формат': 'цілі', 'Сорт': 'Еліт', ...}
+285 МХМЧ-200ЕСП   {'Вага': '200 г', 'Формат': 'порошок', 'Сорт': 'Еліт', ...}
+312 МХМЧ-200ЕС24  {'Вага': '200 г', 'Формат': 'цілі', 'Сорт': 'Еліт', ...}
+313 МХМЧ-200ЕСП24 {'Вага': '200 г', 'Формат': 'порошок', 'Сорт': 'Еліт', ...}
+```
 
 Known audit state before this handoff:
 
@@ -382,10 +481,12 @@ Product cards should use backend fields:
 
 ### Manual sync check
 
-Run from server or local against production backend:
+Run from the production server:
 
 ```bash
-curl -X POST https://app.dikoros.ua/api/sync/catalog
+ADMIN_KEY="$(docker exec fastapi_app printenv ADMIN_API_KEY)" && \
+  curl -s -X POST http://localhost:8000/api/sync/catalog \
+    -H "X-Admin-Key: $ADMIN_KEY" | python3 -m json.tool
 ```
 
 Expected:
