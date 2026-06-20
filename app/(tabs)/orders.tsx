@@ -7,6 +7,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 
+const getOrderStatusLabel = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+
+  const labels: Record<string, string> = {
+    pending: '\u041e\u0447\u0456\u043a\u0443\u0454 \u043e\u0431\u0440\u043e\u0431\u043a\u0438',
+    new: '\u041d\u043e\u0432\u0438\u0439',
+    completed: '\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043e',
+    paid: '\u041e\u043f\u043b\u0430\u0447\u0435\u043d\u043e',
+    processing: '\u0412 \u043e\u0431\u0440\u043e\u0431\u0446\u0456',
+    shipped: '\u0412\u0456\u0434\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e',
+    delivered: '\u0414\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043e',
+    cancelled: '\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',
+    canceled: '\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',
+    failed: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430',
+    refunded: '\u041f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043e',
+  };
+
+  return labels[normalized] || status || '\u041d\u0435\u0432\u0456\u0434\u043e\u043c\u043e';
+};
+
+const isCompletedOrderStatus = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  return ['completed', 'paid', 'delivered', '\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e', '\u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043e', '\u0434\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043e'].includes(normalized);
+};
+
 const OrderItem = ({ order, onPress, formatPrice }: any) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
     <View style={styles.cardHeader}>
@@ -21,15 +46,13 @@ const OrderItem = ({ order, onPress, formatPrice }: any) => (
       </View>
       <View style={[
         styles.statusBadge, 
-        { backgroundColor: ['Completed', 'Виконано', 'Paid'].includes(order.status) ? '#E8F5E9' : '#FFF3E0' }
+        { backgroundColor: isCompletedOrderStatus(order.status) ? '#E8F5E9' : '#FFF3E0' }
       ]}>
         <Text style={[
           styles.statusText,
-          { color: ['Completed', 'Виконано', 'Paid'].includes(order.status) ? '#2E7D32' : '#EF6C00' }
+          { color: isCompletedOrderStatus(order.status) ? '#2E7D32' : '#EF6C00' }
         ]}>
-          {order.status === 'New' ? 'Новий' : 
-           order.status === 'Completed' ? 'Виконано' :
-           order.status === 'Paid' ? 'Оплачено' : order.status}
+          {getOrderStatusLabel(order.status)}
         </Text>
       </View>
     </View>
