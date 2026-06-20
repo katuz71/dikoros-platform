@@ -9,7 +9,7 @@ import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import { Linking, Platform, View } from 'react-native';
@@ -18,6 +18,26 @@ import { CartProvider } from '../context/CartContext';
 import { OrdersProvider } from '../context/OrdersContext';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const APP_FOOTER_ROUTES = new Set([
+  '(tabs)',
+  '(tabs)/index',
+  '(tabs)/favorites',
+  '(tabs)/cart',
+  '(tabs)/profile',
+  '(tabs)/orders',
+]);
+
+const FLOATING_CHAT_HIDDEN_ROUTES = new Set([
+  '(tabs)/chat',
+  'checkout',
+  'product/[id]',
+  'news-detail',
+  'blog-detail',
+  'policies',
+  'login',
+  'oauthredirect',
+]);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -85,9 +105,11 @@ async function registerForPushNotificationsAsync() {
 
 export default function Layout() {
   const pathname = usePathname();
+  const segments = useSegments();
   const router = useRouter();
-  const showFloatingChat = !pathname?.endsWith('/chat');
-  const hideAppFooter = pathname?.includes('oauthredirect') || pathname?.endsWith('/chat');
+  const routeKey = segments.join('/');
+  const showAppFooter = APP_FOOTER_ROUTES.has(routeKey);
+  const showFloatingChat = !FLOATING_CHAT_HIDDEN_ROUTES.has(routeKey);
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');
@@ -159,7 +181,7 @@ export default function Layout() {
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
             {showFloatingChat && <FloatingChatButton bottomOffset={142} />}
-            {!hideAppFooter && <AppFooter />}
+            {showAppFooter && <AppFooter />}
             <GlobalSearchModal />
             <WelcomeBonusModal />
           </View>

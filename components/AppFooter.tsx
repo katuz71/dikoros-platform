@@ -374,6 +374,7 @@ export function AppFooter() {
                   <LegalMenuRow title="Оплата і доставка" page="delivery" icon="card-outline" />
                   <LegalMenuRow title="Обмін та повернення" page="returns" icon="swap-horizontal-outline" />
                   <LegalMenuRow title="Міжнародні відправки" page="international" icon="airplane-outline" />
+                  <LegalMenuRow title="Контактна інформація" page="contacts" icon="call-outline" />
                   <LegalMenuRow title="Договір оферти" page="offer" icon="document-text-outline" />
                   <LegalMenuRow title="Політика конфіденційності" page="privacy" icon="shield-checkmark-outline" />
                   <LegalMenuRow title="Видалення акаунта" page="deleteAccount" icon="trash-outline" />
@@ -618,6 +619,15 @@ const styles = StyleSheet.create({
   },
   legalMenuRowLast: {
     borderBottomWidth: 0,
+  },
+  legalMenuIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#ECFDF3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   legalMenuTitle: {
     flex: 1,

@@ -28,6 +28,28 @@ type SearchResult = {
   payload: any;
 };
 
+type ContentSource = {
+  endpoint: string;
+  contentType: 'news' | 'blog';
+  detailPath: '/news-detail' | '/blog-detail';
+  pageTitle: 'Акції' | 'Блог';
+};
+
+const CONTENT_SOURCES: ContentSource[] = [
+  {
+    endpoint: API_ENDPOINTS.newsPage,
+    contentType: 'news',
+    detailPath: '/news-detail',
+    pageTitle: 'Акції',
+  },
+  {
+    endpoint: API_ENDPOINTS.blogPage,
+    contentType: 'blog',
+    detailPath: '/blog-detail',
+    pageTitle: 'Блог',
+  },
+];
+
 const normalize = (value: any) =>
   String(value ?? '')
     .toLowerCase()
@@ -51,20 +73,30 @@ export function GlobalSearchModal() {
     const loadContent = async () => {
       try {
         setContentLoading(true);
-        const response = await fetch(`${API_URL}${API_ENDPOINTS.newsPage}`);
-        if (!response.ok) return;
+        const loadedContent = await Promise.all(
+          CONTENT_SOURCES.map(async (source) => {
+            try {
+              const response = await fetch(`${API_URL}${source.endpoint}`);
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await response.json();
-        if (!mounted) return;
-
-        const sections = Array.isArray(data?.sections) ? data.sections : [];
-        setContentItems(
-          sections.map((section: any, index: number) => ({
-            ...section,
-            __id: `news-${index}`,
-            __pageTitle: data?.title || 'Акції',
-          }))
+              const data = await response.json();
+              const sections = Array.isArray(data?.sections) ? data.sections : [];
+              return sections.map((section: any, index: number) => ({
+                ...section,
+                __id: `${source.contentType}-${index}`,
+                __contentType: source.contentType,
+                __detailPath: source.detailPath,
+                __pageTitle: data?.title || source.pageTitle,
+              }));
+            } catch (error) {
+              console.warn(`Global search ${source.contentType} load failed:`, error);
+              return [];
+            }
+          })
         );
+
+        if (!mounted) return;
+        setContentItems(loadedContent.flat());
       } catch (error) {
         console.warn('Global search content load failed:', error);
       } finally {
@@ -138,7 +170,7 @@ export function GlobalSearchModal() {
     }
 
     router.push({
-      pathname: '/news-detail',
+      pathname: item.payload?.__detailPath || '/news-detail',
       params: {
         heading: item.payload?.heading || '',
         body: item.payload?.body || '',
@@ -161,7 +193,7 @@ export function GlobalSearchModal() {
               value={query}
               onChangeText={setQuery}
               autoFocus
-              placeholder="Пошук товарів, акцій, матеріалів"
+              placeholder="Пошук товарів, акцій, блогу"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               returnKeyType="search"
@@ -174,7 +206,7 @@ export function GlobalSearchModal() {
           {query.trim().length < 2 ? (
             <View style={styles.emptyBlock}>
               <Text style={styles.emptyTitle}>Що шукаємо?</Text>
-              <Text style={styles.emptyText}>Введіть мінімум 2 символи: назву товару, категорію або акцію.</Text>
+              <Text style={styles.emptyText}>Введіть мінімум 2 символи: назву товару, категорію, акцію або статтю блогу.</Text>
             </View>
           ) : results.length === 0 ? (
             <View style={styles.emptyBlock}>

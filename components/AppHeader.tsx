@@ -41,6 +41,7 @@ export function AppHeader({
   showFilter = false,
   onFilter,
   showFavorites = false,
+  showCart = false,
   showShare = false,
   onShare,
   showFavoriteToggle = false,
@@ -59,6 +60,7 @@ export function AppHeader({
 
   const goBack = () => (onBack ? onBack() : router.back());
   const openFavorites = () => router.push('/(tabs)/favorites' as any);
+  const openCart = () => router.push('/(tabs)/cart' as any);
 
   if (showLogo) {
     return (
@@ -70,7 +72,7 @@ export function AppHeader({
             </TouchableOpacity>
           )}
 
-          <View style={styles.logoActionSlot}>
+          <View style={[styles.logoActionSlot, styles.logoLeftActionSlot]}>
             {showSearch ? (
               <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
                 <Ionicons name="search" size={22} color="#111827" />
@@ -82,12 +84,17 @@ export function AppHeader({
             <Image source={require('../assets/images/dikoros-logo.webp')} style={styles.logo} resizeMode="contain" />
           </TouchableOpacity>
 
-          <View style={styles.logoActionSlot}>
+          <View style={[styles.logoActionSlot, styles.logoRightActionSlot]}>
             {(showFavorites || showFavoriteToggle) ? (
               <TouchableOpacity onPress={openFavorites} style={styles.iconButton} activeOpacity={0.75}>
                 <Ionicons name="heart-outline" size={22} color="#111827" />
               </TouchableOpacity>
-            ) : <View style={styles.iconButtonPlaceholder} />}
+            ) : null}
+            {showCart && (
+              <TouchableOpacity onPress={openCart} style={styles.iconButton} activeOpacity={0.75}>
+                <Ionicons name="cart-outline" size={23} color="#111827" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -126,6 +133,11 @@ export function AppHeader({
               <Ionicons name="heart-outline" size={22} color="#111827" />
             </TouchableOpacity>
           )}
+          {showCart && (
+            <TouchableOpacity onPress={openCart} style={styles.iconButton} activeOpacity={0.75}>
+              <Ionicons name="cart-outline" size={23} color="#111827" />
+            </TouchableOpacity>
+          )}
           {showShare && (
             <TouchableOpacity onPress={onShare} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name="share-outline" size={20} color="#111827" />
@@ -156,7 +168,9 @@ const styles = StyleSheet.create({
   header: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', zIndex: 50 },
   row: { height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
   logoCenteredRow: { height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  logoActionSlot: { width: 48, alignItems: 'center', justifyContent: 'center' },
+  logoActionSlot: { width: 72, flexDirection: 'row', alignItems: 'center' },
+  logoLeftActionSlot: { justifyContent: 'flex-start' },
+  logoRightActionSlot: { justifyContent: 'flex-end' },
   backOverlayButton: { position: 'absolute', left: 8, top: 6, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', zIndex: 3 },
   leftArea: { width: 48, alignItems: 'flex-start', justifyContent: 'center', zIndex: 2 },
   centerArea: { position: 'absolute', left: 76, right: 76, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 },

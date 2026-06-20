@@ -454,11 +454,11 @@ export default function ProfileScreen() {
         <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
         <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
         <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
-        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
-        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
         <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
+        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
         <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
 
@@ -510,11 +510,11 @@ export default function ProfileScreen() {
         <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
         <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
         <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
         <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
         <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
-        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
-        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
         <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
+        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
         <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
       </ScrollView>

@@ -62,6 +62,14 @@ export default function BlogScreen() {
     loadPage();
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)' as any);
+  };
+
   const openArticle = (section: BlogSection) => {
     if (!section.source_url) return;
 
@@ -82,7 +90,7 @@ export default function BlogScreen() {
 
       <View style={styles.pageTitleRow}>
         <TouchableOpacity
-          onPress={() => router.replace('/(tabs)' as any)}
+          onPress={goBack}
           style={styles.pageBackButton}
           activeOpacity={0.75}
         >

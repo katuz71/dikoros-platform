@@ -63,6 +63,14 @@ export default function NewsScreen() {
     loadPage();
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)' as any);
+  };
+
   const openPromotion = (section: NewsSection) => {
     router.push({
       pathname: '/news-detail',
@@ -81,7 +89,7 @@ export default function NewsScreen() {
 
       <View style={styles.pageTitleRow}>
         <TouchableOpacity
-          onPress={() => router.replace('/(tabs)' as any)}
+          onPress={goBack}
           style={styles.pageBackButton}
           activeOpacity={0.75}
         >
