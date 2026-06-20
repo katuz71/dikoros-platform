@@ -308,6 +308,13 @@ export function AppFooter() {
               <Text style={styles.menuSectionTitle}>Сервіс</Text>
 
               <MenuRow
+                icon="information-circle-outline"
+                title="Про нас"
+                subtitle="Хто ми та як працює DikorosUA"
+                onPress={() => menuAction(() => router.push('/about' as any))}
+              />
+
+              <MenuRow
                 icon="search-outline"
                 title="Пошук"
                 subtitle="Знайти товар у каталозі"
