@@ -30,6 +30,11 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 
 const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
 const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
+const isVariantAvailable = (row: any) => {
+  const status = clean(row?.raw?.status ?? row?.status).toLowerCase();
+  return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
+    .some(value => status.includes(value));
+};
 
 
 export default function ProductScreen() {
@@ -317,29 +322,23 @@ export default function ProductScreen() {
     return { optionKeys: oKeys, internalKeys: iKeys, variantRows: rows, matrix: m };
   }, [product]);
 
-  // Current match
+  // Resolve only a real row matching every selected option.
   const { activeRow, currentPrice, oldPrice } = useMemo(() => {
-    const matches = variantRows.filter(row =>
-      internalKeys.every(ik => {
-        const expected = clean(selectedOptions[ik]);
-        return !expected || clean(row.options[ik]) === expected;
-      })
-    );
-
-    const isAvailable = (row: any) => {
-      const status = clean(row?.raw?.status).toLowerCase();
-      return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
-        .some(value => status.includes(value));
-    };
+    const hasCompleteSelection = internalKeys.every(ik => !!clean(selectedOptions[ik]));
+    const matches = hasCompleteSelection
+      ? variantRows.filter(row =>
+          internalKeys.every(ik => clean(row.options[ik]) === clean(selectedOptions[ik]))
+        )
+      : [];
 
     const selectedStillMatches = selectedVariantRowId
       ? matches.find(row => clean(row.rowId) === clean(selectedVariantRowId))
       : null;
 
     const found = selectedStillMatches
-      || matches.find(isAvailable)
+      || matches.find(isVariantAvailable)
       || matches[0]
-      || variantRows[0];
+      || null;
 
     return {
       activeRow: found,
@@ -348,11 +347,42 @@ export default function ProductScreen() {
     };
   }, [variantRows, selectedOptions, product, internalKeys, selectedVariantRowId]);
 
-  // Normalize option selection to always match existing variant
-  // Change only the selected option. Impossible combinations are disabled in ProductDetailsView.
+  // Keep the option the user changed and move all other chips to the closest
+  // real variant row. This makes the chip state and activeRow atomic.
   const applyOptionChange = useCallback((key: string, value: string) => {
-    setSelectedOptions(prev => ({ ...prev, [key]: value }));
-  }, []);
+    const normalizedValue = clean(value);
+    const candidates = variantRows.filter(row => clean(row.options[key]) === normalizedValue);
+    if (!candidates.length) return;
+
+    const rankedCandidates = candidates.map((row, index) => ({
+      row,
+      index,
+      matchingOptions: internalKeys.reduce((score, optionKey) => {
+        if (optionKey === key) return score;
+        const currentValue = clean(selectedOptions[optionKey]);
+        return currentValue && clean(row.options[optionKey]) === currentValue ? score + 1 : score;
+      }, 0),
+      isCurrentRow: !!selectedVariantRowId && clean(row.rowId) === clean(selectedVariantRowId),
+      isAvailable: isVariantAvailable(row),
+    }));
+
+    rankedCandidates.sort((left, right) =>
+      right.matchingOptions - left.matchingOptions
+      || Number(right.isCurrentRow) - Number(left.isCurrentRow)
+      || Number(right.isAvailable) - Number(left.isAvailable)
+      || left.index - right.index
+    );
+
+    const nextRow = rankedCandidates[0].row;
+    const nextOptions: Record<string, string> = {};
+    internalKeys.forEach(optionKey => {
+      const optionValue = clean(nextRow.options[optionKey]);
+      if (optionValue) nextOptions[optionKey] = optionValue;
+    });
+
+    setSelectedOptions(nextOptions);
+    setSelectedVariantRowId(clean(nextRow.rowId) || null);
+  }, [internalKeys, selectedOptions, selectedVariantRowId, variantRows]);
 
   // Data Loading
   useEffect(() => {
@@ -366,6 +396,7 @@ export default function ProductScreen() {
       setLoading(true);
       setError(null);
       setSelectedOptions({});
+      setSelectedVariantRowId(null);
       
       let url = `${API_URL}/products/${productId}`;
       try {
@@ -508,24 +539,19 @@ export default function ProductScreen() {
       return;
     }
 
-    const isDefaultRowAvailable = (row: any) => {
-      const raw = row?.raw || {};
-      const status = clean(raw?.status).toLowerCase();
-      return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
-        .some(value => status.includes(value));
-    };
-    const firstRow = variantRows.find(isDefaultRowAvailable) || variantRows[0];
-
     setSelectedOptions(prev => {
+      const exactRow = variantRows.find(row =>
+        internalKeys.every(key => {
+          const current = clean(prev[key]);
+          return !!current && clean(row.options[key]) === current;
+        })
+      );
+      const firstRow = exactRow || variantRows.find(isVariantAvailable) || variantRows[0];
       const next: Record<string, string> = {};
       let changed = false;
 
       internalKeys.forEach((key) => {
-        const current = clean(prev[key]);
-        const allowedValues = (matrix[key] || []).map(clean);
-        const value = current && allowedValues.includes(current)
-          ? current
-          : clean(firstRow.options[key]);
+        const value = clean(firstRow.options[key]);
 
         if (value) next[key] = value;
         if (clean(prev[key]) !== clean(next[key])) changed = true;

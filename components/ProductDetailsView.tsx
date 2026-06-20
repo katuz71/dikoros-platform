@@ -189,7 +189,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     return !disabled.some((word) => status.includes(word));
   }, [clean, product?.status]);
 
-  const activeAvailable = activeRow ? isAvailable(activeRow) : isAvailable(product);
+  const requiresVariantRow = variantRows.length > 0;
+  const activeAvailable = requiresVariantRow ? !!activeRow && isAvailable(activeRow) : isAvailable(product);
   const resolvedIsInCart = isInCart || localAddedToCart;
   const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
 
@@ -202,6 +203,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   const addSelectedToCart = React.useCallback((goToCheckout: boolean) => {
     setQuantityMenuOpen(false);
+    if (requiresVariantRow && !activeRow) return;
 
     if (resolvedIsInCart && !goToCheckout) {
       router.push('/(tabs)/cart' as any);
@@ -241,7 +243,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     if (goToCheckout) {
       router.push('/checkout' as any);
     }
-  }, [addItem, currentPrice, product, resolvedIsInCart, router, selectedPack, selectedQuantity, selectedUnit]);
+  }, [activeRow, addItem, currentPrice, product, requiresVariantRow, resolvedIsInCart, router, selectedPack, selectedQuantity, selectedUnit]);
 
   const handleImageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextIndex = Math.round((event.nativeEvent.contentOffset.x || 0) / screenWidth);
