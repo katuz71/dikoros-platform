@@ -99,16 +99,32 @@ def _extract_format(text: str) -> str | None:
         (r"\bкапсул\w*\b", "капсули"),
         (r"\bпорош\w*\b", "порошок"),
         (r"\bмелен\w*\b", "мелені"),
-        (r"\bсушен\w*\b", "цілі"),
         (r"\bціл\w*\b", "цілі"),
         (r"\bшоколад\w*\b", "шоколад"),
         (r"\bнабір\w*\b", "набір"),
         (r"\bприправ\w*\b", "приправа"),
+        (r"\bсушен\w*\b", "цілі"),
     ]
     for pattern, value in checks:
         if re.search(pattern, lower, re.IGNORECASE):
             return value
     return None
+
+
+def _is_weak_dried_format(text: str, text_format: str | None) -> bool:
+    if text_format != "цілі" or not re.search(r"\bсушен\w*\b", text, re.IGNORECASE):
+        return False
+
+    explicit_format_patterns = [
+        r"\bкапсул\w*\b",
+        r"\bпорош\w*\b",
+        r"\bмелен\w*\b",
+        r"\bціл\w*\b",
+        r"\bшоколад\w*\b",
+        r"\bнабір\w*\b",
+        r"\bприправ\w*\b",
+    ]
+    return not any(re.search(pattern, text, re.IGNORECASE) for pattern in explicit_format_patterns)
 
 
 def _extract_sort(text: str) -> str | None:
@@ -295,10 +311,10 @@ def _raw_variant_options(item: dict) -> dict[str, str]:
         if inferred_weight:
             options[OPTION_WEIGHT] = inferred_weight
 
-    if not options.get(OPTION_FORMAT):
-        inferred_format = _infer_format_from_article(item)
-        if inferred_format:
-            options[OPTION_FORMAT] = inferred_format
+    text_format = options.get(OPTION_FORMAT)
+    inferred_format = _infer_format_from_article(item, allow_group_default=True)
+    if inferred_format and (not text_format or _is_weak_dried_format(text, text_format)):
+        options[OPTION_FORMAT] = inferred_format
 
     if not options.get(OPTION_SORT):
         inferred_sort = _infer_sort_from_article(item)
