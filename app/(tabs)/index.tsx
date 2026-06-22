@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.44);
+            const bannerHeight = Math.round(bannerWidth * 0.30);
             return (
               <>
               <ScrollView
