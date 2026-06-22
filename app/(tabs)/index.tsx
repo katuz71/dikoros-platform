@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.40);
+            const bannerHeight = Math.round(bannerWidth * 0.30);
             return (
               <>
               <ScrollView
@@ -2131,57 +2131,22 @@ export default function Index() {
                         disabled={!isClickable}
                         onPress={() => handleBannerPress(banner)}
                         style={{
-                          borderRadius: 18,
+                          width: bannerWidth,
+                          height: bannerHeight,
+                          borderRadius: 16,
                           overflow: 'hidden',
-                          borderTopLeftRadius: 18,
-                          borderTopRightRadius: 18,
-                          borderBottomLeftRadius: 18,
-                          borderBottomRightRadius: 18,
-                            borderTopLeftRadius: 18,
-                            borderTopRightRadius: 18,
-                            borderBottomLeftRadius: 18,
-                            borderBottomRightRadius: 18,
                           backgroundColor: '#FFFFFF',
-                          borderBottomLeftRadius: 18,
-                          borderBottomRightRadius: 18,
                         }}
                       >
-                        <View
+                        <Image
+                          source={{ uri: getImageUrl(imageUrl) }}
                           style={{
                             width: bannerWidth,
                             height: bannerHeight,
-                            borderRadius: 18,
-                            overflow: 'hidden',
-                            backgroundColor: '#FFFFFF',
-                          borderBottomLeftRadius: 18,
-                          borderBottomRightRadius: 18,
+                            borderRadius: 16,
                           }}
-                        >
-                          <Image
-                            source={{ uri: getImageUrl(imageUrl) }}
-                            style={{
-                              position: 'absolute',
-                              left: 0,
-                              right: 0,
-                              top: 0,
-                              bottom: 0,
-                              width: '100%',
-                              height: '100%',
-                              opacity: 0.28,
-                            }}
-                            resizeMode="cover"
-                            blurRadius={14}
-                          />
-                          <Image
-                            source={{ uri: getImageUrl(imageUrl) }}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              borderRadius: 18,
-                            }}
-                            resizeMode="contain"
-                          />
-                        </View>
+                          resizeMode="stretch"
+                        />
                       </TouchableOpacity>
                     </View>
                   );
