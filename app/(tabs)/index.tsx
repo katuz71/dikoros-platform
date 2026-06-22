@@ -2105,6 +2105,7 @@ export default function Index() {
             const bannerWidth = width - 16;
             const bannerHeight = Math.round(bannerWidth * 0.30);
             return (
+              <>
               <ScrollView
                 ref={categoryBannerRef}
                 horizontal
@@ -2155,6 +2156,7 @@ export default function Index() {
                   ))}
                 </View>
               )}
+              </>
             );
           })()}
 
