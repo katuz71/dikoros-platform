@@ -90,7 +90,7 @@ export default function CartScreen() {
     }
   }, []);
 
-  // Prevent Android back from exiting cart screen.
+  // Android back in cart: close modal, then go back if possible, otherwise stay.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -100,7 +100,12 @@ export default function CartScreen() {
         return true;
       }
 
-      router.replace('/(tabs)' as any);
+      const appRouter = router as any;
+      if (typeof appRouter.canGoBack === 'function' && appRouter.canGoBack()) {
+        appRouter.back();
+        return true;
+      }
+
       return true;
     });
 

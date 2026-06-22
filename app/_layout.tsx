@@ -131,20 +131,23 @@ export default function Layout() {
     registerForPushNotificationsAsync();
   }, []);
 
-  // Prevent Android system back from exiting the app on main tabs.
+  // Android system back: go to previous app screen, or stay if there is no history.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (routeKey === '(tabs)' || routeKey.startsWith('(tabs)/')) {
+      const appRouter = router as any;
+
+      if (typeof appRouter.canGoBack === 'function' && appRouter.canGoBack()) {
+        appRouter.back();
         return true;
       }
 
-      return false;
+      return true;
     });
 
     return () => subscription.remove();
-  }, [routeKey]);
+  }, [router, routeKey]);
 
   useEffect(() => {
     let mounted = true;
