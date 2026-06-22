@@ -1,6 +1,6 @@
 # Referral + Cashback Handoff
 
-Last updated: 2026-06-11
+Last updated: 2026-06-22
 
 This document is the source of truth for the DikorosUA referral, registration bonus, and cashback logic. Future chats must read this file before changing auth, profile, bonuses, cashback, deep links, or build versioning.
 
@@ -23,20 +23,33 @@ The app must support:
 
 4. New SMS-registered user gets **150 грн** registration bonus.
 5. Referrer gets **50 грн** only when the invited phone becomes a new SMS-registered user.
-6. Minimum cashback is **5% from the first purchase**.
-7. Accumulative cashback tiers remain:
+6. Global cashback is **5% by default**, is configured in admin, and is credited to `users.bonus_balance` after a successful final order status.
+7. The automatic cumulative discount is separate from cashback and uses `users.total_spent`:
 
-   | Total spent | Cashback |
+   | Total spent | Cumulative discount |
    | --- | ---: |
-   | 0 - 4 999 грн | 5% |
+   | 0 - 1 998 грн | 0% |
+   | 1 999 - 4 999 грн | 5% |
    | 5 000 - 9 999 грн | 10% |
    | 10 000 - 24 999 грн | 15% |
    | 25 000+ грн | 20% |
 
+## Approved bonus, cashback, and cumulative discount model
+
+- Registration bonus, referral bonus, and earned cashback all go to `users.bonus_balance`.
+- Cashback and cumulative discount are separate systems.
+- Default global cashback is `5%` and is editable in admin.
+- Cumulative discount starts at `1 999 грн = 5%`; below that it is `0%`.
+- Cumulative discount is applied automatically during authenticated checkout.
+- Checkout order is: catalog subtotal, promo code, cumulative discount, bonuses, amount due.
+- Backend recalculates catalog prices, promo code, cumulative discount, bonus usage, and final total. Client totals and discount metadata are display hints only.
+- On final confirmation, `total_spent` increases by the amount actually due, the next cumulative discount is recalculated, and global cashback is credited exactly once using `orders.cashback_applied`.
+- UI must never call the cumulative discount cashback.
+
 ## Important rules: do not break these
 
 - Do **not** return to phone-only referral sharing. Profile sharing must use `/api/referral/me` and share the generated web link.
-- Do **not** set first cashback tier to `0%` again. The minimum is `5%`.
+- Do **not** merge cashback and the cumulative discount. Global cashback defaults to `5%`; cumulative discount is `0%` below `1 999 грн`.
 - Do **not** award 150 грн registration bonus to existing or legacy users.
 - Do **not** award 50 грн referral bonus unless the referrer is an existing user and the invited user is a new SMS registration.
 - Do **not** allow self-referral. Referrer phone equal to the new user phone must be ignored.
@@ -100,13 +113,13 @@ At SMS verify:
   - create user;
   - set `phone_verified = true`;
   - set `bonus_balance = 150`;
-  - set `cashback_percent = 5`;
+  - set legacy `cashback_percent = 0` (it represents cumulative discount compatibility, not global cashback);
   - save `referrer` in `users.referrer` when valid;
   - add `+50` to referrer `bonus_balance` only if the referrer exists;
 - if the user already exists or is a migrated legacy user:
   - do not give registration bonus;
   - do not give referral bonus;
-  - keep/raise cashback to at least `5%`;
+  - derive cumulative discount from `total_spent` without awarding a new-user cashback level;
   - set `phone_verified = true`.
 
 ### Database
@@ -125,6 +138,21 @@ Existing user fields used by this logic:
 - `users.total_spent`
 - `users.phone_verified`
 - `users.referrer`
+
+Global cashback configuration:
+
+```text
+app_settings.key = global_cashback_percent
+app_settings.value = 5
+```
+
+Order audit fields:
+
+- `orders.subtotal_price`
+- `orders.cumulative_discount_percent`
+- `orders.cumulative_discount_amount`
+- `orders.cashback_earned`
+- `orders.cashback_applied`
 
 ## Frontend implementation
 
@@ -174,35 +202,49 @@ Do not return to the old text:
 
 That is obsolete.
 
-### Profile cashback UI
+### Profile bonuses and discount UI
 
-`app/(tabs)/profile.tsx` must show minimum 5%:
-
-```ts
-let currentPercent = 5;
-let nextLevel = 5000;
-let nextPercent = 10;
-let prevLevel = 0;
-
-if (totalSpent < 5000) {
-  currentPercent = 5;
-  nextLevel = 5000;
-  nextPercent = 10;
-  prevLevel = 0;
-}
-```
-
-The modal table must start with:
+`/api/user/me` returns separate values:
 
 ```text
-0 - 4 999 ₴ -> 5%
+bonus_balance
+total_spent
+cumulative_discount_percent
+global_cashback_percent
+cashback_percent (legacy alias of cumulative_discount_percent)
 ```
 
-Do not reintroduce:
+The cumulative discount table must start with:
 
 ```text
-0 - 1 999 ₴ -> 0%
+0 - 1 998 ₴ -> 0%
+1 999 - 4 999 ₴ -> 5%
 ```
+
+Profile and checkout must label this scale `Накопичувальна знижка`, never cashback. Global cashback is displayed separately, for example:
+
+```text
+5% кешбек
+```
+
+### Checkout calculation
+
+Authenticated checkout loads `cumulative_discount_percent` from `/api/user/me` for display. Backend remains authoritative and calculates:
+
+1. Current catalog subtotal from product rows.
+2. Valid promo code discount.
+3. Cumulative discount based on the authenticated user's `total_spent`.
+4. Requested bonus usage limited by `bonus_balance` and the remaining amount.
+5. Final amount due.
+
+### Admin cashback setting
+
+Admin uses `X-Admin-Key` with:
+
+- `GET /api/admin/settings/cashback`
+- `PUT /api/admin/settings/cashback`
+
+The percentage is clamped to `0..100`.
 
 ### App config
 
@@ -311,7 +353,7 @@ Upload resulting `.aab` to Google Play Internal testing.
 ### App QA after installing build
 
 1. Open Profile.
-2. Confirm cashback badge shows `5% Кешбек` for a new/low-spend user.
+2. Confirm the profile separately shows `5% Кешбек` and `0%` cumulative discount for a new/low-spend user.
 3. Tap `Запросити друга`.
 4. Confirm share sheet contains `https://app.dikoros.ua/ref?referrer=...`.
 5. Open referral web link on a phone with the app installed.
@@ -320,6 +362,8 @@ Upload resulting `.aab` to Google Play Internal testing.
 8. Confirm new user receives 150 грн bonus.
 9. Confirm referrer receives +50 грн.
 10. Confirm existing user login through a referral link does not receive registration/referral bonuses again.
+11. Confirm checkout applies promo code, then cumulative discount, then bonuses.
+12. Confirm repeating a final order status does not credit `total_spent` or cashback twice.
 
 ## Known helper script
 

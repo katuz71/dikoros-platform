@@ -33,6 +33,8 @@ ADMIN_EXACT_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/admin/users"),
     ("GET", "/api/users/export"),
     ("POST", "/api/recalculate-cashback"),
+    ("GET", "/api/admin/settings/cashback"),
+    ("PUT", "/api/admin/settings/cashback"),
     ("POST", "/posts"),
     ("POST", "/upload"),
     ("POST", "/upload_csv"),

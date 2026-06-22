@@ -34,7 +34,7 @@ SMS_AUTH_CODES = {}
 SMS_CODE_TTL_SECONDS = 10 * 60
 REGISTRATION_BONUS_AMOUNT = 150
 REFERRAL_BONUS_AMOUNT = 50
-DEFAULT_CASHBACK_PERCENT = 5
+DEFAULT_CUMULATIVE_DISCOUNT_PERCENT = 0
 
 GOOGLE_WEB_CLIENT_ID = "451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com"
 GOOGLE_ANDROID_CLIENT_ID = "451079322222-49sf5d8pc3kb2fr10022b5im58s21ao6.apps.googleusercontent.com"
@@ -232,17 +232,17 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
 
             if legacy_user:
                 cur.execute(
-                    "UPDATE users SET phone_verified = TRUE, cashback_percent = GREATEST(COALESCE(cashback_percent, 0), ?) WHERE phone = ?",
-                    (DEFAULT_CASHBACK_PERCENT, clean_phone),
+                    "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
+                    (clean_phone,),
                 )
             else:
                 is_new_user = True
                 applied_referrer = _apply_referral_bonus(cur, pending_referrer, clean_phone)
                 logger.info(
-                    "New SMS user registration: phone=%s bonus=%s cashback=%s referrer=%s",
+                    "New SMS user registration: phone=%s bonus=%s cumulative_discount=%s referrer=%s",
                     clean_phone,
                     REGISTRATION_BONUS_AMOUNT,
-                    DEFAULT_CASHBACK_PERCENT,
+                    DEFAULT_CUMULATIVE_DISCOUNT_PERCENT,
                     applied_referrer,
                 )
                 cur.execute(
@@ -254,15 +254,15 @@ def auth_sms_verify(body: SmsAuthVerifyRequest):
                     (
                         clean_phone,
                         REGISTRATION_BONUS_AMOUNT,
-                        DEFAULT_CASHBACK_PERCENT,
+                        DEFAULT_CUMULATIVE_DISCOUNT_PERCENT,
                         applied_referrer,
                         datetime.now().isoformat(),
                     ),
                 )
         else:
             cur.execute(
-                "UPDATE users SET phone_verified = TRUE, cashback_percent = GREATEST(COALESCE(cashback_percent, 0), ?) WHERE phone = ?",
-                (DEFAULT_CASHBACK_PERCENT, clean_phone),
+                "UPDATE users SET phone_verified = TRUE WHERE phone = ?",
+                (clean_phone,),
             )
 
         conn.commit()

@@ -187,6 +187,11 @@ class OrderRequest(BaseModel):
     payment_method: str = "card"
     bonus_used: int = 0
     use_bonuses: bool = False
+    promo_code: Optional[str] = None
+    promo_discount_percent: int = 0
+    promo_discount_amount: float = 0
+    cumulative_discount_percent: int = 0
+    cumulative_discount_amount: float = 0
     user_phone: Optional[str] = None
     delivery_method: Optional[str] = None
     bonus_balance: Optional[int] = None
@@ -270,6 +275,8 @@ class UserResponse(BaseModel):
     bonus_balance: int = 0
     total_spent: float = 0.0
     cashback_percent: int = 0
+    cumulative_discount_percent: int = 0
+    global_cashback_percent: int = 5
     name: Optional[str] = None
     city: Optional[str] = None
     warehouse: Optional[str] = None
@@ -283,6 +290,10 @@ class UserResponse(BaseModel):
     created_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CashbackSettingsUpdate(BaseModel):
+    percent: int
 
 
 class AnalyticsEventReq(BaseModel):

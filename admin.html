@@ -286,6 +286,22 @@
                             class="text-xl">🔄</span></button>
                 </div>
             </div>
+            <div class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700 shadow-md">
+                <div class="flex items-end gap-3 flex-wrap">
+                    <div>
+                        <label for="global-cashback-percent" class="block text-sm font-bold text-yellow-400 mb-2">Глобальный кешбек</label>
+                        <input id="global-cashback-percent" type="number" min="0" max="100" value="5"
+                            class="w-28 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500">
+                    </div>
+                    <button onclick="saveCashbackSettings()"
+                        class="px-5 py-2 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-500 transition">
+                        Сохранить
+                    </button>
+                </div>
+                <p class="text-sm text-gray-400 mt-3">
+                    Кешбек начисляется бонусами после подтверждения покупки. Накопительная скидка применяется автоматически в checkout и рассчитывается отдельно.
+                </p>
+            </div>
             <div id="admin-filters"
                 class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700 flex flex-wrap gap-4 items-center">
                 <input type="text" id="user-search"
@@ -318,7 +334,7 @@
                             <th class="p-4">УП</th>
                             <th class="p-4">Баланс Бонусов</th>
                             <th class="p-4">Всего потрачено</th>
-                            <th class="p-4">Кешбэк уровень</th>
+                            <th class="p-4">Накоп. скидка</th>
                             <th class="p-4">Действия</th>
                         </tr>
                     </thead>
@@ -437,7 +453,7 @@
                             <option value="Отправлен">Отправлен</option>
                             <option value="Доставлен">Доставлен</option>
                             <option value="Отменен">Отменен</option>
-                            <option value="Completed">Выполнен (Кешбэк)</option>
+                            <option value="Completed">Выполнен (начислить кешбек)</option>
                         </select>
                     </div>
                     <div id="order-delivery-details"
@@ -808,7 +824,10 @@
             if (tab === 'orders') { try { if (typeof loadOrders === 'function') loadOrders(); } catch(e) { console.warn(e); } }
             if (tab === 'promocodes') { try { if (typeof loadPromoCodes === 'function') loadPromoCodes(); } catch(e) { console.warn(e); } }
             if (tab === 'products') { try { if (typeof loadProducts === 'function') loadProducts(1); } catch(e) { console.warn(e); } }
-            if (tab === 'users') { try { if (typeof loadUsers === 'function') loadUsers(); } catch(e) { console.warn(e); } }
+            if (tab === 'users') {
+                try { if (typeof loadUsers === 'function') loadUsers(); } catch(e) { console.warn(e); }
+                try { if (typeof loadCashbackSettings === 'function') loadCashbackSettings(); } catch(e) { console.warn(e); }
+            }
         }
 
         // --- ORDERS LOGIC ---
@@ -1017,6 +1036,36 @@
         }
 
         // --- USERS LOGIC ---
+        async function loadCashbackSettings() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/settings/cashback`);
+                if (!response.ok) throw new Error('Не удалось загрузить настройку кешбека');
+                const data = await response.json();
+                const input = document.getElementById('global-cashback-percent');
+                if (input) input.value = String(data.percent ?? 5);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function saveCashbackSettings() {
+            const input = document.getElementById('global-cashback-percent');
+            const percent = Math.max(0, Math.min(100, Number.parseInt(input && input.value, 10) || 0));
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/settings/cashback`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ percent })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Не удалось сохранить кешбек');
+                if (input) input.value = String(data.percent);
+                alert(`Глобальный кешбек сохранён: ${data.percent}%`);
+            } catch (error) {
+                alert(error.message || 'Не удалось сохранить кешбек');
+            }
+        }
+
         async function loadUsers() {
             const searchEl = document.getElementById('user-search');
             const bonusesEl = document.getElementById('filter-bonuses');
@@ -1033,7 +1082,8 @@
                 const tbody = document.getElementById('users-table');
                 if (!tbody) return;
                 const html = users.map(u => {
-                    const level = (u.total_spent || 0) > 25000 ? 20 : (u.total_spent || 0) > 10000 ? 15 : (u.total_spent || 0) > 5000 ? 10 : (u.total_spent || 0) > 2000 ? 5 : 0;
+                    const totalSpent = Number(u.total_spent || 0);
+                    const level = totalSpent >= 25000 ? 20 : totalSpent >= 10000 ? 15 : totalSpent >= 5000 ? 10 : totalSpent >= 1999 ? 5 : 0;
                     const userJson = JSON.stringify({
                         phone: u.phone || '',
                         name: u.name || '',

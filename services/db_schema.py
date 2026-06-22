@@ -112,6 +112,20 @@ def fix_db_schema():
     ''')
 
     c.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    ''')
+    c.execute(
+        """
+        INSERT INTO app_settings (key, value)
+        VALUES ('global_cashback_percent', '5')
+        ON CONFLICT (key) DO NOTHING
+        """
+    )
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS categories (
             id BIGSERIAL PRIMARY KEY,
             name TEXT UNIQUE,
@@ -222,6 +236,10 @@ def fix_db_schema():
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_method TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS push_token TEXT")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_price DOUBLE PRECISION")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cumulative_discount_percent INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cumulative_discount_amount DOUBLE PRECISION DEFAULT 0")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_earned INTEGER DEFAULT 0")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_applied BOOLEAN DEFAULT FALSE")
     # User: social ids and bonus protection
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT")
@@ -233,6 +251,20 @@ def fix_db_schema():
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE")
+    # cashback_percent is retained as a legacy compatibility field for the
+    # cumulative discount. Global cashback lives in app_settings.
+    c.execute(
+        """
+        UPDATE users
+        SET cashback_percent = CASE
+            WHEN COALESCE(total_spent, 0) < 1999 THEN 0
+            WHEN COALESCE(total_spent, 0) < 5000 THEN 5
+            WHEN COALESCE(total_spent, 0) < 10000 THEN 10
+            WHEN COALESCE(total_spent, 0) < 25000 THEN 15
+            ELSE 20
+        END
+        """
+    )
     try:
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_key ON users (google_id) WHERE google_id IS NOT NULL")
     except Exception:

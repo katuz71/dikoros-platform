@@ -133,6 +133,7 @@ export default function CheckoutScreen() {
   const [orderComment, setOrderComment] = useState('');
 
   const [bonusBalance, setBonusBalance] = useState(0);
+  const [cumulativeDiscountPercent, setCumulativeDiscountPercent] = useState(0);
   const [useBonuses, setUseBonuses] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [saveUserData, setSaveUserData] = useState(true);
@@ -253,6 +254,9 @@ export default function CheckoutScreen() {
 
       const data = await res.json();
       setBonusBalance(data.bonus_balance || 0);
+      setCumulativeDiscountPercent(
+        Math.max(0, Math.min(100, Number(data.cumulative_discount_percent ?? data.cashback_percent ?? 0)))
+      );
       if (data.email && !email) setEmail(data.email);
       if (data.name && !name) setName(data.name);
       if (data.city && !city.name) setCity({ ref: '', name: data.city });
@@ -423,6 +427,7 @@ export default function CheckoutScreen() {
 
       const cleanItems = (items || []).map((item: any) => ({
         id: Number(item.id),
+        product_id: Number(item.productId || item.id),
         name: item.name,
         price: Number(item.price),
         quantity: Number(item.quantity || 1),
@@ -431,9 +436,13 @@ export default function CheckoutScreen() {
         variant_info: item?.variantSize || item?.packSize || item?.unit || null,
       }));
 
+      const cumulativeDiscountAmount = authenticatedCheckout
+        ? Math.round(cartFinal * cumulativeDiscountPercent) / 100
+        : 0;
+      const priceAfterCumulativeDiscount = Math.max(0, cartFinal - cumulativeDiscountAmount);
       const canUseBonuses = authenticatedCheckout && useBonuses;
-      const bonusesToUse = canUseBonuses ? Math.min(bonusBalance, cartFinal) : 0;
-      const finalPriceWithBonuses = Math.max(0, cartFinal - bonusesToUse);
+      const bonusesToUse = canUseBonuses ? Math.min(bonusBalance, Math.floor(priceAfterCumulativeDiscount)) : 0;
+      const finalPriceWithBonuses = Math.max(0, priceAfterCumulativeDiscount - bonusesToUse);
       const clientFullName = [lastName, name, middleName].map(v => v.trim()).filter(Boolean).join(' ');
       const finalRecipientName = isDifferentRecipient ? recipientName.trim() : clientFullName;
       const finalRecipientPhone = isDifferentRecipient ? canonicalizePhone(recipientPhone) : cleanBuyerPhone;
@@ -471,6 +480,8 @@ export default function CheckoutScreen() {
         promo_code: appliedPromoCode || null,
         promo_discount_percent: discount ? Math.round(Number(discount) * 100) : 0,
         promo_discount_amount: discountAmount ? Number(discountAmount) : 0,
+        cumulative_discount_percent: cumulativeDiscountPercent,
+        cumulative_discount_amount: cumulativeDiscountAmount,
         save_user_data: saveUserDataRef.current && authenticatedCheckout,
         guest_checkout: !authenticatedCheckout,
       };
@@ -604,8 +615,14 @@ export default function CheckoutScreen() {
   };
 
   const canUseBonuses = isLoggedIn && bonusBalance > 0;
-  const bonusesToUse = canUseBonuses && useBonuses ? Math.min(bonusBalance, cartFinal) : 0;
-  const finalPriceWithBonuses = Math.max(0, cartFinal - bonusesToUse);
+  const cumulativeDiscountAmount = isLoggedIn
+    ? Math.round(cartFinal * cumulativeDiscountPercent) / 100
+    : 0;
+  const priceAfterCumulativeDiscount = Math.max(0, cartFinal - cumulativeDiscountAmount);
+  const bonusesToUse = canUseBonuses && useBonuses
+    ? Math.min(bonusBalance, Math.floor(priceAfterCumulativeDiscount))
+    : 0;
+  const finalPriceWithBonuses = Math.max(0, priceAfterCumulativeDiscount - bonusesToUse);
   const allowedPaymentOptions = getAllowedPaymentOptions(deliveryMethod);
   const submitDisabled = loading;
 
@@ -976,6 +993,12 @@ export default function CheckoutScreen() {
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: '#FF6B35' }]}>Знижка промокодом</Text>
               <Text style={[styles.summaryValue, { color: '#FF6B35' }]}>-{formatPrice(cartTotal - cartFinal)}</Text>
+            </View>
+          )}
+          {cumulativeDiscountAmount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: '#2E7D32' }]}>Накопичувальна знижка ({cumulativeDiscountPercent}%)</Text>
+              <Text style={[styles.summaryValue, { color: '#2E7D32' }]}>-{formatPrice(cumulativeDiscountAmount)}</Text>
             </View>
           )}
           {bonusesToUse > 0 && (

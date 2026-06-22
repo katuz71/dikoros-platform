@@ -20,9 +20,10 @@ from models.schemas import (
     UserResponse,
 )
 from services.auth import get_current_user_phone
+from services.cashback import get_global_cashback_percent
 from services.notifications import send_expo_push
 from services.users import (
-    calculate_cashback_percent,
+    calculate_cumulative_discount_percent,
     clean_warehouse_value,
     migrate_phone_references,
     normalize_phone,
@@ -72,11 +73,15 @@ def _get_user_profile_by_identifier(phone: str):
         ukrposhta_display = user_dict.get('user_ukrposhta')
         if ukrposhta_display and isinstance(ukrposhta_display, str):
             ukrposhta_display = clean_warehouse_value(ukrposhta_display) or ukrposhta_display
+        total_spent = float(user_dict.get('total_spent') or 0)
+        cumulative_discount_percent = calculate_cumulative_discount_percent(total_spent)
         return UserResponse(
             phone=display_phone,
             bonus_balance=user_dict.get('bonus_balance', 0),
-            total_spent=user_dict.get('total_spent', 0.0),
-            cashback_percent=user_dict.get('cashback_percent', 0),
+            total_spent=total_spent,
+            cashback_percent=cumulative_discount_percent,
+            cumulative_discount_percent=cumulative_discount_percent,
+            global_cashback_percent=get_global_cashback_percent(),
             name=user_dict.get('name'),
             city=user_dict.get('city'),
             warehouse=warehouse_display,
@@ -151,7 +156,7 @@ def delete_api_user_me(phone: str = Depends(get_current_user_phone)):
 
 @router.post("/api/recalculate-cashback")
 def recalculate_cashback():
-    """Recalculate cashback_percent for all users based on total_spent."""
+    """Recalculate the legacy cumulative-discount field for all users."""
     conn = get_db_connection()
     try:
         cur = conn.cursor()
@@ -161,7 +166,7 @@ def recalculate_cashback():
         for user in users:
             phone = user["phone"]
             total_spent = float(user["total_spent"] or 0)
-            cashback_percent = calculate_cashback_percent(total_spent)
+            cashback_percent = calculate_cumulative_discount_percent(total_spent)
             cur.execute("UPDATE users SET cashback_percent=? WHERE phone=?", (cashback_percent, phone))
             updated_count += 1
             logger.info("Updated cashback percent: phone=%s total_spent=%s cashback_percent=%s", phone, total_spent, cashback_percent)
@@ -270,12 +275,12 @@ def export_users(
     writer = csv.writer(output)
     writer.writerow([
         "Телефон", "Имя", "Город", "Отделение НП", "Укрпошта", "Email", "Способ связи",
-        "Баланс бонусов (₴)", "Всего потрачено (₴)", "Кешбэк %", "Дата регистрации"
+        "Баланс бонусов (₴)", "Всего потрачено (₴)", "Накопительная скидка %", "Дата регистрации"
     ])
     for r in rows:
         row = dict(r)
         total = row.get("total_spent") or 0
-        level = calculate_cashback_percent(float(total or 0))
+        level = calculate_cumulative_discount_percent(float(total or 0))
         writer.writerow([
             row.get("phone") or "",
             row.get("name") or "",

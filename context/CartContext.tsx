@@ -3,6 +3,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 
 export interface CartItem {
   id: number;
+  productId?: number;
   name: string;
   price: number;
   image: string;
@@ -76,6 +77,26 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     const finalPrice = customPrice !== undefined ? customPrice : product.price;
     // Use packSize as variantSize for unique identification
     const variantSize = safePackSize;
+    let backendProductId = Number(product?.id);
+    try {
+      const rawVariants = typeof product?.variants === 'string'
+        ? JSON.parse(product.variants)
+        : product?.variants;
+      const variants = Array.isArray(rawVariants) ? rawVariants : [];
+      const normalizedVariant = String(variantSize || '').trim().toLowerCase();
+      const match = variants.find((variant: any) => {
+        const label = String(
+          variant?.name || variant?.variant_name || variant?.title || variant?.size || variant?.packSize || variant?.pack_size || ''
+        ).trim().toLowerCase();
+        const variantPrice = Number(variant?.price ?? 0);
+        return Number(variant?.id) > 0
+          && variantPrice === Number(finalPrice)
+          && (!normalizedVariant || !label || label === normalizedVariant || label.includes(normalizedVariant) || normalizedVariant.includes(label));
+      });
+      if (match) backendProductId = Number(match.id);
+    } catch {
+      // The primary product id remains the server pricing key.
+    }
 
     console.log('DEBUG: Calculated values:', { unitToUse, safePackSize, finalPrice, variantSize });
 
@@ -122,6 +143,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         const bestImage = product?.image || product?.image_url || product?.picture || '';
         const newItem = {
           id: product.id,
+          productId: backendProductId,
           name: product.name,
           price: finalPrice, // Use custom price for variants
           image: bestImage,

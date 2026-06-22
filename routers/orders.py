@@ -17,13 +17,64 @@ from db import DATABASE_URL, get_db_connection
 from models.schemas import BatchDelete, OrderRequest, OrderStatusUpdate
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
-from services.users import calculate_cashback_percent, clean_warehouse_value, normalize_phone
+from services.cashback import get_global_cashback_percent
+from services.users import calculate_cumulative_discount_percent, clean_warehouse_value, normalize_phone
 from services.analytics import track_analytics_event
 from services.auth import get_current_user_phone
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _apply_completed_order_rewards(conn, cur, order_dict: dict, order_id: int) -> int:
+    """Apply paid spend and cashback exactly once for a completed order."""
+    if bool(order_dict.get("cashback_applied")):
+        return int(order_dict.get("cashback_earned") or 0)
+
+    # Only authenticated checkout writes user_phone. Guest buyer phone must not
+    # grant account rewards merely because it matches an existing account.
+    user_phone = normalize_phone(order_dict.get("user_phone") or "")
+    try:
+        paid_total = max(0.0, round(float(order_dict.get("total_price") or 0), 2))
+    except (TypeError, ValueError):
+        paid_total = 0.0
+
+    cashback_amount = 0
+    if user_phone:
+        user = cur.execute(
+            "SELECT bonus_balance, total_spent FROM users WHERE phone = ? FOR UPDATE",
+            (user_phone,),
+        ).fetchone()
+        if user:
+            current_total_spent = float(user.get("total_spent") or 0)
+            new_total_spent = round(current_total_spent + paid_total, 2)
+            cumulative_discount = calculate_cumulative_discount_percent(new_total_spent)
+            cashback_percent = get_global_cashback_percent(conn)
+            cashback_amount = int((paid_total * cashback_percent) / 100)
+            cur.execute(
+                """
+                UPDATE users
+                SET bonus_balance = COALESCE(bonus_balance, 0) + ?,
+                    total_spent = ?,
+                    cashback_percent = ?
+                WHERE phone = ?
+                """,
+                (cashback_amount, new_total_spent, cumulative_discount, user_phone),
+            )
+
+    cur.execute(
+        "UPDATE orders SET cashback_earned = ?, cashback_applied = TRUE WHERE id = ?",
+        (cashback_amount, order_id),
+    )
+    logger.info(
+        "Order rewards applied: order_id=%s user_phone=%s paid_total=%s cashback_earned=%s",
+        order_id,
+        user_phone or None,
+        paid_total,
+        cashback_amount,
+    )
+    return cashback_amount
 
 
 # 2. ЗАКАЗЫ
@@ -372,7 +423,11 @@ async def payment_callback_monobank(request: Request):
     try:
         cur = conn.cursor()
         order = cur.execute(
-            "SELECT id, user_phone, phone, email, bonus_used, status, total_price, items, payment_method FROM orders WHERE id=?",
+            """
+            SELECT id, user_phone, phone, email, bonus_used, status, total_price, items,
+                   payment_method, cashback_applied, cashback_earned
+            FROM orders WHERE id=? FOR UPDATE
+            """,
             (order_id,),
         ).fetchone()
         if not order:
@@ -383,10 +438,10 @@ async def payment_callback_monobank(request: Request):
         user_phone = order_dict.get("user_phone")
         bonus_used = order_dict.get("bonus_used") or 0
 
-        if old_status == "Оплачено":
+        if old_status == "Оплачено" and order_dict.get("cashback_applied"):
             return {"status": "ok", "reason": "already processed"}
 
-        if user_phone and bonus_used > 0:
+        if old_status != "Оплачено" and user_phone and bonus_used > 0:
             cur.execute("""
                 UPDATE users
                 SET bonus_balance = GREATEST(bonus_balance - ?, 0)
@@ -395,6 +450,7 @@ async def payment_callback_monobank(request: Request):
             logger.info("Bonuses deducted after card payment: phone=%s amount=%s", user_phone, bonus_used)
 
         cur.execute("UPDATE orders SET status=? WHERE id=?", ("Оплачено", order_id))
+        _apply_completed_order_rewards(conn, cur, order_dict, order_id)
         conn.commit()
 
         try:
@@ -465,7 +521,7 @@ async def update_order_status(id: int, status: OrderStatusUpdate, background_tas
     try:
         cur = conn.cursor()
 
-        order = cur.execute("SELECT * FROM orders WHERE id=?", (id,)).fetchone()
+        order = cur.execute("SELECT * FROM orders WHERE id=? FOR UPDATE", (id,)).fetchone()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
 
@@ -494,59 +550,8 @@ async def update_order_status(id: int, status: OrderStatusUpdate, background_tas
             "\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d",
         }
 
-        if new_status in final_statuses and old_status not in final_statuses:
-            if order_dict.get("cashback_applied"):
-                conn.commit()
-                return {"status": "ok", "message": "Order status updated"}
-
-            user_phone = order_dict.get("user_phone") or order_dict.get("phone")
-
-            try:
-                order_total = float(order_dict.get("totalPrice") or order_dict.get("total") or 0)
-                if not order_total:
-                    order_total = float(order_dict.get("total_price") or order_dict.get("totalprice") or 0)
-            except Exception:
-                order_total = 0.0
-
-            if user_phone and order_total > 0:
-                user = cur.execute("SELECT * FROM users WHERE phone=?", (user_phone,)).fetchone()
-
-                if user:
-                    user_dict = dict(user)
-
-                    try:
-                        current_total_spent = float(user_dict.get("total_spent") or 0)
-                    except Exception:
-                        current_total_spent = 0.0
-
-                    try:
-                        current_bonus = int(user_dict.get("bonus_balance") or 0)
-                    except Exception:
-                        current_bonus = 0
-
-                    cashback_percent_for_order = calculate_cashback_percent(current_total_spent)
-                    new_total_spent = current_total_spent + order_total
-                    new_cashback_percent = calculate_cashback_percent(new_total_spent)
-
-                    cashback_amount = int((order_total * cashback_percent_for_order) / 100)
-                    new_bonus_balance = current_bonus + cashback_amount
-
-                    cur.execute("""
-                        UPDATE users
-                        SET bonus_balance=?, total_spent=?, cashback_percent=?
-                        WHERE phone=?
-                    """, (new_bonus_balance, new_total_spent, new_cashback_percent, user_phone))
-
-                    cur.execute("UPDATE orders SET cashback_applied = TRUE WHERE id = ?", (id,))
-
-                    logger.info(
-                        "Cashback applied: order_id=%s user_phone=%s order_total=%s cashback_amount=%s new_bonus_balance=%s",
-                        id,
-                        user_phone,
-                        order_total,
-                        cashback_amount,
-                        new_bonus_balance,
-                    )
+        if new_status in final_statuses:
+            _apply_completed_order_rewards(conn, cur, order_dict, id)
 
         conn.commit()
         return {"status": "ok", "message": "Order status updated"}

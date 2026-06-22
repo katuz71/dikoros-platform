@@ -28,6 +28,8 @@ interface UserProfile {
   bonus_balance: number;
   total_spent: number;
   cashback_percent: number;
+  cumulative_discount_percent: number;
+  global_cashback_percent: number;
   name?: string;
   city?: string;
   warehouse?: string;
@@ -431,8 +433,8 @@ export default function ProfileScreen() {
         <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => router.push({ pathname: '/(tabs)/chat', params: { from: 'profile' } } as any)} />
       </View>
 
-      <MenuSection title="Бонуси та кешбек">
-        <MenuItem label="Бонуси / кешбек" isLast onPress={() => router.push('/profile-cashback' as any)} />
+      <MenuSection title="Бонуси та знижка">
+        <MenuItem label="Бонуси та накопичувальна знижка" isLast onPress={() => router.push('/profile-cashback' as any)} />
       </MenuSection>
 
       <MenuSection title="Моя активність">
@@ -526,17 +528,22 @@ export default function ProfileScreen() {
     // 🔥 РАСЧЕТ УРОВНЕЙ ЛОЯЛЬНОСТИ
     const totalSpent = profile?.total_spent || 0;
     
-    // Визначаємо поточний рівень кешбеку згідно з таблицею умов
-    let currentPercent = 5;
-    let nextLevel = 5000;
-    let nextPercent = 10;
+    // Накопичувальна знижка залежить тільки від підтверджених витрат.
+    let currentPercent = 0;
+    let nextLevel = 1999;
+    let nextPercent = 5;
     let prevLevel = 0;
 
-    if (totalSpent < 5000) {
+    if (totalSpent < 1999) {
+      currentPercent = 0;
+      nextLevel = 1999;
+      nextPercent = 5;
+      prevLevel = 0;
+    } else if (totalSpent < 5000) {
       currentPercent = 5;
       nextLevel = 5000;
       nextPercent = 10;
-      prevLevel = 0;
+      prevLevel = 1999;
     } else if (totalSpent < 10000) {
       currentPercent = 10;
       nextLevel = 10000;
@@ -553,6 +560,8 @@ export default function ProfileScreen() {
       nextPercent = 20;
       prevLevel = 25000;
     }
+    currentPercent = profile?.cumulative_discount_percent ?? profile?.cashback_percent ?? currentPercent;
+    const globalCashbackPercent = profile?.global_cashback_percent ?? 5;
 
     // Считаем % заполнения шкалы (относительно текущего диапазона)
     const progressPercent = nextLevel > 0 
@@ -590,9 +599,9 @@ export default function ProfileScreen() {
                     <Text style={styles.bonusLabel}>Доступні бонуси</Text>
                     <Text style={styles.bonusValue}>{profile?.bonus_balance || 0} ₴</Text>
                     </View>
-                    {/* Бейдж кешбэка */}
+                    {/* Глобальний кешбек не залежить від накопичувальної знижки. */}
                     <View style={styles.cashbackBadge}>
-                    <Text style={styles.cashbackText}>{currentPercent}% Кешбек</Text>
+                    <Text style={styles.cashbackText}>{globalCashbackPercent}% Кешбек</Text>
                     </View>
                 </View>
 
@@ -615,8 +624,8 @@ export default function ProfileScreen() {
                     {/* 🔥 ТЕКСТ О СЛЕДУЮЩЕМ УРОВНЕ */}
                     <Text style={styles.progressSubtext}>
                     {nextLevel > 0 
-                        ? `Поточний рівень: ${currentPercent}%. Ще ${nextLevel - totalSpent} ₴ до ${nextPercent}%` 
-                        : `Ви досягли максимального рівня кешбеку! 🎉`}
+                        ? `Накопичувальна знижка: ${currentPercent}%. Ще ${Math.max(0, nextLevel - totalSpent)} ₴ до ${nextPercent}%`
+                        : `Ви досягли максимальної накопичувальної знижки! 🎉`}
                     </Text>
                 </View>
             </View>

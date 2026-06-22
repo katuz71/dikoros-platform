@@ -21,7 +21,7 @@ from models.schemas import OrderRequest
 from services.auth import get_optional_current_user_phone
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
-from services.users import clean_warehouse_value, normalize_phone
+from services.users import calculate_cumulative_discount_percent, clean_warehouse_value, normalize_phone
 from services.analytics import track_analytics_event
 
 
@@ -39,11 +39,94 @@ def _send_order_created_push_task(push_token: str, order_id: int) -> None:
     )
 
 
-def _calculate_items_total(order: OrderRequest) -> float:
-    total = 0.0
-    for item in order.items or []:
-        total += float(item.price or 0) * int(item.quantity or 0)
-    return total
+def _round_money(value: float) -> float:
+    return round(max(0.0, float(value or 0)), 2)
+
+
+def _is_unavailable_status(value) -> bool:
+    status = str(value or "").strip().lower()
+    return any(
+        marker in status
+        for marker in (
+            "out_of_stock",
+            "not_available",
+            "unavailable",
+            "disabled",
+            "відсутній",
+            "немає в наявності",
+            "нет в наличии",
+        )
+    )
+
+
+def _resolve_order_items(cur, order: OrderRequest) -> tuple[list[dict], float]:
+    """Resolve every order item against current catalog rows and prices."""
+    resolved_items: list[dict] = []
+    subtotal = 0.0
+
+    for requested in order.items or []:
+        product_id = int(requested.product_id or requested.id or 0)
+        quantity = int(requested.quantity or 0)
+        if product_id <= 0 or quantity <= 0:
+            raise HTTPException(status_code=400, detail="Invalid order item")
+
+        product = cur.execute(
+            "SELECT id, name, price, unit, status FROM products WHERE id = ?",
+            (product_id,),
+        ).fetchone()
+        if not product or float(product.get("price") or 0) <= 0:
+            raise HTTPException(status_code=400, detail=f"Product {product_id} is unavailable")
+        if _is_unavailable_status(product.get("status")):
+            raise HTTPException(status_code=400, detail=f"Product {product_id} is out of stock")
+
+        unit_price = _round_money(product.get("price") or 0)
+        subtotal += unit_price * quantity
+        resolved_items.append(
+            {
+                "id": int(product.get("id") or product_id),
+                "product_id": int(product.get("id") or product_id),
+                "name": product.get("name") or requested.name,
+                "price": unit_price,
+                "quantity": quantity,
+                "packSize": requested.packSize,
+                "unit": product.get("unit") or requested.unit,
+                "variant_info": requested.variant_info,
+            }
+        )
+
+    return resolved_items, _round_money(subtotal)
+
+
+def _calculate_promo_discount(cur, promo_code: str | None, subtotal: float) -> float:
+    code = str(promo_code or "").strip().upper()
+    if not code:
+        return 0.0
+
+    row = cur.execute("SELECT * FROM promo_codes WHERE code = ?", (code,)).fetchone()
+    if not row or not bool(row.get("active")):
+        raise HTTPException(status_code=400, detail="Промокод неактивний або не знайдений")
+
+    expires_at = row.get("expires_at")
+    if expires_at:
+        try:
+            expires = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            now = datetime.now(expires.tzinfo) if expires.tzinfo else datetime.now()
+            if now > expires:
+                raise HTTPException(status_code=400, detail="Термін дії промокоду закінчився")
+        except HTTPException:
+            raise
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Промокод має некоректний термін дії")
+
+    max_uses = int(row.get("max_uses") or 0)
+    current_uses = int(row.get("current_uses") or 0)
+    if max_uses > 0 and current_uses >= max_uses:
+        raise HTTPException(status_code=400, detail="Промокод вичерпано")
+
+    percent = max(0, min(100, int(row.get("discount_percent") or 0)))
+    fixed_amount = _round_money(row.get("discount_amount") or 0)
+    discount = subtotal * percent / 100 if percent > 0 else fixed_amount
+    return min(subtotal, _round_money(discount))
 
 
 @router.post("/create_order")
@@ -54,21 +137,20 @@ async def create_order_secure(
 ):
     conn = None
     try:
-        items_total = _calculate_items_total(order)
-        if items_total < MIN_ORDER_AMOUNT:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        resolved_items, subtotal_price = _resolve_order_items(cur, order)
+        if subtotal_price < MIN_ORDER_AMOUNT:
             raise HTTPException(
                 status_code=400,
                 detail=f"Мінімальна сума замовлення — {MIN_ORDER_AMOUNT} грн. Додайте товарів у кошик.",
             )
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-
         clean_phone = normalize_phone(order.phone)
         requested_user_phone = normalize_phone(order.user_phone) if order.user_phone else clean_phone
         token_phone = normalize_phone(current_user_phone) if current_user_phone else None
         is_authenticated_checkout = bool(token_phone)
-        user_phone = token_phone or requested_user_phone or clean_phone
+        user_phone = token_phone if is_authenticated_checkout else None
 
         if token_phone and token_phone != requested_user_phone:
             raise HTTPException(status_code=403, detail="Order user does not match authenticated user")
@@ -76,11 +158,15 @@ async def create_order_secure(
         user = None
         user_dict = None
         available_bonus_balance = 0
+        cumulative_discount_percent = 0
 
         if is_authenticated_checkout:
             user = cur.execute("SELECT * FROM users WHERE phone=?", (user_phone,)).fetchone()
             user_dict = dict(user) if user else None
             available_bonus_balance = int((user_dict or {}).get("bonus_balance") or 0)
+            cumulative_discount_percent = calculate_cumulative_discount_percent(
+                float((user_dict or {}).get("total_spent") or 0)
+            )
             is_verified_user = bool(user_dict and user_dict.get("phone_verified"))
 
             if not is_verified_user:
@@ -93,6 +179,20 @@ async def create_order_secure(
                 raise HTTPException(status_code=401, detail="Login is required to use bonuses")
             order.use_bonuses = False
             order.bonus_used = 0
+
+        promo_discount_amount = _calculate_promo_discount(cur, order.promo_code, subtotal_price)
+        price_after_promo = _round_money(subtotal_price - promo_discount_amount)
+        cumulative_discount_amount = _round_money(
+            price_after_promo * cumulative_discount_percent / 100
+        )
+        price_after_cumulative_discount = _round_money(
+            price_after_promo - cumulative_discount_amount
+        )
+        bonus_used = 0
+        if is_authenticated_checkout and order.use_bonuses:
+            requested_bonus = max(0, int(order.bonus_used or 0))
+            bonus_used = min(requested_bonus, available_bonus_balance, int(price_after_cumulative_discount))
+        final_total = _round_money(price_after_cumulative_discount - bonus_used)
 
         update_fields = []
         update_values = []
@@ -131,19 +231,7 @@ async def create_order_secure(
                     tuple(update_values),
                 )
 
-        items_json = json.dumps([
-            {
-                "id": item.id,
-                "product_id": item.product_id or item.id,
-                "name": item.name,
-                "price": item.price,
-                "quantity": item.quantity,
-                "packSize": item.packSize,
-                "unit": item.unit,
-                "variant_info": item.variant_info,
-            }
-            for item in order.items
-        ])
+        items_json = json.dumps(resolved_items, ensure_ascii=False)
 
         warehouse_for_order = (clean_warehouse_value(order.warehouse) or order.warehouse or "").strip()
         delivery_method = (order.delivery_method or "nova_poshta").strip().lower()
@@ -157,8 +245,9 @@ async def create_order_secure(
             INSERT INTO orders (
                 name, phone, user_phone, email, contact_preference, city, city_ref, warehouse, warehouse_ref,
                 delivery_method, user_ukrposhta, push_token,
-                items, total_price, payment_method, bonus_used, status, date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                items, subtotal_price, cumulative_discount_percent, cumulative_discount_amount,
+                total_price, payment_method, bonus_used, status, date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """,
             (
@@ -175,9 +264,12 @@ async def create_order_secure(
                 order_user_ukrposhta or None,
                 push_token,
                 items_json,
-                order.totalPrice,
+                subtotal_price,
+                cumulative_discount_percent,
+                cumulative_discount_amount,
+                final_total,
                 order.payment_method,
-                order.bonus_used,
+                bonus_used,
                 "Pending",
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             ),
@@ -185,13 +277,13 @@ async def create_order_secure(
         order_id = (row or {}).get("id")
         conn.commit()
 
-        if is_authenticated_checkout and order.use_bonuses and order.bonus_used > 0 and order.payment_method != "card":
+        if is_authenticated_checkout and bonus_used > 0 and order.payment_method != "card":
             cur.execute(
                 "UPDATE users SET bonus_balance = GREATEST(bonus_balance - ?, 0) WHERE phone = ?",
-                (order.bonus_used, user_phone),
+                (bonus_used, user_phone),
             )
             conn.commit()
-            logger.info("Bonuses deducted on checkout: phone=%s amount=%s order_id=%s", user_phone, order.bonus_used, order_id)
+            logger.info("Bonuses deducted on checkout: phone=%s amount=%s order_id=%s", user_phone, bonus_used, order_id)
 
         conn.close()
         conn = None
@@ -228,28 +320,20 @@ async def create_order_secure(
             "warehouse_ref": getattr(order, "warehouseRef", ""),
             "user_ukrposhta": order_user_ukrposhta or None,
             "delivery_method": delivery_method,
-            "bonus_used": order.bonus_used,
+            "bonus_used": bonus_used,
             "bonus_balance": available_bonus_balance,
+            "subtotal_price": subtotal_price,
+            "promo_discount_amount": promo_discount_amount,
+            "cumulative_discount_percent": cumulative_discount_percent,
+            "cumulative_discount_amount": cumulative_discount_amount,
             "guest_checkout": not is_authenticated_checkout,
             "return_url": order.return_url or "",
             "comment": order.comment or order.comments or order.note or "",
             "comments": order.comment or order.comments or order.note or "",
             "db": OneBoxDbSession(DATABASE_URL),
             "Product": Product,
-            "items": [
-                {
-                    "product_id": item.product_id or item.id,
-                    "id": item.id,
-                    "name": item.name,
-                    "price": item.price,
-                    "quantity": item.quantity,
-                    "packSize": item.packSize,
-                    "unit": item.unit,
-                    "variant_info": item.variant_info,
-                }
-                for item in order.items
-            ],
-            "totalPrice": order.totalPrice,
+            "items": resolved_items,
+            "totalPrice": final_total,
             "payment_method": order.payment_method,
             "status": "Pending",
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -285,16 +369,22 @@ async def create_order_secure(
             "message": "Замовлення успішно створено",
             "account_created": False,
             "guest_checkout": not is_authenticated_checkout,
+            "subtotal_price": subtotal_price,
+            "promo_discount_amount": promo_discount_amount,
+            "cumulative_discount_percent": cumulative_discount_percent,
+            "cumulative_discount_amount": cumulative_discount_amount,
+            "bonus_used": bonus_used,
+            "total_price": final_total,
         }
 
-        if order.payment_method == "card" and float(order.totalPrice or 0) > 0:
+        if order.payment_method == "card" and final_total > 0:
             token = os.getenv("MONOBANK_API_TOKEN")
             if not token:
                 logger.error("MONOBANK_API_TOKEN is not set, card order cannot be paid")
                 raise HTTPException(status_code=503, detail="Card payment is temporarily unavailable")
 
             payload = {
-                "amount": int(float(order.totalPrice) * 100),
+                "amount": int(final_total * 100),
                 "ccy": 980,
                 "merchantPaymInfo": {
                     "reference": str(order_id),
@@ -333,7 +423,7 @@ async def create_order_secure(
                     {
                         "event_id": f"purchase_{order_id}",
                         "transaction_id": str(order_id),
-                        "value": float(order.totalPrice or 0),
+                        "value": final_total,
                         "currency": "UAH",
                         "content_type": "product",
                         "content_ids": [item.get("id") or item.get("product_id") for item in order_items],

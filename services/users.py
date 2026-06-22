@@ -6,7 +6,7 @@ import re
 from typing import Optional
 
 
-DEFAULT_CASHBACK_PERCENT = 5
+DEFAULT_CUMULATIVE_DISCOUNT_PERCENT = 0
 MAX_CASHBACK_PERCENT = 100
 
 
@@ -81,8 +81,11 @@ def migrate_phone_references(conn, old_phone: str, new_phone: str) -> None:
     cur.execute("UPDATE app_users SET phone = ? WHERE phone = ?", (new_clean, old_clean))
 
 
-def normalize_cashback_percent(value: Optional[int | float | str], default: int = DEFAULT_CASHBACK_PERCENT) -> int:
-    """Clamp manually-entered cashback percent to a safe integer range."""
+def normalize_cashback_percent(
+    value: Optional[int | float | str],
+    default: int = DEFAULT_CUMULATIVE_DISCOUNT_PERCENT,
+) -> int:
+    """Clamp a legacy percentage field to a safe integer range."""
     if value is None or value == "":
         return default
 
@@ -94,12 +97,19 @@ def normalize_cashback_percent(value: Optional[int | float | str], default: int 
     return max(0, min(MAX_CASHBACK_PERCENT, percent))
 
 
-def calculate_cashback_percent(total_spent: float) -> int:
-    """Calculate cashback percent from lifetime spend; base cashback is 5%."""
+def calculate_cumulative_discount_percent(total_spent: float) -> int:
+    """Calculate the automatic cumulative discount from lifetime paid spend."""
+    if total_spent < 1999:
+        return 0
     if total_spent < 5000:
-        return DEFAULT_CASHBACK_PERCENT
+        return 5
     if total_spent < 10000:
         return 10
     if total_spent < 25000:
         return 15
     return 20
+
+
+def calculate_cashback_percent(total_spent: float) -> int:
+    """Legacy alias for the cumulative discount, not the global cashback rate."""
+    return calculate_cumulative_discount_percent(total_spent)

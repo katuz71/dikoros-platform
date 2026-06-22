@@ -11,10 +11,13 @@ type UserProfile = {
   bonus_balance: number;
   total_spent: number;
   cashback_percent: number;
+  cumulative_discount_percent: number;
+  global_cashback_percent: number;
 };
 
-const getCashbackInfo = (totalSpent: number) => {
-  if (totalSpent < 5000) return { currentPercent: 5, nextLevel: 5000, nextPercent: 10, prevLevel: 0 };
+const getCumulativeDiscountInfo = (totalSpent: number) => {
+  if (totalSpent < 1999) return { currentPercent: 0, nextLevel: 1999, nextPercent: 5, prevLevel: 0 };
+  if (totalSpent < 5000) return { currentPercent: 5, nextLevel: 5000, nextPercent: 10, prevLevel: 1999 };
   if (totalSpent < 10000) return { currentPercent: 10, nextLevel: 10000, nextPercent: 15, prevLevel: 5000 };
   if (totalSpent < 25000) return { currentPercent: 15, nextLevel: 25000, nextPercent: 20, prevLevel: 10000 };
   return { currentPercent: 20, nextLevel: 0, nextPercent: 20, prevLevel: 25000 };
@@ -65,7 +68,11 @@ export default function ProfileCashbackScreen() {
 
   const totalSpent = profile?.total_spent || 0;
   const bonusBalance = profile?.bonus_balance || 0;
-  const { currentPercent, nextLevel, nextPercent, prevLevel } = getCashbackInfo(totalSpent);
+  const cumulativeDiscountPercent = profile?.cumulative_discount_percent
+    ?? profile?.cashback_percent
+    ?? getCumulativeDiscountInfo(totalSpent).currentPercent;
+  const globalCashbackPercent = profile?.global_cashback_percent ?? 5;
+  const { nextLevel, nextPercent, prevLevel } = getCumulativeDiscountInfo(totalSpent);
   const progressPercent = nextLevel > 0
     ? Math.min(((totalSpent - prevLevel) / (nextLevel - prevLevel)) * 100, 100)
     : 100;
@@ -78,7 +85,7 @@ export default function ProfileCashbackScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Бонуси / кешбек</Text>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Бонуси та знижка</Text>
         <View style={styles.unifiedTitleButton} />
       </View>
 
@@ -95,9 +102,13 @@ export default function ProfileCashbackScreen() {
                 <Text style={styles.bonusValue}>{bonusBalance} ₴</Text>
               </View>
               <View style={styles.cashbackBadge}>
-                <Text style={styles.cashbackText}>{currentPercent}% кешбек</Text>
+                <Text style={styles.cashbackText}>{globalCashbackPercent}% кешбек</Text>
               </View>
             </View>
+
+            <Text style={styles.discountText}>
+              Накопичувальна знижка: <Text style={styles.discountStrong}>{cumulativeDiscountPercent}%</Text>
+            </Text>
 
             <View style={styles.progressSection}>
               <Text style={styles.progressText}>
@@ -110,21 +121,22 @@ export default function ProfileCashbackScreen() {
 
               <Text style={styles.progressSubtext}>
                 {nextLevel > 0
-                  ? `Ще ${nextLevel - totalSpent} ₴ до ${nextPercent}% кешбеку`
-                  : 'Ви досягли максимального рівня кешбеку.'}
+                  ? `Ще ${Math.max(0, nextLevel - totalSpent)} ₴ до знижки ${nextPercent}%`
+                  : 'Ви досягли максимальної накопичувальної знижки.'}
               </Text>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Рівні кешбеку</Text>
+            <Text style={styles.cardTitle}>Накопичувальна знижка</Text>
 
             <View style={styles.table}>
               <View style={[styles.tr, styles.trHead]}>
                 <Text style={styles.th}>Сума покупок</Text>
-                <Text style={styles.thRight}>Кешбек</Text>
+                <Text style={styles.thRight}>Знижка</Text>
               </View>
-              <View style={styles.tr}><Text style={styles.td}>0 – 4 999 ₴</Text><Text style={styles.tdRight}>5%</Text></View>
+              <View style={styles.tr}><Text style={styles.td}>0 – 1 998 ₴</Text><Text style={styles.tdRight}>0%</Text></View>
+              <View style={styles.tr}><Text style={styles.td}>1 999 – 4 999 ₴</Text><Text style={styles.tdRight}>5%</Text></View>
               <View style={styles.tr}><Text style={styles.td}>5 000 – 9 999 ₴</Text><Text style={styles.tdRight}>10%</Text></View>
               <View style={styles.tr}><Text style={styles.td}>10 000 – 24 999 ₴</Text><Text style={styles.tdRight}>15%</Text></View>
               <View style={[styles.tr, { borderBottomWidth: 0 }]}><Text style={styles.td}>від 25 000 ₴</Text><Text style={styles.tdRight}>20%</Text></View>
@@ -133,8 +145,8 @@ export default function ProfileCashbackScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Як це працює</Text>
-            <Text style={styles.paragraph}>Бонуси нараховуються після підтвердження виконаного замовлення.</Text>
-            <Text style={styles.paragraph}>Накопичена сума покупок підвищує ваш персональний відсоток кешбеку.</Text>
+            <Text style={styles.paragraph}>Кешбек {globalCashbackPercent}% нараховується бонусами після підтвердження виконаного замовлення.</Text>
+            <Text style={styles.paragraph}>Накопичена сума покупок підвищує автоматичну знижку в checkout.</Text>
             <Text style={styles.paragraph}>Доступні бонуси можна використати під час оформлення наступного замовлення.</Text>
           </View>
         </ScrollView>
@@ -163,6 +175,8 @@ const styles = StyleSheet.create({
   bonusValue: { color: '#FFF', fontSize: 34, fontWeight: '900', marginBottom: 10 },
   cashbackBadge: { backgroundColor: '#444', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10 },
   cashbackText: { color: '#FFD700', fontWeight: '900', fontSize: 14 },
+  discountText: { color: '#DDD', fontSize: 14, marginTop: 8 },
+  discountStrong: { color: '#FFF', fontWeight: '900' },
   progressSection: { marginTop: 12, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#444' },
   progressText: { fontSize: 14, color: '#CCC' },
   progressStrong: { color: '#FFF', fontWeight: '900' },
