@@ -349,6 +349,153 @@ const getVariantOptionParts = (variant: any) => {
 
 const normalizeComparable = (value: any) => String(value ?? '').toLowerCase().trim();
 
+
+const normalizeFilterLabel = (value: any) => {
+  return String(value ?? '')
+    .replace(/[«»"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const addFilterOption = (target: Set<string>, value: any) => {
+  const label = normalizeFilterLabel(value);
+  if (!label || label.length < 2 || label.length > 36) return;
+  if (/^[-–—]$/.test(label)) return;
+  target.add(label);
+};
+
+const toggleFilterValue = (value: string, setter: (updater: (prev: string[]) => string[]) => void) => {
+  setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]);
+};
+
+const sortFilterOptions = (values: Set<string>) => {
+  return Array.from(values).sort((a, b) => a.localeCompare(b, 'uk'));
+};
+
+const getStructuredVariantOptions = (product: any, wantedLabels: string[]) => {
+  const values = new Set<string>();
+  const wanted = wantedLabels.map(normalizeComparable);
+  const variants = parseMaybeJsonArray(product?.variants);
+  const optionNames = parseOptionNames(product?.option_names);
+
+  variants.forEach((variant: any) => {
+    const structured = variant?.options && typeof variant.options === 'object'
+      ? variant.options
+      : variant?.attrs && typeof variant.attrs === 'object'
+        ? variant.attrs
+        : null;
+
+    if (structured) {
+      Object.entries(structured).forEach(([key, value]) => {
+        const normalizedKey = normalizeComparable(key);
+        if (wanted.some(label => normalizedKey.includes(label))) {
+          addFilterOption(values, value);
+        }
+      });
+    }
+
+    const parts = getVariantOptionParts(variant);
+    optionNames.forEach((name, index) => {
+      const normalizedName = normalizeComparable(name);
+      if (wanted.some(label => normalizedName.includes(label))) {
+        addFilterOption(values, parts[index]);
+      }
+    });
+  });
+
+  return sortFilterOptions(values);
+};
+
+const RAW_MATERIAL_STOP_WORDS = [
+  'капсули', 'капсул', 'порошок', 'порошку', 'екстракт', 'настоянка', 'настойка',
+  'сушені', 'сушений', 'сушена', 'сушене', 'цілі', 'цілий', 'мелені', 'мелений',
+  'трава', 'трави', 'гриб', 'гриби', 'мазь', 'крем', 'чай', 'набір', 'набор',
+  'мікродозинг', 'мікродозінг', 'шляпках', 'шапках', 'на', 'із', 'з', 'для'
+];
+
+const cleanupRawMaterialCandidate = (value: any) => {
+  let text = normalizeFilterLabel(value)
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:г|гр|kg|кг|мг|ml|мл|л|шт|капсул|капсули)\b/gi, ' ')
+    .replace(/\b\d{2,4}\b/g, ' ')
+    .replace(/[|,:;\/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const words = text.split(' ').filter((word) => {
+    const normalized = normalizeComparable(word);
+    if (!normalized) return false;
+    return !RAW_MATERIAL_STOP_WORDS.some(stop => normalized === stop || normalized.startsWith(`${stop}-`));
+  });
+
+  text = words.slice(0, 3).join(' ').trim();
+  if (!text || text.length < 3) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const getCatalogRawMaterials = (product: any) => {
+  const values = new Set<string>();
+
+  getStructuredVariantOptions(product, ['Сировина', 'Склад', 'Вид', 'Рослина']).forEach(value => addFilterOption(values, value));
+
+  const categoryParts = normalizeCategory(product?.category).split('/').map(part => part.trim()).filter(Boolean);
+  categoryParts.slice(1).forEach(part => addFilterOption(values, cleanupRawMaterialCandidate(part)));
+
+  const name = String(product?.name ?? '');
+  const nameLead = name.split(/[,:;()]/)[0];
+  addFilterOption(values, cleanupRawMaterialCandidate(nameLead));
+
+  return sortFilterOptions(values);
+};
+
+const PACKAGE_FORM_PATTERNS: { label: string; patterns: RegExp[] }[] = [
+  { label: 'Капсули', patterns: [/капсул/i] },
+  { label: 'Порошок', patterns: [/порош/i, /мелен/i] },
+  { label: 'Цілі', patterns: [/\bціл/i, /\bцел/i] },
+  { label: 'Настоянка', patterns: [/настоян/i, /настой/i] },
+  { label: 'Мазь', patterns: [/\bмаз/i, /крем/i] },
+  { label: 'Чай', patterns: [/\bчай\b/i] },
+  { label: 'Набір', patterns: [/набір/i, /набор/i] },
+  { label: 'Шоколад', patterns: [/шоколад/i] },
+  { label: 'Мед', patterns: [/\bмед\b/i] },
+  { label: 'Консервація', patterns: [/консервац/i] },
+  { label: 'Приправа', patterns: [/приправа/i] },
+];
+
+const getCatalogPackageForms = (product: any) => {
+  const values = new Set<string>();
+
+  getStructuredVariantOptions(product, ['Форма', 'Формат', 'Упаковка']).forEach(value => addFilterOption(values, value));
+
+  const searchableText = [product?.name, product?.category, product?.variant_name]
+    .filter(Boolean)
+    .join(' ');
+
+  PACKAGE_FORM_PATTERNS.forEach(({ label, patterns }) => {
+    if (patterns.some(pattern => pattern.test(searchableText))) {
+      addFilterOption(values, label);
+    }
+  });
+
+  return sortFilterOptions(values);
+};
+
+const productMatchesSelectedFilters = (
+  product: any,
+  selectedValues: string[],
+  extractor: (product: any) => string[]
+) => {
+  if (!selectedValues.length) return true;
+  const available = extractor(product).map(normalizeComparable);
+  return selectedValues.some(value => available.includes(normalizeComparable(value)));
+};
+
+const selectedFilterLabel = (title: string, values: string[]) => {
+  if (!values.length) return null;
+  if (values.length === 1) return `${title}: ${values[0]}`;
+  return `${title}: ${values.length}`;
+};
+
 const getOptIndexFromKey = (key: any) => {
   if (typeof key !== 'string') return null;
   if (!key.startsWith('opt_')) return null;
@@ -582,6 +729,9 @@ export default function Index() {
   const [priceTo, setPriceTo] = useState('');
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [onlyPromo, setOnlyPromo] = useState(false);
+  const [selectedRawMaterials, setSelectedRawMaterials] = useState<string[]>([]);
+  const [selectedPackageForms, setSelectedPackageForms] = useState<string[]>([]);
+  const [expandedFilterSection, setExpandedFilterSection] = useState<string | null>('sort');
   const [successVisible, setSuccessVisible] = useState(false);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -1184,8 +1334,11 @@ export default function Index() {
     setSearchQuery('');
     setIsSearchVisible(false);
     setFilterModalVisible(false);
+    setExpandedFilterSection('sort');
     setOnlyAvailable(false);
     setOnlyPromo(false);
+    setSelectedRawMaterials([]);
+    setSelectedPackageForms([]);
     setPriceFrom('');
     setPriceTo('');
     setSortType('popular');
@@ -1208,8 +1361,11 @@ export default function Index() {
     setSearchQuery('');
     setIsSearchVisible(false);
     setFilterModalVisible(false);
+    setExpandedFilterSection('sort');
     setOnlyAvailable(false);
     setOnlyPromo(false);
+    setSelectedRawMaterials([]);
+    setSelectedPackageForms([]);
     setPriceFrom('');
     setPriceTo('');
     setSortType('popular');
@@ -1496,6 +1652,8 @@ export default function Index() {
       if (selectedCategory && !categoryMatches(p?.category, selectedCategory)) return false;
       if (onlyAvailable && !isCatalogProductAvailable(p)) return false;
       if (onlyPromo && !isCatalogPromoProduct(p)) return false;
+      if (!productMatchesSelectedFilters(p, selectedRawMaterials, getCatalogRawMaterials)) return false;
+      if (!productMatchesSelectedFilters(p, selectedPackageForms, getCatalogPackageForms)) return false;
       if (Number.isFinite(minPrice) && minPrice > 0 && price < minPrice) return false;
       if (Number.isFinite(maxPrice) && maxPrice > 0 && price > maxPrice) return false;
 
@@ -1531,10 +1689,40 @@ export default function Index() {
   };
   
   const filteredProducts = getSortedProducts();
+
+  const categoryFilterBaseProducts = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    return safeProducts.filter((p: any) => {
+      const productName = String(p?.name ?? '').toLowerCase();
+      if (normalizedSearch && !productName.includes(normalizedSearch)) return false;
+      if (selectedCategory && !categoryMatches(p?.category, selectedCategory)) return false;
+      return true;
+    });
+  }, [safeProducts, searchQuery, selectedCategory]);
+
+  const rawMaterialFilterOptions = useMemo(() => {
+    const values = new Set<string>();
+    categoryFilterBaseProducts.forEach((product: any) => {
+      getCatalogRawMaterials(product).forEach(value => addFilterOption(values, value));
+    });
+    return sortFilterOptions(values);
+  }, [categoryFilterBaseProducts]);
+
+  const packageFormFilterOptions = useMemo(() => {
+    const values = new Set<string>();
+    categoryFilterBaseProducts.forEach((product: any) => {
+      getCatalogPackageForms(product).forEach(value => addFilterOption(values, value));
+    });
+    return sortFilterOptions(values);
+  }, [categoryFilterBaseProducts]);
+
+  const activeFilterCount = selectedRawMaterials.length + selectedPackageForms.length + (onlyAvailable ? 1 : 0) + (onlyPromo ? 1 : 0) + (priceFrom.trim() ? 1 : 0) + (priceTo.trim() ? 1 : 0);
   const activeSortLabel = CATEGORY_SORT_OPTIONS.find(option => option.key === sortType)?.label || 'Популярні';
   const categoryFilterSummary = [
     `${filteredProducts.length} товарів`,
     activeSortLabel,
+    selectedFilterLabel('Сировина', selectedRawMaterials),
+    selectedFilterLabel('Форма', selectedPackageForms),
     onlyAvailable ? 'В наявності' : null,
     onlyPromo ? 'Акційні' : null,
   ].filter(Boolean).join(' · ');
@@ -1558,6 +1746,54 @@ export default function Index() {
   const promoProducts = catalogHomeLoaded ? homePromotions : fallbackPromoProducts;
   const newProducts = catalogHomeLoaded ? homeNewProducts : fallbackNewProducts;
 
+  const toggleFilterSection = (section: string) => {
+    setExpandedFilterSection(prev => prev === section ? null : section);
+  };
+
+  const renderFilterSectionHeader = (section: string, title: string, subtitle?: string | null) => {
+    const expanded = expandedFilterSection === section;
+    return (
+      <TouchableOpacity
+        onPress={() => toggleFilterSection(section)}
+        activeOpacity={0.82}
+        style={{
+          minHeight: 52,
+          borderRadius: 14,
+          backgroundColor: '#F9FAFB',
+          borderWidth: 1,
+          borderColor: expanded ? '#2E7D32' : '#E5E7EB',
+          paddingHorizontal: 14,
+          marginBottom: expanded ? 10 : 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#111827', fontSize: 16, fontWeight: '900' }}>{title}</Text>
+          {!!subtitle && (
+            <Text style={{ color: '#6B7280', fontSize: 12, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={expanded ? '#2E7D32' : '#6B7280'} />
+      </TouchableOpacity>
+    );
+  };
+
+  const filterOptionChipStyle = (active: boolean) => ({
+    minHeight: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: active ? '#E8F5E9' : '#FFFFFF',
+    borderWidth: 1,
+    borderColor: active ? '#2E7D32' : '#E5E7EB',
+  });
+
   const scrollCategoryTabsToIndex = (index: number) => {
     const estimatedTabWidth = 118;
     const targetX = Math.max(0, (index - 1) * estimatedTabWidth);
@@ -1575,6 +1811,9 @@ export default function Index() {
 
     setTimeout(() => {
       setSelectedCategory(category);
+      setSelectedRawMaterials([]);
+      setSelectedPackageForms([]);
+      setExpandedFilterSection('sort');
       setCategoryViewOpen(true);
     }, 120);
   };
@@ -1692,7 +1931,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart onLogoPress={showHomeScreen} />
+      <AppHeader showLogo showSearch showFavorites onLogoPress={showHomeScreen} />
 
       {!categoryViewOpen && (
         <View style={styles.categoriesList}>
@@ -1708,6 +1947,9 @@ export default function Index() {
                 scrollCategoryTabsToIndex(0);
                 setSelectedCategory('');
                 setSearchQuery('');
+                setSelectedRawMaterials([]);
+                setSelectedPackageForms([]);
+                setExpandedFilterSection('sort');
                 setCategoryViewOpen(true);
               }}
               style={styles.categoryTab}
@@ -1789,9 +2031,31 @@ export default function Index() {
             </View>
           )}
 
-          <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '700', marginBottom: 12, paddingHorizontal: 4 }}>
-            {categoryFilterSummary}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, paddingHorizontal: 4 }}>
+            <Text style={{ flex: 1, color: '#6B7280', fontSize: 13, fontWeight: '700' }} numberOfLines={2}>
+              {categoryFilterSummary}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setFilterModalVisible(true)}
+              activeOpacity={0.8}
+              style={{
+                height: 38,
+                paddingHorizontal: 13,
+                borderRadius: 999,
+                backgroundColor: activeFilterCount > 0 ? '#E8F5E9' : '#FFFFFF',
+                borderWidth: 1,
+                borderColor: activeFilterCount > 0 ? '#2E7D32' : '#E5E7EB',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Ionicons name="options-outline" size={18} color={activeFilterCount > 0 ? '#2E7D32' : '#111827'} />
+              <Text style={{ color: activeFilterCount > 0 ? '#2E7D32' : '#111827', fontSize: 14, fontWeight: '900' }}>
+                Фільтр{activeFilterCount > 0 ? ` ${activeFilterCount}` : ''}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <FlatList
             data={filteredProducts}
@@ -2023,94 +2287,158 @@ export default function Index() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
-              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Сортування</Text>
-              <View style={{ gap: 6, marginBottom: 22 }}>
-                {CATEGORY_SORT_OPTIONS.map((option) => {
-                  const active = sortType === option.key;
-                  return (
-                    <TouchableOpacity
-                      key={option.key}
-                      onPress={() => setSortType(option.key)}
-                      style={{
-                        minHeight: 44,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        backgroundColor: active ? '#E8F5E9' : '#F9FAFB',
-                        borderWidth: 1,
-                        borderColor: active ? '#2E7D32' : '#EEF0F2',
-                      }}
-                    >
-                      <Text style={{ color: '#111827', fontSize: 15, fontWeight: active ? '900' : '700' }}>
-                        {option.label}
-                      </Text>
-                      <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={20} color={active ? '#2E7D32' : '#9CA3AF'} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {renderFilterSectionHeader('sort', 'Сортування', activeSortLabel)}
+              {expandedFilterSection === 'sort' && (
+                <View style={{ gap: 8, marginBottom: 14 }}>
+                  {CATEGORY_SORT_OPTIONS.map((option) => {
+                    const active = sortType === option.key;
+                    return (
+                      <TouchableOpacity
+                        key={option.key}
+                        onPress={() => setSortType(option.key)}
+                        style={{
+                          minHeight: 44,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          borderRadius: 12,
+                          paddingHorizontal: 12,
+                          backgroundColor: active ? '#E8F5E9' : '#FFFFFF',
+                          borderWidth: 1,
+                          borderColor: active ? '#2E7D32' : '#E5E7EB',
+                        }}
+                      >
+                        <Text style={{ color: '#111827', fontSize: 15, fontWeight: active ? '900' : '700' }}>
+                          {option.label}
+                        </Text>
+                        <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={20} color={active ? '#2E7D32' : '#9CA3AF'} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
 
-              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Ціна</Text>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
-                <TextInput
-                  value={priceFrom}
-                  onChangeText={setPriceFrom}
-                  placeholder="Від"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  style={{
-                    flex: 1,
-                    height: 46,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    backgroundColor: '#F9FAFB',
-                    paddingHorizontal: 12,
-                    color: '#111827',
-                    fontSize: 15,
-                    fontWeight: '700',
-                  }}
-                />
-                <TextInput
-                  value={priceTo}
-                  onChangeText={setPriceTo}
-                  placeholder="До"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  style={{
-                    flex: 1,
-                    height: 46,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    backgroundColor: '#F9FAFB',
-                    paddingHorizontal: 12,
-                    color: '#111827',
-                    fontSize: 15,
-                    fontWeight: '700',
-                  }}
-                />
-              </View>
+              {renderFilterSectionHeader('price', 'Ціна', priceFrom || priceTo ? `${priceFrom || '0'} – ${priceTo || '∞'} ₴` : 'Будь-яка')}
+              {expandedFilterSection === 'price' && (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                  <TextInput
+                    value={priceFrom}
+                    onChangeText={setPriceFrom}
+                    placeholder="Від"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    style={{
+                      flex: 1,
+                      height: 46,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      backgroundColor: '#FFFFFF',
+                      paddingHorizontal: 12,
+                      color: '#111827',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}
+                  />
+                  <TextInput
+                    value={priceTo}
+                    onChangeText={setPriceTo}
+                    placeholder="До"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    style={{
+                      flex: 1,
+                      height: 46,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      backgroundColor: '#FFFFFF',
+                      paddingHorizontal: 12,
+                      color: '#111827',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}
+                  />
+                </View>
+              )}
 
-              <Text style={{ fontSize: 16, fontWeight: '900', color: '#111827', marginBottom: 10 }}>Наявність та пропозиції</Text>
-              <View style={{ gap: 8, marginBottom: 24 }}>
-                <TouchableOpacity
-                  onPress={() => setOnlyAvailable(prev => !prev)}
-                  style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                >
-                  <Ionicons name={onlyAvailable ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyAvailable ? '#2E7D32' : '#6B7280'} />
-                  <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки в наявності</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setOnlyPromo(prev => !prev)}
-                  style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                >
-                  <Ionicons name={onlyPromo ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyPromo ? '#2E7D32' : '#6B7280'} />
-                  <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки акційні</Text>
-                </TouchableOpacity>
-              </View>
+              {rawMaterialFilterOptions.length > 0 && (
+                <>
+                  {renderFilterSectionHeader('raw', 'Сировина', selectedRawMaterials.length ? selectedRawMaterials.join(', ') : `${rawMaterialFilterOptions.length} варіантів`)}
+                  {expandedFilterSection === 'raw' && (
+                    <View style={{ maxHeight: 230, marginBottom: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', padding: 10 }}>
+                      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {rawMaterialFilterOptions.map((option) => {
+                            const active = selectedRawMaterials.includes(option);
+                            return (
+                              <TouchableOpacity
+                                key={option}
+                                onPress={() => toggleFilterValue(option, setSelectedRawMaterials)}
+                                activeOpacity={0.8}
+                                style={filterOptionChipStyle(active)}
+                              >
+                                <Text style={{ color: active ? '#2E7D32' : '#111827', fontSize: 14, fontWeight: '800' }}>
+                                  {option}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {packageFormFilterOptions.length > 0 && (
+                <>
+                  {renderFilterSectionHeader('form', 'Форма упаковки', selectedPackageForms.length ? selectedPackageForms.join(', ') : `${packageFormFilterOptions.length} варіантів`)}
+                  {expandedFilterSection === 'form' && (
+                    <View style={{ maxHeight: 230, marginBottom: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', padding: 10 }}>
+                      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {packageFormFilterOptions.map((option) => {
+                            const active = selectedPackageForms.includes(option);
+                            return (
+                              <TouchableOpacity
+                                key={option}
+                                onPress={() => toggleFilterValue(option, setSelectedPackageForms)}
+                                activeOpacity={0.8}
+                                style={filterOptionChipStyle(active)}
+                              >
+                                <Text style={{ color: active ? '#2E7D32' : '#111827', fontSize: 14, fontWeight: '800' }}>
+                                  {option}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {renderFilterSectionHeader('offers', 'Наявність та пропозиції', [onlyAvailable ? 'В наявності' : null, onlyPromo ? 'Акційні' : null].filter(Boolean).join(', ') || 'Без обмежень')}
+              {expandedFilterSection === 'offers' && (
+                <View style={{ gap: 8, marginBottom: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', padding: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => setOnlyAvailable(prev => !prev)}
+                    style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                  >
+                    <Ionicons name={onlyAvailable ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyAvailable ? '#2E7D32' : '#6B7280'} />
+                    <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки в наявності</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setOnlyPromo(prev => !prev)}
+                    style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                  >
+                    <Ionicons name={onlyPromo ? 'checkbox-outline' : 'square-outline'} size={23} color={onlyPromo ? '#2E7D32' : '#6B7280'} />
+                    <Text style={{ color: '#111827', fontSize: 15, fontWeight: '800' }}>Тільки акційні</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </ScrollView>
 
             <View style={{ position: 'absolute', left: 20, right: 20, bottom: 82, flexDirection: 'row', gap: 10, paddingTop: 8 }}>
@@ -2119,8 +2447,10 @@ export default function Index() {
                   setSortType('popular');
                   setPriceFrom('');
                   setPriceTo('');
-                  setOnlyAvailable(true);
+                  setOnlyAvailable(false);
                   setOnlyPromo(false);
+                  setSelectedRawMaterials([]);
+                  setSelectedPackageForms([]);
                 }}
                 style={{
                   flex: 0.85,
