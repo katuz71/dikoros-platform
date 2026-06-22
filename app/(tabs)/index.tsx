@@ -2147,7 +2147,12 @@ export default function Index() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 pagingEnabled={true}
-                style={{ marginBottom: 14 }}
+                style={{
+                  height: BANNER_HEIGHT,
+                  flexGrow: 0,
+                  flexShrink: 0,
+                  marginBottom: 14,
+                }}
                 snapToInterval={SLIDE_WIDTH}
                 decelerationRate="fast"
               >
@@ -2275,7 +2280,12 @@ export default function Index() {
             horizontal
             showsHorizontalScrollIndicator={false}
             pagingEnabled={true}
-            style={{ marginBottom: 14 }}
+            style={{
+              height: BANNER_HEIGHT,
+              flexGrow: 0,
+              flexShrink: 0,
+              marginBottom: 14,
+            }}
             snapToInterval={SLIDE_WIDTH}
             decelerationRate="fast"
           >
