@@ -736,6 +736,7 @@ export default function Index() {
   const [successVisible, setSuccessVisible] = useState(false);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [categoryBannerIndex, setCategoryBannerIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -807,6 +808,31 @@ export default function Index() {
     ));
     return Array.isArray(category?.banner_items) ? category.banner_items : [];
   }, [homeCategories, selectedCategory]);
+
+
+
+  // Auto-scrolling category banner carousel
+  useEffect(() => {
+    if (!categoryViewOpen || selectedCategoryBanners.length <= 1) return;
+
+    const { width } = Dimensions.get('window');
+    const SLIDE_WIDTH = width;
+
+    setCategoryBannerIndex(0);
+    requestAnimationFrame(() => {
+      categoryBannerRef.current?.scrollTo({ x: 0, animated: false });
+    });
+
+    const interval = setInterval(() => {
+      setCategoryBannerIndex(prev => {
+        const next = prev === selectedCategoryBanners.length - 1 ? 0 : prev + 1;
+        categoryBannerRef.current?.scrollTo({ x: next * SLIDE_WIDTH, animated: true });
+        return next;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [categoryViewOpen, selectedCategoryBanners.length, selectedCategory]);
 
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
@@ -1388,6 +1414,7 @@ export default function Index() {
   const flatListRef = useRef<FlatList>(null);
   const chatFlatListRef = useRef<FlatList>(null);
   const bannerRef = useRef<ScrollView>(null);
+  const categoryBannerRef = useRef<ScrollView>(null);
   const categoryTabsRef = useRef<ScrollView>(null);
 
   const showHomeScreen = useCallback(() => {
@@ -2079,11 +2106,16 @@ export default function Index() {
             const bannerHeight = Math.round(bannerWidth * 0.30);
             return (
               <ScrollView
+                ref={categoryBannerRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 pagingEnabled
                 snapToInterval={slideWidth}
                 decelerationRate="fast"
+                onMomentumScrollEnd={(event) => {
+                  const nextIndex = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+                  setCategoryBannerIndex(nextIndex);
+                }}
                 style={{ marginBottom: 14 }}
               >
                 {selectedCategoryBanners.map((banner: any) => {
@@ -2108,6 +2140,21 @@ export default function Index() {
                   );
                 })}
               </ScrollView>
+              {selectedCategoryBanners.length > 1 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: -6, marginBottom: 10 }}>
+                  {selectedCategoryBanners.map((_: any, dotIndex: number) => (
+                    <View
+                      key={`category-banner-dot-${dotIndex}`}
+                      style={{
+                        width: categoryBannerIndex === dotIndex ? 18 : 6,
+                        height: 6,
+                        borderRadius: 999,
+                        backgroundColor: categoryBannerIndex === dotIndex ? '#2E7D32' : '#D1D5DB',
+                      }}
+                    />
+                  ))}
+                </View>
+              )}
             );
           })()}
 
