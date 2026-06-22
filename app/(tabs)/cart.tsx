@@ -90,7 +90,7 @@ export default function CartScreen() {
     }
   }, []);
 
-  // Android back in cart: close modal, then go back if possible, otherwise stay.
+  // Android back in cart: close modal first, then let global history handler work.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -100,17 +100,11 @@ export default function CartScreen() {
         return true;
       }
 
-      const appRouter = router as any;
-      if (typeof appRouter.canGoBack === 'function' && appRouter.canGoBack()) {
-        appRouter.back();
-        return true;
-      }
-
-      return true;
+      return false;
     });
 
     return () => subscription.remove();
-  }, [quantityPickerItem, router]);
+  }, [quantityPickerItem]);
 
   const normalizeText = (value: any) => String(value || '')
     .toLowerCase()

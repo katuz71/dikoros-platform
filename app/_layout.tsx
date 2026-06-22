@@ -12,7 +12,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
@@ -110,6 +110,8 @@ export default function Layout() {
   const segments = useSegments();
   const router = useRouter();
   const routeKey = segments.join('/');
+  const navigationHistoryRef = useRef<string[]>([]);
+  const isHistoryBackRef = useRef(false);
   const [productFooterVisible, setProductFooterVisible] = useState(true);
   const isProductRoute = routeKey === 'product/[id]';
   const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && (!isProductRoute || productFooterVisible);
@@ -127,6 +129,24 @@ export default function Layout() {
     logFirebaseScreen(pathname || 'Root');
   }, [pathname]);
 
+  // Track in-app pathname history for Android back.
+  useEffect(() => {
+    const currentPath = pathname || '/';
+
+    if (isHistoryBackRef.current) {
+      isHistoryBackRef.current = false;
+      return;
+    }
+
+    const history = navigationHistoryRef.current;
+    if (history[history.length - 1] !== currentPath) {
+      history.push(currentPath);
+      if (history.length > 25) {
+        history.splice(0, history.length - 25);
+      }
+    }
+  }, [pathname]);
+
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
@@ -136,18 +156,30 @@ export default function Layout() {
     if (Platform.OS !== 'android') return;
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      const appRouter = router as any;
+      const history = navigationHistoryRef.current;
+      const currentPath = pathname || '/';
 
-      if (typeof appRouter.canGoBack === 'function' && appRouter.canGoBack()) {
-        appRouter.back();
+      while (history.length > 0 && history[history.length - 1] === currentPath) {
+        history.pop();
+      }
+
+      const previousPath = history.pop();
+
+      if (previousPath) {
+        isHistoryBackRef.current = true;
+        router.replace(previousPath as any);
         return true;
+      }
+
+      if (history.length === 0) {
+        navigationHistoryRef.current = [currentPath];
       }
 
       return true;
     });
 
     return () => subscription.remove();
-  }, [router, routeKey]);
+  }, [pathname, router, routeKey]);
 
   useEffect(() => {
     let mounted = true;
