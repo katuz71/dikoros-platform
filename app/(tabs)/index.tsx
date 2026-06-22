@@ -2154,74 +2154,51 @@ export default function Index() {
             const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.30);
 
             return (
-              <>
-                <ScrollView
-                  ref={categoryBannerRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  pagingEnabled
-                  snapToInterval={SLIDE_WIDTH}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={(event) => {
-                    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / SLIDE_WIDTH);
-                    setCategoryBannerIndex(nextIndex);
-                  }}
-                  style={{ marginBottom: selectedCategoryBanners.length > 1 ? 8 : 14 }}
-                >
-                  {selectedCategoryBanners.map((banner: any) => {
-                    const imageUrl = banner?.image_url || banner?.image || banner?.picture;
-                    if (!imageUrl) return null;
+              <ScrollView
+                ref={categoryBannerRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                pagingEnabled={true}
+                style={{ marginBottom: 14 }}
+                snapToInterval={SLIDE_WIDTH}
+                decelerationRate="fast"
+              >
+                {selectedCategoryBanners.map((b: any) => {
+                  const imageUrl = b.image_url || b.image || b.picture;
+                  if (!imageUrl) {
+                    return null;
+                  }
 
-                    const fullImageUrl = getImageUrl(imageUrl, {
-                      width: BANNER_WIDTH,
-                      height: BANNER_HEIGHT,
-                      quality: 80,
-                      format: 'jpg',
-                    });
+                  const fullImageUrl = getImageUrl(imageUrl, {
+                    width: BANNER_WIDTH,
+                    height: BANNER_HEIGHT,
+                    quality: 80,
+                    format: 'jpg'
+                  });
 
-                    const linkType = String(banner?.link_type || 'none').toLowerCase();
-                    const isClickable = linkType !== 'none';
-
-                    return (
-                      <View
-                        key={banner?.id || imageUrl}
-                        style={{
-                          width: SLIDE_WIDTH,
-                          paddingHorizontal: 8,
-                        }}
+                  return (
+                    <View
+                      key={b?.id || Math.random()}
+                      style={{
+                        width: SLIDE_WIDTH,
+                        paddingHorizontal: 8
+                      }}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={b?.link_type && b.link_type !== 'none' ? 0.88 : 1}
+                        disabled={!b?.link_type || b.link_type === 'none'}
+                        onPress={() => handleBannerPress(b)}
                       >
-                        <TouchableOpacity
-                          activeOpacity={isClickable ? 0.88 : 1}
-                          disabled={!isClickable}
-                          onPress={() => handleBannerPress(banner)}
-                        >
-                          <BannerImage
-                            uri={fullImageUrl}
-                            width={BANNER_WIDTH}
-                            height={BANNER_HEIGHT}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-
-                {selectedCategoryBanners.length > 1 && (
-                  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 0, marginBottom: 12 }}>
-                    {selectedCategoryBanners.map((_: any, dotIndex: number) => (
-                      <View
-                        key={`category-banner-dot-${dotIndex}`}
-                        style={{
-                          width: categoryBannerIndex === dotIndex ? 18 : 6,
-                          height: 6,
-                          borderRadius: 999,
-                          backgroundColor: categoryBannerIndex === dotIndex ? '#2E7D32' : '#D1D5DB',
-                        }}
-                      />
-                    ))}
-                  </View>
-                )}
-              </>
+                        <BannerImage
+                          uri={fullImageUrl}
+                          width={BANNER_WIDTH}
+                          height={BANNER_HEIGHT}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             );
           })()}
 
