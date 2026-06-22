@@ -2133,6 +2133,14 @@ export default function Index() {
                         style={{
                           borderRadius: 18,
                           overflow: 'hidden',
+                          borderTopLeftRadius: 18,
+                          borderTopRightRadius: 18,
+                          borderBottomLeftRadius: 18,
+                          borderBottomRightRadius: 18,
+                            borderTopLeftRadius: 18,
+                            borderTopRightRadius: 18,
+                            borderBottomLeftRadius: 18,
+                            borderBottomRightRadius: 18,
                           backgroundColor: '#FFFFFF',
                           borderBottomLeftRadius: 18,
                           borderBottomRightRadius: 18,
@@ -2152,14 +2160,26 @@ export default function Index() {
                           <Image
                             source={{ uri: getImageUrl(imageUrl) }}
                             style={{
+                              position: 'absolute',
+                              left: 0,
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: '100%',
+                              height: '100%',
+                              opacity: 0.28,
+                            }}
+                            resizeMode="cover"
+                            blurRadius={14}
+                          />
+                          <Image
+                            source={{ uri: getImageUrl(imageUrl) }}
+                            style={{
                               width: '100%',
                               height: '100%',
                               borderRadius: 18,
-                              borderBottomLeftRadius: 18,
-                              borderBottomRightRadius: 18,
-                              overflow: 'hidden',
                             }}
-                            resizeMode="stretch"
+                            resizeMode="contain"
                           />
                         </View>
                       </TouchableOpacity>
