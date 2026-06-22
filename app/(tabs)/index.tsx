@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, BackHandler, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
 import { AppHeader } from '@/components/AppHeader';
 import ProductCard from '../../components/ProductCard';
@@ -810,6 +810,51 @@ export default function Index() {
   }, [homeCategories, selectedCategory]);
 
 
+
+  // Handle Android system back inside catalog/home screen.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (filterModalVisible) {
+        setFilterModalVisible(false);
+        return true;
+      }
+
+      if (modalVisible) {
+        setModalVisible(false);
+        return true;
+      }
+
+      if (successModalVisible) {
+        setSuccessModalVisible(false);
+        return true;
+      }
+
+      if (isSearchVisible) {
+        setIsSearchVisible(false);
+        setSearchQuery('');
+        return true;
+      }
+
+      if (categoryViewOpen) {
+        setCategoryViewOpen(false);
+        setSelectedCategory('');
+        setCategoryBannerIndex(0);
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [
+    categoryViewOpen,
+    filterModalVisible,
+    isSearchVisible,
+    modalVisible,
+    successModalVisible,
+  ]);
 
   // Auto-scrolling category banner carousel
   useEffect(() => {

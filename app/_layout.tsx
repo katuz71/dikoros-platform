@@ -1,4 +1,4 @@
-﻿import { AppFooter } from '@/components/AppFooter';
+import { AppFooter } from '@/components/AppFooter';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
@@ -13,7 +13,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { BackHandler, Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
 import { OrdersProvider } from '../context/OrdersContext';
@@ -130,6 +130,21 @@ export default function Layout() {
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
+
+  // Prevent Android system back from exiting the app on main tabs.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (routeKey === '(tabs)' || routeKey.startsWith('(tabs)/')) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [routeKey]);
 
   useEffect(() => {
     let mounted = true;
