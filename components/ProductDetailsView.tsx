@@ -1,4 +1,5 @@
 import { useCart } from '@/context/CartContext';
+import { useAppFooterVisibility } from '@/context/AppFooterVisibilityContext';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
@@ -81,12 +82,62 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
   const insets = useSafeAreaInsets();
+  const { productFooterVisible, setProductFooterVisible } = useAppFooterVisibility();
   const router = useRouter();
   const { addItem } = useCart() as any;
   void onAddToCart;
   void variantRows;
 
   const quantityOptions = React.useMemo(() => Array.from({ length: 10 }, (_, index) => index + 1), []);
+  const footerVisibleRef = React.useRef(productFooterVisible);
+  const lastScrollOffsetRef = React.useRef(0);
+  const scrollDirectionRef = React.useRef<'up' | 'down' | null>(null);
+  const directionDistanceRef = React.useRef(0);
+
+  React.useEffect(() => {
+    footerVisibleRef.current = productFooterVisible;
+  }, [productFooterVisible]);
+
+  const updateProductFooterVisibility = React.useCallback((visible: boolean) => {
+    if (footerVisibleRef.current === visible) return;
+    footerVisibleRef.current = visible;
+    setProductFooterVisible(visible);
+  }, [setProductFooterVisible]);
+
+  React.useEffect(() => {
+    updateProductFooterVisibility(true);
+    return () => setProductFooterVisible(true);
+  }, [setProductFooterVisible, updateProductFooterVisibility]);
+
+  const handlePageScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offset = Math.max(0, event.nativeEvent.contentOffset.y);
+    const delta = offset - lastScrollOffsetRef.current;
+    lastScrollOffsetRef.current = offset;
+
+    if (offset <= 8) {
+      scrollDirectionRef.current = null;
+      directionDistanceRef.current = 0;
+      updateProductFooterVisibility(true);
+      return;
+    }
+
+    if (Math.abs(delta) < 1) return;
+    const direction: 'up' | 'down' = delta > 0 ? 'down' : 'up';
+
+    if (scrollDirectionRef.current !== direction) {
+      scrollDirectionRef.current = direction;
+      directionDistanceRef.current = 0;
+    }
+    directionDistanceRef.current += Math.abs(delta);
+
+    if (direction === 'down' && offset > 24 && directionDistanceRef.current >= 18) {
+      directionDistanceRef.current = 0;
+      updateProductFooterVisibility(false);
+    } else if (direction === 'up' && directionDistanceRef.current >= 14) {
+      directionDistanceRef.current = 0;
+      updateProductFooterVisibility(true);
+    }
+  }, [updateProductFooterVisibility]);
 
   const selectedSignature = React.useMemo(() => {
     const selected = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
@@ -338,7 +389,12 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     <View style={styles.root}>
       <AppHeader showLogo showBack backIcon="chevron-back" showSearch showFavoriteToggle />
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 210 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 210 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={handlePageScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.imageWrap}>
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={handleImageScroll}>
             {images.map((img, index) => (
@@ -473,9 +529,18 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         </View>
       </ScrollView>
 
-      <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4) }]}>
+      <View style={[
+        styles.stickyCartBar,
+        {
+          bottom: productFooterVisible ? 58 + Math.max(insets.bottom, 4) : 0,
+          paddingBottom: productFooterVisible ? 0 : Math.max(insets.bottom, 4),
+        },
+      ]}>
         {quantityMenuOpen && (
-          <View style={styles.quantityDropdown}>
+          <View style={[
+            styles.quantityDropdown,
+            { bottom: 72 + (productFooterVisible ? 0 : Math.max(insets.bottom, 4)) },
+          ]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               {quantityOptions.map((qty) => (
                 <TouchableOpacity

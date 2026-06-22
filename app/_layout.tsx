@@ -5,13 +5,14 @@ import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
 import { API_URL } from '@/config/api';
 import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import { GlobalSearchProvider } from '@/context/GlobalSearchContext';
+import { AppFooterVisibilityProvider } from '@/context/AppFooterVisibilityContext';
 import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
@@ -109,8 +110,18 @@ export default function Layout() {
   const segments = useSegments();
   const router = useRouter();
   const routeKey = segments.join('/');
-  const showAppFooter = APP_FOOTER_ROUTES.has(routeKey);
+  const [productFooterVisible, setProductFooterVisible] = useState(true);
+  const isProductRoute = routeKey === 'product/[id]';
+  const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && (!isProductRoute || productFooterVisible);
   const showFloatingChat = !FLOATING_CHAT_HIDDEN_ROUTES.has(routeKey);
+  const footerVisibilityValue = useMemo(() => ({
+    productFooterVisible,
+    setProductFooterVisible,
+  }), [productFooterVisible]);
+
+  useEffect(() => {
+    if (!isProductRoute) setProductFooterVisible(true);
+  }, [isProductRoute]);
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');
@@ -164,6 +175,7 @@ export default function Layout() {
       <OrdersProvider>
         <CartProvider>
           <GlobalSearchProvider>
+          <AppFooterVisibilityProvider value={footerVisibilityValue}>
           <View style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -186,6 +198,7 @@ export default function Layout() {
             <GlobalSearchModal />
             <WelcomeBonusModal />
           </View>
+          </AppFooterVisibilityProvider>
           </GlobalSearchProvider>
         </CartProvider>
       </OrdersProvider>
