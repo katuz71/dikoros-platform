@@ -26,6 +26,7 @@ const APP_FOOTER_ROUTES = new Set([
   '(tabs)/cart',
   '(tabs)/profile',
   '(tabs)/orders',
+  'product/[id]',
 ]);
 
 const FLOATING_CHAT_HIDDEN_ROUTES = new Set([

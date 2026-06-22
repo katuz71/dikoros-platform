@@ -473,7 +473,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         </View>
       </ScrollView>
 
-      <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 0) }]}>
+      <View style={[styles.stickyCartBar, { bottom: 58 + Math.max(insets.bottom, 4) }]}>
         {quantityMenuOpen && (
           <View style={styles.quantityDropdown}>
             <ScrollView showsVerticalScrollIndicator={false}>
