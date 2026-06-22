@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.30);
+            const bannerHeight = Math.round(bannerWidth * 0.38);
             return (
               <>
               <ScrollView
@@ -2142,7 +2142,7 @@ export default function Index() {
                 })}
               </ScrollView>
               {selectedCategoryBanners.length > 1 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: -6, marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}>
                   {selectedCategoryBanners.map((_: any, dotIndex: number) => (
                     <View
                       key={`category-banner-dot-${dotIndex}`}
