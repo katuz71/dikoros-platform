@@ -17,7 +17,7 @@ export default function AboutScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.titleRow}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.75}>

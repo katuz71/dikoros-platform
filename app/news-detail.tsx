@@ -89,7 +89,7 @@ export default function NewsDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.pageTitleRow}>
         <TouchableOpacity

@@ -101,7 +101,7 @@ export default function ProfileReviewsScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>

@@ -250,7 +250,7 @@ export default function FavoritesScreen() {
   if (favorites.length === 0) {
     return (
       <View style={styles.container}>
-        <AppHeader showLogo showSearch showFavorites showCart />
+        <AppHeader showLogo showSearch showFavorites />
 
         <View style={styles.unifiedTitleRow}>
           <View style={styles.unifiedTitleButton} />
@@ -281,7 +281,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <View style={styles.unifiedTitleButton} />

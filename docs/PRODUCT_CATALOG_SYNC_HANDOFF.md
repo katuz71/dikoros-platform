@@ -617,3 +617,17 @@ Current required sync behavior:
 - category `Харчові добавки` -> `status = 'out_of_stock'`
 
 Reason: the mobile app catalog must mirror the visible Horoshop storefront, not every technically exported Horoshop product.
+
+
+## Mobile category filters
+
+The category screen in `app/(tabs)/index.tsx` exposes frontend filters for:
+
+- `Сировина`;
+- `Ціна`;
+- `Форма упаковки`;
+- availability and promotions.
+
+Filter options are derived from the synced Horoshop/backend product payload already loaded through `/products?limit=500`. They must not hardcode product cards or replace Horoshop/backend as the catalog source of truth.
+
+`Сировина` is inferred from structured variant options when available and then from category/name text. `Форма упаковки` is inferred from structured variant options such as `Формат` / `Форма` and from normalized product text markers such as capsules, powder, whole, tincture, ointment, tea, set, chocolate, honey, conservation, or seasoning. Price filtering uses the existing catalog card price logic.

@@ -128,7 +128,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <TouchableOpacity

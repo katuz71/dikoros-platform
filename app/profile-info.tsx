@@ -186,7 +186,7 @@ export default function ProfileInfoScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <TouchableOpacity style={styles.unifiedTitleButton} onPress={() => router.back()} activeOpacity={0.75}>

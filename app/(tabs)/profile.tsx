@@ -468,7 +468,7 @@ export default function ProfileScreen() {
 
   const renderLoadingView = () => (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <View style={styles.unifiedTitleButton} />
@@ -485,7 +485,7 @@ export default function ProfileScreen() {
   // === ЭКРАН ГОСТЯ ===
   const renderGuestView = () => (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites showCart />
+      <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <View style={styles.unifiedTitleButton} />
@@ -562,7 +562,7 @@ export default function ProfileScreen() {
     return (
 
         <View style={styles.container}>
-          <AppHeader showLogo showSearch showFavorites showCart />
+          <AppHeader showLogo showSearch showFavorites />
 
           <View style={styles.unifiedTitleRow}>
             <View style={styles.unifiedTitleButton} />
