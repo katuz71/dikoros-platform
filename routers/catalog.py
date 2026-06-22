@@ -62,6 +62,11 @@ CARD_FIELDS = {
 }
 
 
+def _normalize_category(value: object) -> str:
+    text = " ".join(str(value or "").strip().split())
+    return re.sub(r"\s*/\s*", "/", text)
+
+
 def _compact_product(product: dict) -> dict:
     """Return the lightweight shape needed by carousel cards.
 

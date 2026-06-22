@@ -606,9 +606,10 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         height, 
         borderRadius: 12,
         marginRight: 0,
-        backgroundColor: '#f5f5f5'
+        backgroundColor: '#fff',
+        overflow: 'hidden'
       }} 
-      resizeMode="cover"
+      resizeMode="contain"
       onError={() => {
         console.error("❌ Banner image failed to load:", uri);
         setError(true);
@@ -2075,6 +2076,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
+            const bannerHeight = Math.round(bannerWidth * 9 / 16);
             return (
               <ScrollView
                 horizontal
@@ -2097,9 +2099,9 @@ export default function Index() {
                         onPress={() => handleBannerPress(banner)}
                       >
                         <BannerImage
-                          uri={getImageUrl(imageUrl, { width: bannerWidth, height: 130, quality: 80, format: 'jpg' })}
+                          uri={getImageUrl(imageUrl, { width: bannerWidth, height: bannerHeight, quality: 80, format: 'jpg' })}
                           width={bannerWidth}
-                          height={130}
+                          height={bannerHeight}
                         />
                       </TouchableOpacity>
                     </View>
@@ -2186,6 +2188,7 @@ export default function Index() {
         const { width } = Dimensions.get('window');
         const SLIDE_WIDTH = width;
         const BANNER_WIDTH = width - 16;
+        const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 9 / 16);
 
         return (
           <ScrollView
@@ -2205,7 +2208,7 @@ export default function Index() {
 
               const fullImageUrl = getImageUrl(imageUrl, {
                 width: BANNER_WIDTH,
-                height: 220,
+                height: BANNER_HEIGHT,
                 quality: 80,
                 format: 'jpg'
               });
@@ -2226,7 +2229,7 @@ export default function Index() {
                     <BannerImage
                       uri={fullImageUrl}
                       width={BANNER_WIDTH}
-                      height={220}
+                      height={BANNER_HEIGHT}
                     />
                   </TouchableOpacity>
                 </View>
