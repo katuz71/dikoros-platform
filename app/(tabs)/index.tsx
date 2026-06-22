@@ -580,24 +580,7 @@ const findVariantByOptionNameSelections = (variants: any[], selections: any) => 
 // BannerImage component for handling banner images with error fallback
 const BannerImage = ({ uri, width, height }: { uri: string; width: number; height: number }) => {
   const [error, setError] = useState(false);
-  
-  if (error) {
-    // Fallback UI (Placeholder)
-    return (
-      <View style={{
-        width,
-        height,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 12,
-        marginRight: 0,
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <Ionicons name="image-outline" size={40} color="#ccc" />
-      </View>
-    );
-  }
-  
+
   return (
     <View
       style={{
@@ -608,18 +591,21 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         backgroundColor: '#FFFFFF',
       }}
     >
-      <Image
-        source={{ uri }}
-        style={{
-          width: '100%',
-          height: '100%',
-        }}
-        resizeMode="cover"
-        onError={() => {
-          console.error("❌ Banner image failed to load:", uri);
-          setError(true);
-        }}
-      />
+      {error ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+          <Ionicons name="image-outline" size={40} color="#ccc" />
+        </View>
+      ) : (
+        <Image
+          source={{ uri }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+          onError={() => {
+            console.error("❌ Banner image failed to load:", uri);
+            setError(true);
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -804,8 +790,15 @@ export default function Index() {
   }, [homeCategories, router]);
 
   const selectedCategoryBanners = useMemo(() => {
-    return Array.isArray(banners) ? banners : [];
-  }, [banners]);
+    const selectedRoot = normalizeCategory(selectedCategory).split('/', 1)[0].toLocaleLowerCase('uk-UA');
+    if (!selectedRoot) return [];
+
+    const category = homeCategories.find(item => (
+      categoryNameFromHome(item).split('/', 1)[0].toLocaleLowerCase('uk-UA') === selectedRoot
+    ));
+
+    return Array.isArray(category?.banner_items) ? category.banner_items : [];
+  }, [homeCategories, selectedCategory]);
 
 
 
