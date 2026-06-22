@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -88,6 +89,23 @@ export default function CartScreen() {
       fetchProducts().catch(() => {});
     }
   }, []);
+
+  // Prevent Android back from exiting cart screen.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (quantityPickerItem) {
+        setQuantityPickerItem(null);
+        return true;
+      }
+
+      router.replace('/(tabs)' as any);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [quantityPickerItem, router]);
 
   const normalizeText = (value: any) => String(value || '')
     .toLowerCase()
