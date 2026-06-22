@@ -137,15 +137,25 @@ def fix_db_schema():
     c.execute('''CREATE TABLE IF NOT EXISTS category_banners (
         id BIGSERIAL PRIMARY KEY,
         category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
-        image_url VARCHAR(255)
+        image_url VARCHAR(255),
+        source TEXT DEFAULT 'horoshop',
+        source_url TEXT,
+        link_type TEXT DEFAULT 'none',
+        link_value TEXT,
+        sort_order INTEGER DEFAULT 0
     )''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS banners (
             id BIGSERIAL PRIMARY KEY,
             image_url TEXT,
+            source TEXT DEFAULT 'manual',
+            placement TEXT DEFAULT 'home',
+            source_url TEXT,
             link_type TEXT DEFAULT 'none',
-            link_value TEXT
+            link_value TEXT,
+            title TEXT,
+            sort_order INTEGER DEFAULT 0
         )
     ''')
 
@@ -222,8 +232,21 @@ def fix_db_schema():
 
     c.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS banner_url VARCHAR(255)")
     c.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS external_id TEXT")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'home'")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS source_url TEXT")
     c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS link_type TEXT DEFAULT 'none'")
     c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS link_value TEXT")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS title TEXT")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0")
+    # Existing category banners were uploaded manually. Backfill them as manual,
+    # then keep Horoshop as the default for newly synchronized rows.
+    c.execute("ALTER TABLE category_banners ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'")
+    c.execute("ALTER TABLE category_banners ALTER COLUMN source SET DEFAULT 'horoshop'")
+    c.execute("ALTER TABLE category_banners ADD COLUMN IF NOT EXISTS source_url TEXT")
+    c.execute("ALTER TABLE category_banners ADD COLUMN IF NOT EXISTS link_type TEXT DEFAULT 'none'")
+    c.execute("ALTER TABLE category_banners ADD COLUMN IF NOT EXISTS link_value TEXT")
+    c.execute("ALTER TABLE category_banners ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0")
     # User: Nova Poshta branch (warehouse) and Ukrposhta address
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer TEXT")

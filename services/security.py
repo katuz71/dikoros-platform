@@ -39,6 +39,7 @@ ADMIN_EXACT_ROUTES: set[tuple[str, str]] = {
     ("POST", "/upload"),
     ("POST", "/upload_csv"),
     ("POST", "/api/sync/catalog"),
+    ("POST", "/api/admin/sync/horoshop-banners"),
     ("GET", "/api/promo-codes"),
     ("POST", "/api/promo-codes"),
 }

@@ -177,7 +177,7 @@ def _fetch_products(where_sql: str = "", params: tuple = (), order_sql: str = ""
 def _fetch_categories():
     conn = get_db_connection()
     try:
-        rows = conn.execute("""
+        product_rows = conn.execute("""
             SELECT DISTINCT category
             FROM products
             WHERE category IS NOT NULL
@@ -186,11 +186,65 @@ def _fetch_categories():
             ORDER BY category ASC
         """).fetchall()
 
-        return [
-            {"name": row["category"]}
-            for row in rows
-            if row.get("category")
-        ]
+        category_rows = conn.execute(
+            "SELECT id, name, banner_url FROM categories ORDER BY id ASC"
+        ).fetchall()
+        banner_rows = conn.execute(
+            """
+            SELECT id, category_id, image_url,
+                   COALESCE(source, 'manual') AS source,
+                   COALESCE(source_url, '') AS source_url,
+                   COALESCE(link_type, 'none') AS link_type,
+                   COALESCE(link_value, '') AS link_value,
+                   COALESCE(sort_order, 0) AS sort_order
+            FROM category_banners
+            ORDER BY category_id ASC, COALESCE(sort_order, 0) ASC, id ASC
+            """
+        ).fetchall()
+
+        banners_by_category: dict[int, list[dict]] = {}
+        for row in banner_rows:
+            banners_by_category.setdefault(int(row["category_id"]), []).append({
+                "id": row["id"],
+                "image_url": row["image_url"],
+                "source": row.get("source") or "manual",
+                "source_url": row.get("source_url") or "",
+                "link_type": row.get("link_type") or "none",
+                "link_value": row.get("link_value") or "",
+                "sort_order": int(row.get("sort_order") or 0),
+            })
+
+        metadata_by_root: dict[str, dict] = {}
+        for row in category_rows:
+            name = str(row.get("name") or "").strip()
+            root = _normalize_category(name).split("/", 1)[0].casefold()
+            if not root:
+                continue
+            banner_items = list(banners_by_category.get(int(row["id"]), []))
+            legacy_banner = str(row.get("banner_url") or "").strip()
+            if legacy_banner and all(item.get("image_url") != legacy_banner for item in banner_items):
+                banner_items.insert(0, {
+                    "id": f"legacy-{row['id']}",
+                    "image_url": legacy_banner,
+                    "source": "manual",
+                    "source_url": "",
+                    "link_type": "none",
+                    "link_value": "",
+                    "sort_order": 0,
+                })
+            metadata_by_root[root] = {
+                "id": row["id"],
+                "banner_items": banner_items,
+            }
+
+        categories = []
+        for row in product_rows:
+            name = str(row.get("category") or "").strip()
+            if not name:
+                continue
+            root = _normalize_category(name).split("/", 1)[0].casefold()
+            categories.append({"name": name, **metadata_by_root.get(root, {})})
+        return categories
     finally:
         conn.close()
 
@@ -199,9 +253,25 @@ def _fetch_banners():
     conn = get_db_connection()
     try:
         rows = conn.execute("""
-            SELECT id, image_url
+            SELECT id, image_url,
+                   COALESCE(source, 'manual') AS source,
+                   COALESCE(placement, 'home') AS placement,
+                   COALESCE(source_url, '') AS source_url,
+                   COALESCE(link_type, 'none') AS link_type,
+                   COALESCE(link_value, '') AS link_value,
+                   COALESCE(title, '') AS title,
+                   COALESCE(sort_order, 0) AS sort_order
             FROM banners
-            ORDER BY id ASC
+            WHERE COALESCE(placement, 'home') = 'home'
+              AND (
+                    source = 'horoshop'
+                    OR NOT EXISTS (
+                        SELECT 1 FROM banners synced
+                        WHERE synced.source = 'horoshop'
+                          AND COALESCE(synced.placement, 'home') = 'home'
+                    )
+                  )
+            ORDER BY COALESCE(sort_order, 0) ASC, id ASC
         """).fetchall()
         return [dict(row) for row in rows]
     finally:

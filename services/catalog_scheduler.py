@@ -9,6 +9,7 @@ import threading
 import time
 
 from services.catalog_sync import sync_catalog_from_horoshop
+from services.horoshop_banners import sync_horoshop_banners
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,12 @@ def _run_sync_with_retries() -> dict:
 
     for attempt in range(1, SYNC_RETRY_ATTEMPTS + 1):
         try:
-            return asyncio.run(sync_catalog_from_horoshop())
+            async def run_catalog_and_banners() -> dict:
+                catalog_result = await sync_catalog_from_horoshop()
+                banner_result = await sync_horoshop_banners()
+                return {**catalog_result, "banners": banner_result}
+
+            return asyncio.run(run_catalog_and_banners())
         except Exception as exc:
             last_error = exc
             logger.warning(

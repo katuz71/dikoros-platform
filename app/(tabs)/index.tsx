@@ -780,8 +780,13 @@ export default function Index() {
     }
 
     if (linkType === 'post') {
-      if (!/^\d+$/.test(linkValue)) return;
-      router.push({ pathname: '/blog-detail', params: { post_id: linkValue } } as any);
+      if (/^\d+$/.test(linkValue)) {
+        router.push({ pathname: '/blog-detail', params: { post_id: linkValue } } as any);
+        return;
+      }
+      if (/^https?:\/\/[^\s]+$/i.test(linkValue)) {
+        router.push({ pathname: '/blog-detail', params: { source_url: linkValue } } as any);
+      }
       return;
     }
 
@@ -792,6 +797,15 @@ export default function Index() {
       Linking.openURL(normalizedUrl).catch(() => {});
     }
   }, [homeCategories, router]);
+
+  const selectedCategoryBanners = useMemo(() => {
+    const selectedRoot = normalizeCategory(selectedCategory).split('/', 1)[0].toLocaleLowerCase('uk-UA');
+    if (!selectedRoot) return [];
+    const category = homeCategories.find(item => (
+      categoryNameFromHome(item).split('/', 1)[0].toLocaleLowerCase('uk-UA') === selectedRoot
+    ));
+    return Array.isArray(category?.banner_items) ? category.banner_items : [];
+  }, [homeCategories, selectedCategory]);
 
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
@@ -1207,8 +1221,8 @@ export default function Index() {
         const bannersData = await bannerRes.json();
         const bannersArray = Array.isArray(bannersData) ? bannersData : [];
         if (bannersArray.length > 0) {
-          // Ограничиваем количество баннеров для экономии памяти и кэша
-          const limitedBanners = bannersArray.slice(0, 3);
+          // Horoshop is the source of truth, so keep the full synchronized hero slider.
+          const limitedBanners = bannersArray;
           
           // STEP 3: Обновляем состояние свежими данными
           setBanners(limitedBanners);
@@ -1247,7 +1261,7 @@ export default function Index() {
   }, [API_URL]);
 
   const applyCatalogHomeData = useCallback((data: any) => {
-    const nextBanners = Array.isArray(data?.banners) ? data.banners.slice(0, 3) : [];
+    const nextBanners = Array.isArray(data?.banners) ? data.banners : [];
     const nextCategories = Array.isArray(data?.categories) ? data.categories : [];
     const nextHits = Array.isArray(data?.hits) ? data.hits : [];
     const nextPromotions = Array.isArray(data?.promotions) ? data.promotions : [];
@@ -2056,6 +2070,44 @@ export default function Index() {
 
             <View style={styles.categoryScreenBackButton} />
           </View>
+
+          {selectedCategoryBanners.length > 0 && (() => {
+            const { width } = Dimensions.get('window');
+            const slideWidth = width;
+            const bannerWidth = width - 16;
+            return (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                pagingEnabled
+                snapToInterval={slideWidth}
+                decelerationRate="fast"
+                style={{ marginBottom: 14 }}
+              >
+                {selectedCategoryBanners.map((banner: any) => {
+                  const imageUrl = banner?.image_url || banner?.image;
+                  if (!imageUrl) return null;
+                  const linkType = String(banner?.link_type || 'none').toLowerCase();
+                  const isClickable = linkType !== 'none';
+                  return (
+                    <View key={banner?.id || imageUrl} style={{ width: slideWidth, paddingHorizontal: 8 }}>
+                      <TouchableOpacity
+                        activeOpacity={isClickable ? 0.88 : 1}
+                        disabled={!isClickable}
+                        onPress={() => handleBannerPress(banner)}
+                      >
+                        <BannerImage
+                          uri={getImageUrl(imageUrl, { width: bannerWidth, height: 130, quality: 80, format: 'jpg' })}
+                          width={bannerWidth}
+                          height={130}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            );
+          })()}
 
           {isSearchVisible && (
             <View style={{ paddingHorizontal: 4, marginBottom: 12 }}>

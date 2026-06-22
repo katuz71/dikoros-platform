@@ -241,7 +241,14 @@
             <div id="pagination-controls" class="my-4 flex justify-center gap-2"></div>
 
             <div class="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 mt-6 p-6">
-                <h2 class="text-2xl font-bold text-blue-400 mb-4">🎨 Управление баннерами</h2>
+                <div class="flex justify-between items-center gap-3 flex-wrap mb-4">
+                    <h2 class="text-2xl font-bold text-blue-400">🎨 Управление баннерами</h2>
+                    <button id="horoshopBannerSyncButton" onclick="syncHoroshopBanners()"
+                        class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-500 transition whitespace-nowrap">
+                        🔄 Синхронизировать баннеры с сайта
+                    </button>
+                </div>
+                <div id="horoshopBannerSyncReport" class="hidden mb-4 rounded-lg bg-gray-700/70 border border-gray-600 p-3 text-sm text-gray-200"></div>
 
                 <div class="mb-6">
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -2317,6 +2324,45 @@
 
         // --- BANNER MANAGEMENT ---
         let currentBanners = [];
+
+        async function syncHoroshopBanners() {
+            const button = document.getElementById('horoshopBannerSyncButton');
+            const report = document.getElementById('horoshopBannerSyncReport');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '⏳ Синхронизация...';
+
+            try {
+                const response = await fetch('/api/admin/sync/horoshop-banners', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.detail || response.statusText);
+
+                const notes = Array.isArray(result.notes) && result.notes.length
+                    ? `<div class="mt-2 text-gray-400">${result.notes.map(escapeBannerHtml).join('<br>')}</div>`
+                    : '';
+                report.innerHTML = `
+                    <strong>Статус: ${escapeBannerHtml(result.status || 'ok')}</strong><br>
+                    Главная: ${Number(result.home_banners || 0)},
+                    категории: ${Number(result.category_banners || 0)},
+                    обновлено: ${Number(result.updated || 0)},
+                    пропущено: ${Number(result.skipped || 0)},
+                    ошибок: ${Number(result.failed || 0)}
+                    ${notes}
+                `;
+                report.classList.remove('hidden');
+                await loadBanners();
+                try { if (typeof loadCategories === 'function') await loadCategories(); } catch(e) { console.warn(e); }
+            } catch (error) {
+                report.textContent = 'Ошибка синхронизации баннеров: ' + (error.message || error);
+                report.classList.remove('hidden');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
 
         function escapeBannerHtml(value) {
             return String(value ?? '')

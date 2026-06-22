@@ -32,10 +32,31 @@ def get_categories():
     rows = conn.execute("SELECT id, name, banner_url FROM categories").fetchall()
 
     banners_map = {}
+    banner_items_map = {}
     try:
-        banners_rows = conn.execute("SELECT category_id, image_url FROM category_banners").fetchall()
+        banners_rows = conn.execute(
+            """
+            SELECT id, category_id, image_url,
+                   COALESCE(source, 'manual') AS source,
+                   COALESCE(source_url, '') AS source_url,
+                   COALESCE(link_type, 'none') AS link_type,
+                   COALESCE(link_value, '') AS link_value,
+                   COALESCE(sort_order, 0) AS sort_order
+            FROM category_banners
+            ORDER BY category_id ASC, COALESCE(sort_order, 0) ASC, id ASC
+            """
+        ).fetchall()
         for banner in banners_rows:
             banners_map.setdefault(banner["category_id"], []).append(banner["image_url"])
+            banner_items_map.setdefault(banner["category_id"], []).append({
+                "id": banner["id"],
+                "image_url": banner["image_url"],
+                "source": banner.get("source") or "manual",
+                "source_url": banner.get("source_url") or "",
+                "link_type": banner.get("link_type") or "none",
+                "link_value": banner.get("link_value") or "",
+                "sort_order": int(banner.get("sort_order") or 0),
+            })
     except Exception:
         pass
 
@@ -47,6 +68,7 @@ def get_categories():
             "name": row["name"],
             "banner_url": row["banner_url"] if row["banner_url"] else None,
             "banners": banners_map.get(row["id"], []),
+            "banner_items": banner_items_map.get(row["id"], []),
         }
         for row in rows
     ]
@@ -68,7 +90,15 @@ async def upload_category_banner(category_id: int, file: UploadFile = File(...))
         )
     try:
         file_path = await save_uploaded_image(file)
-        conn.execute("INSERT INTO category_banners (category_id, image_url) VALUES (?, ?)", (internal_id, file_path))
+        conn.execute(
+            """
+            INSERT INTO category_banners (
+                category_id, image_url, source, source_url,
+                link_type, link_value, sort_order
+            ) VALUES (?, ?, 'manual', '', 'none', '', 0)
+            """,
+            (internal_id, file_path),
+        )
         conn.commit()
         conn.close()
         return {"success": True, "image_url": file_path}

@@ -113,6 +113,7 @@ class CategoryResponse(BaseModel):
     name: str
     banner_url: Optional[str] = None
     banners: List[str] = []
+    banner_items: List[Dict[str, Any]] = []
 
 
 class BannerCreate(BaseModel):

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from db import get_db_connection
 from models.schemas import BannerCreate, BannerUpdate
+from services.horoshop_banners import sync_horoshop_banners
 
 
 router = APIRouter()
@@ -58,10 +59,25 @@ def get_banners():
     try:
         rows = conn.execute(
             """
-            SELECT id, image_url, COALESCE(link_type, 'none') AS link_type,
-                   COALESCE(link_value, '') AS link_value
+            SELECT id, image_url,
+                   COALESCE(source, 'manual') AS source,
+                   COALESCE(placement, 'home') AS placement,
+                   COALESCE(source_url, '') AS source_url,
+                   COALESCE(link_type, 'none') AS link_type,
+                   COALESCE(link_value, '') AS link_value,
+                   COALESCE(title, '') AS title,
+                   COALESCE(sort_order, 0) AS sort_order
             FROM banners
-            ORDER BY id ASC
+            WHERE COALESCE(placement, 'home') = 'home'
+              AND (
+                    source = 'horoshop'
+                    OR NOT EXISTS (
+                        SELECT 1 FROM banners synced
+                        WHERE synced.source = 'horoshop'
+                          AND COALESCE(synced.placement, 'home') = 'home'
+                    )
+                  )
+            ORDER BY COALESCE(sort_order, 0) ASC, id ASC
             """
         ).fetchall()
         return [_serialize_banner(row) for row in rows]
@@ -79,13 +95,23 @@ async def create_banner(banner: BannerCreate):
     conn = get_db_connection()
     try:
         conn.execute(
-            "INSERT INTO banners (image_url, link_type, link_value) VALUES (?, ?, ?)",
+            """
+            INSERT INTO banners (
+                image_url, source, placement, source_url,
+                link_type, link_value, sort_order
+            ) VALUES (?, 'manual', 'home', '', ?, ?, 0)
+            """,
             (image_url, link_type, link_value),
         )
         conn.commit()
         return {"status": "ok"}
     finally:
         conn.close()
+
+
+@router.post("/api/admin/sync/horoshop-banners")
+async def sync_banners_from_horoshop():
+    return await sync_horoshop_banners()
 
 
 @router.put("/banners/{id}")
