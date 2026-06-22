@@ -804,13 +804,8 @@ export default function Index() {
   }, [homeCategories, router]);
 
   const selectedCategoryBanners = useMemo(() => {
-    const selectedRoot = normalizeCategory(selectedCategory).split('/', 1)[0].toLocaleLowerCase('uk-UA');
-    if (!selectedRoot) return [];
-    const category = homeCategories.find(item => (
-      categoryNameFromHome(item).split('/', 1)[0].toLocaleLowerCase('uk-UA') === selectedRoot
-    ));
-    return Array.isArray(category?.banner_items) ? category.banner_items : [];
-  }, [homeCategories, selectedCategory]);
+    return Array.isArray(banners) ? banners : [];
+  }, [banners]);
 
 
 
