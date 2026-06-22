@@ -2146,72 +2146,78 @@ export default function Index() {
 
           {selectedCategoryBanners.length > 0 && (() => {
             const { width } = Dimensions.get('window');
-            const slideWidth = width;
-            const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.30);
+            const SLIDE_WIDTH = width;
+            const BANNER_WIDTH = width - 16;
+            const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.30);
+
             return (
               <>
-              <ScrollView
-                ref={categoryBannerRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                pagingEnabled
-                snapToInterval={slideWidth}
-                decelerationRate="fast"
-                onMomentumScrollEnd={(event) => {
-                  const nextIndex = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
-                  setCategoryBannerIndex(nextIndex);
-                }}
-                style={{ marginBottom: 14 }}
-              >
-                {selectedCategoryBanners.map((banner: any) => {
-                  const imageUrl = banner?.image_url || banner?.image;
-                  if (!imageUrl) return null;
-                  const linkType = String(banner?.link_type || 'none').toLowerCase();
-                  const isClickable = linkType !== 'none';
-                  return (
-                    <View key={banner?.id || imageUrl} style={{ width: slideWidth, paddingHorizontal: 8 }}>
-                      <TouchableOpacity
-                        activeOpacity={isClickable ? 0.88 : 1}
-                        disabled={!isClickable}
-                        onPress={() => handleBannerPress(banner)}
+                <ScrollView
+                  ref={categoryBannerRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  pagingEnabled
+                  snapToInterval={SLIDE_WIDTH}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={(event) => {
+                    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / SLIDE_WIDTH);
+                    setCategoryBannerIndex(nextIndex);
+                  }}
+                  style={{ marginBottom: selectedCategoryBanners.length > 1 ? 8 : 14 }}
+                >
+                  {selectedCategoryBanners.map((banner: any) => {
+                    const imageUrl = banner?.image_url || banner?.image || banner?.picture;
+                    if (!imageUrl) return null;
+
+                    const fullImageUrl = getImageUrl(imageUrl, {
+                      width: BANNER_WIDTH,
+                      height: BANNER_HEIGHT,
+                      quality: 80,
+                      format: 'jpg',
+                    });
+
+                    const linkType = String(banner?.link_type || 'none').toLowerCase();
+                    const isClickable = linkType !== 'none';
+
+                    return (
+                      <View
+                        key={banner?.id || imageUrl}
                         style={{
-                          width: bannerWidth,
-                          height: bannerHeight,
-                          borderRadius: 16,
-                          overflow: 'hidden',
-                          backgroundColor: '#FFFFFF',
+                          width: SLIDE_WIDTH,
+                          paddingHorizontal: 8,
                         }}
                       >
-                        <Image
-                          source={{ uri: getImageUrl(imageUrl) }}
-                          style={{
-                            width: bannerWidth,
-                            height: bannerHeight,
-                            borderRadius: 16,
-                          }}
-                          resizeMode="stretch"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-              {selectedCategoryBanners.length > 1 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}>
-                  {selectedCategoryBanners.map((_: any, dotIndex: number) => (
-                    <View
-                      key={`category-banner-dot-${dotIndex}`}
-                      style={{
-                        width: categoryBannerIndex === dotIndex ? 18 : 6,
-                        height: 6,
-                        borderRadius: 999,
-                        backgroundColor: categoryBannerIndex === dotIndex ? '#2E7D32' : '#D1D5DB',
-                      }}
-                    />
-                  ))}
-                </View>
-              )}
+                        <TouchableOpacity
+                          activeOpacity={isClickable ? 0.88 : 1}
+                          disabled={!isClickable}
+                          onPress={() => handleBannerPress(banner)}
+                        >
+                          <BannerImage
+                            uri={fullImageUrl}
+                            width={BANNER_WIDTH}
+                            height={BANNER_HEIGHT}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+
+                {selectedCategoryBanners.length > 1 && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 0, marginBottom: 12 }}>
+                    {selectedCategoryBanners.map((_: any, dotIndex: number) => (
+                      <View
+                        key={`category-banner-dot-${dotIndex}`}
+                        style={{
+                          width: categoryBannerIndex === dotIndex ? 18 : 6,
+                          height: 6,
+                          borderRadius: 999,
+                          backgroundColor: categoryBannerIndex === dotIndex ? '#2E7D32' : '#D1D5DB',
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
               </>
             );
           })()}
