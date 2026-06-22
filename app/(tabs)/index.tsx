@@ -2148,7 +2148,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const SLIDE_WIDTH = width;
             const BANNER_WIDTH = width - 16;
-            const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.30);
+            const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.34);
 
             return (
               <>
@@ -2192,11 +2192,24 @@ export default function Index() {
                           disabled={!isClickable}
                           onPress={() => handleBannerPress(banner)}
                         >
-                          <BannerImage
-                            uri={fullImageUrl}
-                            width={BANNER_WIDTH}
-                            height={BANNER_HEIGHT}
-                          />
+                          <View
+                            style={{
+                              width: BANNER_WIDTH,
+                              height: BANNER_HEIGHT,
+                              borderRadius: 16,
+                              overflow: 'hidden',
+                              backgroundColor: '#FFFFFF',
+                            }}
+                          >
+                            <Image
+                              source={{ uri: fullImageUrl }}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                              }}
+                              resizeMode="contain"
+                            />
+                          </View>
                         </TouchableOpacity>
                       </View>
                     );
