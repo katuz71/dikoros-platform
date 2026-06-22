@@ -246,6 +246,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const activeAvailable = requiresVariantRow ? !!activeRow && isAvailable(activeRow) : isAvailable(product);
   const resolvedIsInCart = isInCart || localAddedToCart;
   const displaySku = clean(activeRow?.raw?.sku || activeRow?.sku || product?.sku);
+  const rawCashbackPercent = product?.cashback_percent ?? activeRow?.raw?.cashback_percent ?? activeRow?.cashback_percent ?? 5;
+  const parsedCashbackPercent = Number(rawCashbackPercent);
+  const cashbackPercent = Number.isFinite(parsedCashbackPercent)
+    ? Math.max(0, Math.min(100, Math.trunc(parsedCashbackPercent)))
+    : 5;
 
   const selectedVariantLabel = React.useMemo(() => {
     return internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
@@ -444,7 +449,14 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
               <Text style={styles.priceText}>{formatPrice(currentPrice)}</Text>
               {!!oldPrice && oldPrice > currentPrice && <Text style={styles.oldPriceText}>{formatPrice(oldPrice)}</Text>}
             </View>
-            {!!displaySku && <Text style={styles.skuText}>Артикул: {displaySku}</Text>}
+            <View style={styles.skuCashbackRow}>
+              {!!displaySku
+                ? <Text style={styles.skuText} numberOfLines={1} ellipsizeMode="tail">Артикул: {displaySku}</Text>
+                : <View style={styles.skuSpacer} />}
+              <View style={styles.cashbackBadge}>
+                <Text style={styles.cashbackBadgeText}>Кешбек {cashbackPercent}%</Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.trustBadges}>
@@ -601,7 +613,11 @@ const styles = StyleSheet.create({
   reviewCount: { color: '#666', fontSize: 12 },
   titleSection: { marginBottom: 20 },
   productTitle: { fontSize: 26, fontWeight: '800', color: '#1a1a1a', marginBottom: 8, letterSpacing: -0.5 },
-  skuText: { color: '#6B7280', fontSize: 13, fontWeight: '600', marginTop: 4 },
+  skuCashbackRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+  skuText: { flex: 1, color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  skuSpacer: { flex: 1 },
+  cashbackBadge: { flexShrink: 0, borderRadius: 999, backgroundColor: '#EAF7E7', paddingHorizontal: 10, paddingVertical: 5 },
+  cashbackBadgeText: { color: '#2E7D32', fontSize: 13, fontWeight: '800' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceText: { fontSize: 28, fontWeight: '700', color: '#000' },
   oldPriceText: { textDecorationLine: 'line-through', color: '#9ca3af', fontSize: 18, fontWeight: '500' },

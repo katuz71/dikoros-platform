@@ -311,6 +311,34 @@ Documentation:
 
 - this file.
 
+## Product-level cashback
+
+Products now have an independent `cashback_percent` value:
+
+- database column: `products.cashback_percent INTEGER DEFAULT 5`;
+- accepted admin range: `0..100`, with `5` as the default;
+- product and catalog API responses return `cashback_percent`; a database `NULL` is exposed as `5`;
+- the product screen shows `Кешбек X%` beside the SKU and keeps long SKUs on one truncated line;
+- secure checkout saves the server-resolved product percentage on every order item.
+
+When an authenticated order is finalized, cashback is calculated as the sum of
+`item.price * item.quantity * item.cashback_percent / 100` across its items and
+stored as an integer in `orders.cashback_earned`. The effective percentage is
+resolved in this order:
+
+1. the percentage snapshot on the order item;
+2. the current product percentage (for historical orders without a snapshot);
+3. the global cashback setting;
+4. the built-in `5%` global fallback.
+
+`orders.cashback_applied` remains the idempotency guard. Product cashback does
+not replace or change cumulative discounts, promo codes, bonus spending,
+referral bonuses, or `users.total_spent` accounting.
+
+Deployment requires a backend pull/restart so the idempotent schema migration
+adds the product column. The mobile UI can then be delivered with EAS Update;
+no Android binary rebuild is required for this change.
+
 ## Production deployment checklist
 
 ### Backend server

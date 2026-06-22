@@ -692,6 +692,7 @@ export default function ProductScreen() {
         stock: activeVariantRaw.stock ?? product.stock,
         image: activeVariantRaw.image || product.image,
         images: activeVariantRaw.images || product.images,
+        cashback_percent: activeVariantRaw.cashback_percent ?? product.cashback_percent ?? 5,
       }
     : product;
 

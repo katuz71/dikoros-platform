@@ -19,6 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from db import DATABASE_URL, get_db_connection
 from models.schemas import OrderRequest
 from services.auth import get_optional_current_user_phone
+from services.cashback import get_global_cashback_percent, normalize_cashback_percent
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
 from services.users import calculate_cumulative_discount_percent, clean_warehouse_value, normalize_phone
@@ -59,10 +60,11 @@ def _is_unavailable_status(value) -> bool:
     )
 
 
-def _resolve_order_items(cur, order: OrderRequest) -> tuple[list[dict], float]:
+def _resolve_order_items(conn, cur, order: OrderRequest) -> tuple[list[dict], float]:
     """Resolve every order item against current catalog rows and prices."""
     resolved_items: list[dict] = []
     subtotal = 0.0
+    global_cashback_percent = get_global_cashback_percent(conn)
 
     for requested in order.items or []:
         product_id = int(requested.product_id or requested.id or 0)
@@ -71,7 +73,7 @@ def _resolve_order_items(cur, order: OrderRequest) -> tuple[list[dict], float]:
             raise HTTPException(status_code=400, detail="Invalid order item")
 
         product = cur.execute(
-            "SELECT id, name, price, unit, status FROM products WHERE id = ?",
+            "SELECT id, name, price, unit, status, cashback_percent FROM products WHERE id = ?",
             (product_id,),
         ).fetchone()
         if not product or float(product.get("price") or 0) <= 0:
@@ -88,6 +90,10 @@ def _resolve_order_items(cur, order: OrderRequest) -> tuple[list[dict], float]:
                 "name": product.get("name") or requested.name,
                 "price": unit_price,
                 "quantity": quantity,
+                "cashback_percent": normalize_cashback_percent(
+                    product.get("cashback_percent"),
+                    global_cashback_percent,
+                ),
                 "packSize": requested.packSize,
                 "unit": product.get("unit") or requested.unit,
                 "variant_info": requested.variant_info,
@@ -139,7 +145,7 @@ async def create_order_secure(
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        resolved_items, subtotal_price = _resolve_order_items(cur, order)
+        resolved_items, subtotal_price = _resolve_order_items(conn, cur, order)
         if subtotal_price < MIN_ORDER_AMOUNT:
             raise HTTPException(
                 status_code=400,

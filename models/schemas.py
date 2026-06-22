@@ -23,6 +23,7 @@ class ProductCreate(BaseModel):
     composition: Optional[str] = None
     old_price: Optional[float] = None
     discount: Optional[int] = 0
+    cashback_percent: Optional[int] = 5
     unit: str = "шт"
     variants: Optional[List[Dict[str, Any]]] = None
     option_names: Optional[str] = None
@@ -47,6 +48,7 @@ class ProductUpdate(BaseModel):
     composition: Optional[str] = None
     old_price: Optional[float] = None
     discount: Optional[int] = None
+    cashback_percent: Optional[int] = None
     unit: Optional[str] = None
     variants: Optional[List[Dict[str, Any]]] = None
     option_names: Optional[str] = None
@@ -71,6 +73,7 @@ class ProductResponse(BaseModel):
     category: Optional[str] = None
     old_price: Optional[float] = None
     discount: Optional[int] = 0
+    cashback_percent: int = 5
     unit: Optional[str] = "шт"
     description: Optional[str] = None
     usage: Optional[str] = None
@@ -162,6 +165,7 @@ class OrderItem(BaseModel):
     name: str
     price: float
     quantity: int
+    cashback_percent: Optional[int] = None
     packSize: Optional[str] = None
     unit: Optional[str] = None
     variant_info: Optional[str] = None

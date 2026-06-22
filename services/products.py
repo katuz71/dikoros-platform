@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List
 
 from db import get_db_connection
+from services.cashback import normalize_cashback_percent
 
 
 def get_products_by_ids(ids: List[int]) -> List[dict]:
@@ -32,6 +33,7 @@ def get_products_by_ids(ids: List[int]) -> List[dict]:
 def normalize_product_row(d: dict) -> dict:
     """Normalize product DB row for API responses."""
     d["discount"] = d.get("discount", 0) if d.get("discount") is not None else 0
+    d["cashback_percent"] = normalize_cashback_percent(d.get("cashback_percent"), 5)
 
     variants_value = d.get("variants")
     if isinstance(variants_value, str):

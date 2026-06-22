@@ -18,6 +18,7 @@ def fix_db_schema():
             name TEXT,
             price DOUBLE PRECISION,
             discount INTEGER DEFAULT 0,
+            cashback_percent INTEGER DEFAULT 5,
             image TEXT,
             images TEXT,
             category TEXT,
@@ -196,6 +197,7 @@ def fix_db_schema():
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_promotion BOOLEAN DEFAULT FALSE")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_new BOOLEAN DEFAULT FALSE")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS cashback_percent INTEGER DEFAULT 5")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_manually_edited BOOLEAN DEFAULT FALSE")
     
     try:

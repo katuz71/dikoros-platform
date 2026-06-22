@@ -17,7 +17,7 @@ from db import DATABASE_URL, get_db_connection
 from models.schemas import BatchDelete, OrderRequest, OrderStatusUpdate
 from services.notifications import send_expo_push
 from services.onebox_api import OneBoxDbSession, Product, create_onebox_order
-from services.cashback import get_global_cashback_percent
+from services.cashback import calculate_order_cashback
 from services.users import calculate_cumulative_discount_percent, clean_warehouse_value, normalize_phone
 from services.analytics import track_analytics_event
 from services.auth import get_current_user_phone
@@ -50,8 +50,13 @@ def _apply_completed_order_rewards(conn, cur, order_dict: dict, order_id: int) -
             current_total_spent = float(user.get("total_spent") or 0)
             new_total_spent = round(current_total_spent + paid_total, 2)
             cumulative_discount = calculate_cumulative_discount_percent(new_total_spent)
-            cashback_percent = get_global_cashback_percent(conn)
-            cashback_amount = int((paid_total * cashback_percent) / 100)
+            order_items = order_dict.get("items") or []
+            if isinstance(order_items, str):
+                try:
+                    order_items = json.loads(order_items)
+                except (json.JSONDecodeError, TypeError):
+                    order_items = []
+            cashback_amount = calculate_order_cashback(conn, order_items)
             cur.execute(
                 """
                 UPDATE users

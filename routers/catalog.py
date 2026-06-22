@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 PRODUCT_COLUMNS = """
-    id, name, price, discount, image, images, category, pack_sizes,
+    id, name, price, discount, COALESCE(cashback_percent, 5) AS cashback_percent,
+    image, images, category, pack_sizes,
     old_price, unit, description, usage, composition, delivery_info,
     return_info, variants, option_names, external_id, is_bestseller,
     is_promotion, is_new, is_hit, sku, status, remains, parent_sku,
@@ -36,6 +37,7 @@ CARD_FIELDS = {
     "name",
     "price",
     "discount",
+    "cashback_percent",
     "image",
     "images",
     "category",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from db import get_db_connection
 
 
@@ -14,6 +16,17 @@ def _clamp_percent(percent) -> int:
         normalized = int(float(percent))
     except (TypeError, ValueError):
         normalized = DEFAULT_GLOBAL_CASHBACK_PERCENT
+    return max(0, min(100, normalized))
+
+
+def normalize_cashback_percent(percent, default=DEFAULT_GLOBAL_CASHBACK_PERCENT) -> int:
+    """Return a product/global cashback rate constrained to 0..100."""
+    if percent is None:
+        percent = default
+    try:
+        normalized = int(float(percent))
+    except (TypeError, ValueError):
+        normalized = _clamp_percent(default)
     return max(0, min(100, normalized))
 
 
@@ -49,3 +62,40 @@ def set_global_cashback_percent(percent) -> int:
         return normalized
     finally:
         conn.close()
+
+
+def calculate_order_cashback(conn, items) -> int:
+    """Calculate cashback from product rates captured on the order items."""
+    global_percent = get_global_cashback_percent(conn)
+    total_cashback = Decimal("0")
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        percent_value = item.get("cashback_percent")
+        if percent_value is None:
+            product_id = item.get("product_id") or item.get("id")
+            try:
+                normalized_product_id = int(product_id or 0)
+            except (TypeError, ValueError):
+                normalized_product_id = 0
+
+            if normalized_product_id > 0:
+                product = conn.execute(
+                    "SELECT cashback_percent FROM products WHERE id = ?",
+                    (normalized_product_id,),
+                ).fetchone()
+                if product and product.get("cashback_percent") is not None:
+                    percent_value = product.get("cashback_percent")
+
+        percent = normalize_cashback_percent(percent_value, global_percent)
+        try:
+            price = max(Decimal("0"), Decimal(str(item.get("price") or 0)))
+            quantity = max(Decimal("0"), Decimal(str(item.get("quantity") or 0)))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+
+        total_cashback += price * quantity * Decimal(percent) / Decimal("100")
+
+    return int(total_cashback)
