@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.30);
+            const bannerHeight = Math.round(bannerWidth * 0.36);
             return (
               <>
               <ScrollView
@@ -2147,8 +2147,12 @@ export default function Index() {
                         >
                           <Image
                             source={{ uri: getImageUrl(imageUrl) }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode="contain"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              borderRadius: 16,
+                            }}
+                            resizeMode="stretch"
                           />
                         </View>
                       </TouchableOpacity>
