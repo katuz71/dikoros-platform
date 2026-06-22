@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.44);
+            const bannerHeight = Math.round(bannerWidth * 0.50);
             return (
               <>
               <ScrollView
@@ -2130,6 +2130,11 @@ export default function Index() {
                         activeOpacity={isClickable ? 0.88 : 1}
                         disabled={!isClickable}
                         onPress={() => handleBannerPress(banner)}
+                        style={{
+                          borderRadius: 16,
+                          overflow: 'hidden',
+                          backgroundColor: '#FFFFFF',
+                        }}
                       >
                         <BannerImage
                           uri={getImageUrl(imageUrl, { width: bannerWidth, height: bannerHeight, quality: 80, format: 'jpg' })}
