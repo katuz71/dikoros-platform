@@ -599,25 +599,28 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
   }
   
   return (
-    <Image 
-      source={{ uri }} 
-      style={{ 
+    <View
+      style={{
         width,
-        height, 
-        borderRadius: 12,
-        marginRight: 0,
-        backgroundColor: '#fff',
-        overflow: 'hidden'
-      }} 
-      resizeMode="cover"
-      onError={() => {
-        console.error("❌ Banner image failed to load:", uri);
-        setError(true);
+        height,
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: '#FFFFFF',
       }}
-      onLoad={() => {
-        // Image loaded successfully
-      }}
-    />
+    >
+      <Image
+        source={{ uri }}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+        resizeMode="cover"
+        onError={() => {
+          console.error("❌ Banner image failed to load:", uri);
+          setError(true);
+        }}
+      />
+    </View>
   );
 };
 
