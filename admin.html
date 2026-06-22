@@ -245,13 +245,30 @@
 
                 <div class="mb-6">
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="hidden" id="bannerEditingId" value="">
                         <input type="file" id="bannerFile" accept="image/*"
                             class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-500">
                         <input type="text" id="bannerUrl" placeholder="Или введите Image URL"
                             class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 min-w-300">
+                        <select id="bannerLinkType" onchange="updateBannerLinkValueInput()"
+                            class="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500">
+                            <option value="none">Без действия</option>
+                            <option value="product">Товар</option>
+                            <option value="category">Категория</option>
+                            <option value="promotions">Акции</option>
+                            <option value="post">Статья</option>
+                            <option value="external">Внешняя ссылка</option>
+                        </select>
+                        <input type="text" id="bannerLinkValue" placeholder="Не требуется" disabled
+                            class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 min-w-300 disabled:opacity-50">
                         <button onclick="createBanner()"
+                            id="bannerSubmitButton"
                             class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-500 transition whitespace-nowrap">
                             ➕ Добавить баннер
+                        </button>
+                        <button onclick="cancelBannerEdit()" id="bannerCancelButton"
+                            class="hidden px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-500 transition whitespace-nowrap">
+                            Отмена
                         </button>
                     </div>
                 </div>
@@ -2299,10 +2316,73 @@
         })();
 
         // --- BANNER MANAGEMENT ---
+        let currentBanners = [];
+
+        function escapeBannerHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getBannerDestinationLabel(banner) {
+            const type = String(banner.link_type || 'none').toLowerCase();
+            const value = escapeBannerHtml(banner.link_value || '');
+            if (type === 'product') return `Товар: ${value || '—'}`;
+            if (type === 'category') return `Категория: ${value || '—'}`;
+            if (type === 'promotions') return 'Акции';
+            if (type === 'post') return `Статья: ${value || '—'}`;
+            if (type === 'external') return 'Ссылка';
+            return 'Без действия';
+        }
+
+        function updateBannerLinkValueInput() {
+            const type = document.getElementById('bannerLinkType').value;
+            const input = document.getElementById('bannerLinkValue');
+            const placeholders = {
+                product: 'ID товара',
+                category: 'ID/название категории',
+                post: 'ID статьи',
+                external: 'https://...'
+            };
+            const requiresValue = Object.prototype.hasOwnProperty.call(placeholders, type);
+            input.disabled = !requiresValue;
+            input.placeholder = placeholders[type] || 'Не требуется';
+            if (!requiresValue) input.value = '';
+        }
+
+        function cancelBannerEdit() {
+            document.getElementById('bannerEditingId').value = '';
+            document.getElementById('bannerFile').value = '';
+            document.getElementById('bannerUrl').value = '';
+            document.getElementById('bannerLinkType').value = 'none';
+            document.getElementById('bannerLinkValue').value = '';
+            document.getElementById('bannerSubmitButton').textContent = '➕ Добавить баннер';
+            document.getElementById('bannerCancelButton').classList.add('hidden');
+            updateBannerLinkValueInput();
+        }
+
+        function openEditBanner(id) {
+            const banner = currentBanners.find(item => Number(item.id) === Number(id));
+            if (!banner) return;
+
+            document.getElementById('bannerEditingId').value = String(banner.id);
+            document.getElementById('bannerFile').value = '';
+            document.getElementById('bannerUrl').value = banner.image_url || '';
+            document.getElementById('bannerLinkType').value = banner.link_type || 'none';
+            updateBannerLinkValueInput();
+            document.getElementById('bannerLinkValue').value = banner.link_value || '';
+            document.getElementById('bannerSubmitButton').textContent = '💾 Сохранить баннер';
+            document.getElementById('bannerCancelButton').classList.remove('hidden');
+        }
+
         async function loadBanners() {
             try {
                 const response = await fetch('/banners');
                 const banners = await response.json();
+                currentBanners = Array.isArray(banners) ? banners : [];
                 const container = document.getElementById('bannersList');
 
                 if (!container) return;
@@ -2313,18 +2393,21 @@
                     return;
                 }
 
-                banners.forEach(banner => {
+                currentBanners.forEach(banner => {
                     const bannerDiv = document.createElement('div');
                     bannerDiv.className = 'bg-gray-700 rounded-lg p-4 border border-gray-600';
                     bannerDiv.innerHTML = `
-                        <img src="${banner.image_url}" alt="Banner ${banner.id}" 
+                        <img src="${escapeBannerHtml(banner.image_url)}" alt="Banner ${banner.id}"
                              style="width: 200px; height: auto; border-radius: 8px; margin-bottom: 10px; object-fit: cover; max-height: 150px;">
+                        <div class="mb-2"><span class="inline-block px-2 py-1 rounded bg-blue-900/60 text-blue-200 text-xs">${getBannerDestinationLabel(banner)}</span></div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span class="text-gray-300 text-sm">ID: ${banner.id}</span>
-                            <button onclick="deleteBanner(${banner.id})" 
-                                    class="px-3 py-1 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-500 transition">
-                                🗑️ Удалить
-                            </button>
+                            <div style="display: flex; gap: 6px;">
+                                <button onclick="openEditBanner(${banner.id})"
+                                        class="px-3 py-1 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-500 transition">✏️</button>
+                                <button onclick="deleteBanner(${banner.id})"
+                                        class="px-3 py-1 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-500 transition">🗑️</button>
+                            </div>
                         </div>
                     `;
                     container.appendChild(bannerDiv);
@@ -2356,26 +2439,34 @@
         }
 
         async function sendBanner(imageUrl) {
-            const fileInput = document.getElementById('bannerFile');
-            const urlInput = document.getElementById('bannerUrl');
+            const editingId = document.getElementById('bannerEditingId').value;
+            const linkType = document.getElementById('bannerLinkType').value || 'none';
+            const linkValue = document.getElementById('bannerLinkValue').value.trim();
             try {
-                const response = await fetch('/banners', {
-                    method: 'POST',
+                const response = await fetch(editingId ? `/banners/${editingId}` : '/banners', {
+                    method: editingId ? 'PUT' : 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_url: imageUrl })
+                    body: JSON.stringify({ image_url: imageUrl, link_type: linkType, link_value: linkValue })
                 });
                 if (response.ok) {
-                    fileInput.value = '';
-                    urlInput.value = '';
+                    cancelBannerEdit();
                     try { if (typeof loadBanners === 'function') await loadBanners(); } catch(e) { console.warn(e); }
+                } else {
+                    const error = await response.json().catch(() => ({}));
+                    alert('Ошибка сохранения баннера: ' + (error.detail || response.statusText));
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('Error saving banner:', e);
+            }
         }
 
         async function deleteBanner(id) {
             try {
                 const response = await fetch(`/banners/${id}`, { method: 'DELETE' });
-                if (response.ok) { try { if (typeof loadBanners === 'function') await loadBanners(); } catch(e) { console.warn(e); } }
+                if (response.ok) {
+                    if (document.getElementById('bannerEditingId').value === String(id)) cancelBannerEdit();
+                    try { if (typeof loadBanners === 'function') await loadBanners(); } catch(e) { console.warn(e); }
+                }
             } catch (e) { }
         }
 

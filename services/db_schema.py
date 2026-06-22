@@ -143,7 +143,9 @@ def fix_db_schema():
     c.execute('''
         CREATE TABLE IF NOT EXISTS banners (
             id BIGSERIAL PRIMARY KEY,
-            image_url TEXT
+            image_url TEXT,
+            link_type TEXT DEFAULT 'none',
+            link_value TEXT
         )
     ''')
 
@@ -220,6 +222,8 @@ def fix_db_schema():
 
     c.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS banner_url VARCHAR(255)")
     c.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS external_id TEXT")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS link_type TEXT DEFAULT 'none'")
+    c.execute("ALTER TABLE banners ADD COLUMN IF NOT EXISTS link_value TEXT")
     # User: Nova Poshta branch (warehouse) and Ukrposhta address
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer TEXT")

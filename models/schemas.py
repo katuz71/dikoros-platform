@@ -117,6 +117,14 @@ class CategoryResponse(BaseModel):
 
 class BannerCreate(BaseModel):
     image_url: str
+    link_type: str = "none"
+    link_value: Optional[str] = None
+
+
+class BannerUpdate(BaseModel):
+    image_url: Optional[str] = None
+    link_type: str = "none"
+    link_value: Optional[str] = None
 
 
 class PromoCodeCreate(BaseModel):

@@ -63,6 +63,7 @@ ADMIN_PREFIX_ROUTES: tuple[tuple[str, str], ...] = (
     ("DELETE", "/categories/"),
     ("POST", "/categories/"),
     ("POST", "/banners"),
+    ("PUT", "/banners/"),
     ("DELETE", "/banners/"),
     ("DELETE", "/posts/"),
     ("DELETE", "/api/reviews/"),

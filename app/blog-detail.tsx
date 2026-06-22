@@ -28,12 +28,14 @@ export default function BlogDetailScreen() {
     body?: string;
     image_url?: string;
     source_url?: string;
+    post_id?: string;
   }>();
 
   const initialHeading = Array.isArray(params.heading) ? params.heading[0] : params.heading;
   const initialBody = Array.isArray(params.body) ? params.body[0] : params.body;
   const initialImageUrl = Array.isArray(params.image_url) ? params.image_url[0] : params.image_url;
   const sourceUrl = Array.isArray(params.source_url) ? params.source_url[0] : params.source_url;
+  const postId = Array.isArray(params.post_id) ? params.post_id[0] : params.post_id;
 
   const [detail, setDetail] = useState<BlogDetail>({
     title: '',
@@ -41,12 +43,12 @@ export default function BlogDetailScreen() {
     body: initialBody || '',
     image_url: initialImageUrl || '',
   });
-  const [loading, setLoading] = useState(!!sourceUrl);
+  const [loading, setLoading] = useState(!!sourceUrl || !!postId);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   const loadDetail = useCallback(async () => {
-    if (!sourceUrl) {
+    if (!sourceUrl && !postId) {
       setLoading(false);
       setRefreshing(false);
       return;
@@ -54,16 +56,16 @@ export default function BlogDetailScreen() {
 
     try {
       setError('');
-      const response = await fetch(
-        `${API_URL}${API_ENDPOINTS.blogDetail}?source_url=${encodeURIComponent(sourceUrl)}`
-      );
+      const response = postId
+        ? await fetch(`${API_URL}/api/posts/${encodeURIComponent(postId)}`)
+        : await fetch(`${API_URL}${API_ENDPOINTS.blogDetail}?source_url=${encodeURIComponent(sourceUrl || '')}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = await response.json();
       setDetail({
         title: data.title || initialBody || '',
-        heading: data.heading || initialHeading || 'Інформація',
-        body: data.body || '',
+        heading: data.heading || data.title || initialHeading || 'Інформація',
+        body: data.body || data.content || '',
         image_url: data.image_url || initialImageUrl || '',
       });
     } catch (err) {
@@ -73,7 +75,7 @@ export default function BlogDetailScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [initialBody, initialHeading, initialImageUrl, sourceUrl]);
+  }, [initialBody, initialHeading, initialImageUrl, postId, sourceUrl]);
 
   useEffect(() => {
     loadDetail();

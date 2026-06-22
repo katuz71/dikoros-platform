@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
 import { AppHeader } from '@/components/AppHeader';
 import ProductCard from '../../components/ProductCard';
@@ -747,6 +747,52 @@ export default function Index() {
   const [homeNewProducts, setHomeNewProducts] = useState<Product[]>([]);
   const [catalogHomeLoaded, setCatalogHomeLoaded] = useState(false);
 
+  const handleBannerPress = useCallback((banner: any) => {
+    const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
+    const linkValue = String(banner?.link_value || '').trim();
+
+    if (linkType === 'product') {
+      if (!/^\d+$/.test(linkValue)) return;
+      router.push(`/product/${linkValue}` as any);
+      return;
+    }
+
+    if (linkType === 'category') {
+      if (!linkValue) return;
+      const categoryById = homeCategories.find(category => String(category?.id ?? '') === linkValue);
+      const category = categoryById ? categoryNameFromHome(categoryById) : linkValue;
+      if (/^\d+$/.test(linkValue) && !categoryById) return;
+      if (!category) return;
+
+      router.replace({
+        pathname: '/(tabs)',
+        params: {
+          category,
+          categoryOpen: String(Date.now()),
+        },
+      } as any);
+      return;
+    }
+
+    if (linkType === 'promotions') {
+      router.push('/news' as any);
+      return;
+    }
+
+    if (linkType === 'post') {
+      if (!/^\d+$/.test(linkValue)) return;
+      router.push({ pathname: '/blog-detail', params: { post_id: linkValue } } as any);
+      return;
+    }
+
+    if (linkType === 'external') {
+      if (!linkValue) return;
+      const normalizedUrl = /^https?:\/\//i.test(linkValue) ? linkValue : `https://${linkValue}`;
+      if (!/^https?:\/\/[^\s]+$/i.test(normalizedUrl)) return;
+      Linking.openURL(normalizedUrl).catch(() => {});
+    }
+  }, [homeCategories, router]);
+
   const [connectionError, setConnectionError] = useState(false);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -1174,7 +1220,8 @@ export default function Index() {
               id: banner.id,
               image_url: banner.image_url || banner.image || banner.picture,
               title: banner.title || '',
-              link: banner.link || ''
+              link_type: banner.link_type || 'none',
+              link_value: banner.link_value || ''
             }));
             
             const dataToCache = JSON.stringify(optimizedBanners);
@@ -2119,11 +2166,17 @@ export default function Index() {
                     paddingHorizontal: 8
                   }}
                 >
-                  <BannerImage
-                    uri={fullImageUrl}
-                    width={BANNER_WIDTH}
-                    height={220}
-                  />
+                  <TouchableOpacity
+                    activeOpacity={b?.link_type && b.link_type !== 'none' ? 0.88 : 1}
+                    disabled={!b?.link_type || b.link_type === 'none'}
+                    onPress={() => handleBannerPress(b)}
+                  >
+                    <BannerImage
+                      uri={fullImageUrl}
+                      width={BANNER_WIDTH}
+                      height={220}
+                    />
+                  </TouchableOpacity>
                 </View>
               );
             })}
