@@ -609,7 +609,7 @@ const BannerImage = ({ uri, width, height }: { uri: string; width: number; heigh
         backgroundColor: '#fff',
         overflow: 'hidden'
       }} 
-      resizeMode="stretch"
+      resizeMode="cover"
       onError={() => {
         console.error("❌ Banner image failed to load:", uri);
         setError(true);
@@ -2076,7 +2076,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.48);
+            const bannerHeight = Math.round(bannerWidth * 0.30);
             return (
               <ScrollView
                 horizontal
@@ -2188,7 +2188,7 @@ export default function Index() {
         const { width } = Dimensions.get('window');
         const SLIDE_WIDTH = width;
         const BANNER_WIDTH = width - 16;
-        const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.52);
+        const BANNER_HEIGHT = Math.round(BANNER_WIDTH * 0.30);
 
         return (
           <ScrollView
@@ -2196,7 +2196,7 @@ export default function Index() {
             horizontal
             showsHorizontalScrollIndicator={false}
             pagingEnabled={true}
-            style={{ marginBottom: 20 }}
+            style={{ marginBottom: 14 }}
             snapToInterval={SLIDE_WIDTH}
             decelerationRate="fast"
           >
