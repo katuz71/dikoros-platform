@@ -6,6 +6,7 @@ import { getImageUrl } from '@/utils/image';
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
@@ -749,6 +750,26 @@ export default function Index() {
   const [homeNewProducts, setHomeNewProducts] = useState<Product[]>([]);
   const [catalogHomeLoaded, setCatalogHomeLoaded] = useState(false);
 
+
+  const openSiteUrlInApp = useCallback((rawUrl: string) => {
+    const url = String(rawUrl || '').trim();
+    if (!url) return;
+
+    const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    if (!/^https?:\/\/[^\s]+$/i.test(normalizedUrl)) return;
+
+    const isDikorosSite = /^https?:\/\/(www\.)?dikoros-ua\.com(\/|$)/i.test(normalizedUrl);
+
+    if (isDikorosSite) {
+      WebBrowser.openBrowserAsync(normalizedUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+      }).catch(() => {});
+      return;
+    }
+
+    Linking.openURL(normalizedUrl).catch(() => {});
+  }, []);
+
   const handleBannerPress = useCallback((banner: any) => {
     const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
     const linkValue = String(banner?.link_value || '').trim();
@@ -777,6 +798,11 @@ export default function Index() {
     }
 
     if (linkType === 'promotions') {
+      const sourceUrl = String(banner?.source_url || '').trim();
+      if (sourceUrl) {
+        openSiteUrlInApp(sourceUrl);
+        return;
+      }
       router.push('/news' as any);
       return;
     }
@@ -794,11 +820,9 @@ export default function Index() {
 
     if (linkType === 'external') {
       if (!linkValue) return;
-      const normalizedUrl = /^https?:\/\//i.test(linkValue) ? linkValue : `https://${linkValue}`;
-      if (!/^https?:\/\/[^\s]+$/i.test(normalizedUrl)) return;
-      Linking.openURL(normalizedUrl).catch(() => {});
+      openSiteUrlInApp(linkValue);
     }
-  }, [homeCategories, router]);
+  }, [homeCategories, openSiteUrlInApp, router]);
 
   const selectedCategoryBanners = useMemo(() => {
     const selectedRoot = normalizeCategory(selectedCategory).split('/', 1)[0].toLocaleLowerCase('uk-UA');
