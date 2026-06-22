@@ -2103,7 +2103,7 @@ export default function Index() {
             const { width } = Dimensions.get('window');
             const slideWidth = width;
             const bannerWidth = width - 16;
-            const bannerHeight = Math.round(bannerWidth * 0.36);
+            const bannerHeight = Math.round(bannerWidth * 0.40);
             return (
               <>
               <ScrollView
@@ -2131,18 +2131,22 @@ export default function Index() {
                         disabled={!isClickable}
                         onPress={() => handleBannerPress(banner)}
                         style={{
-                          borderRadius: 16,
+                          borderRadius: 18,
                           overflow: 'hidden',
                           backgroundColor: '#FFFFFF',
+                          borderBottomLeftRadius: 18,
+                          borderBottomRightRadius: 18,
                         }}
                       >
                         <View
                           style={{
                             width: bannerWidth,
                             height: bannerHeight,
-                            borderRadius: 16,
+                            borderRadius: 18,
                             overflow: 'hidden',
                             backgroundColor: '#FFFFFF',
+                          borderBottomLeftRadius: 18,
+                          borderBottomRightRadius: 18,
                           }}
                         >
                           <Image
@@ -2150,7 +2154,10 @@ export default function Index() {
                             style={{
                               width: '100%',
                               height: '100%',
-                              borderRadius: 16,
+                              borderRadius: 18,
+                              borderBottomLeftRadius: 18,
+                              borderBottomRightRadius: 18,
+                              overflow: 'hidden',
                             }}
                             resizeMode="stretch"
                           />
