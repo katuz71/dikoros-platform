@@ -2,6 +2,7 @@
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -668,6 +669,7 @@ const SITE_CATEGORY_ORDER = [
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { handleFooterScroll } = useAppFooterAutoHide();
   // Get cart context
   const { addItem, items: cartItems, removeItem, clearCart, totalPrice, updateQuantity, addOne, removeOne } = useCart();
   // Get favorites store
@@ -2244,6 +2246,8 @@ export default function Index() {
 
           <FlatList
             data={filteredProducts}
+            onScroll={handleFooterScroll}
+            scrollEventThrottle={16}
             renderItem={renderProductItem}
             keyExtractor={item => item?.id?.toString() || Math.random().toString()}
             numColumns={2}
@@ -2263,6 +2267,8 @@ export default function Index() {
       {!categoryViewOpen && (
         <ScrollView
           ref={scrollViewRef}
+          onScroll={handleFooterScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           style={{ flex: 1, width: '100%', backgroundColor: '#f5f5f5' }}
           contentContainerStyle={{ paddingBottom: 120, backgroundColor: '#f5f5f5' }}

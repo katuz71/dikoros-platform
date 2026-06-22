@@ -113,8 +113,7 @@ export default function Layout() {
   const navigationHistoryRef = useRef<string[]>([]);
   const isHistoryBackRef = useRef(false);
   const [productFooterVisible, setProductFooterVisible] = useState(true);
-  const isProductRoute = routeKey === 'product/[id]';
-  const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && (!isProductRoute || productFooterVisible);
+  const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && productFooterVisible;
   const showFloatingChat = !FLOATING_CHAT_HIDDEN_ROUTES.has(routeKey);
   const footerVisibilityValue = useMemo(() => ({
     productFooterVisible,
@@ -122,8 +121,8 @@ export default function Layout() {
   }), [productFooterVisible]);
 
   useEffect(() => {
-    if (!isProductRoute) setProductFooterVisible(true);
-  }, [isProductRoute]);
+    setProductFooterVisible(true);
+  }, [routeKey]);
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');

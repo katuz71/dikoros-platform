@@ -1,12 +1,13 @@
 import { useCart } from '@/context/CartContext';
-import { useAppFooterVisibility } from '@/context/AppFooterVisibilityContext';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeader } from './AppHeader';
 import ProductCard from './ProductCard';
@@ -82,63 +83,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
   const insets = useSafeAreaInsets();
-  const { productFooterVisible, setProductFooterVisible } = useAppFooterVisibility();
+  const { footerVisible: productFooterVisible, handleFooterScroll: handlePageScroll } = useAppFooterAutoHide();
   const router = useRouter();
   const { addItem } = useCart() as any;
   void onAddToCart;
   void variantRows;
 
   const quantityOptions = React.useMemo(() => Array.from({ length: 10 }, (_, index) => index + 1), []);
-  const footerVisibleRef = React.useRef(productFooterVisible);
-  const lastScrollOffsetRef = React.useRef(0);
-  const scrollDirectionRef = React.useRef<'up' | 'down' | null>(null);
-  const directionDistanceRef = React.useRef(0);
-
-  React.useEffect(() => {
-    footerVisibleRef.current = productFooterVisible;
-  }, [productFooterVisible]);
-
-  const updateProductFooterVisibility = React.useCallback((visible: boolean) => {
-    if (footerVisibleRef.current === visible) return;
-    footerVisibleRef.current = visible;
-    setProductFooterVisible(visible);
-  }, [setProductFooterVisible]);
-
-  React.useEffect(() => {
-    updateProductFooterVisibility(true);
-    return () => setProductFooterVisible(true);
-  }, [setProductFooterVisible, updateProductFooterVisibility]);
-
-  const handlePageScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offset = Math.max(0, event.nativeEvent.contentOffset.y);
-    const delta = offset - lastScrollOffsetRef.current;
-    lastScrollOffsetRef.current = offset;
-
-    if (offset <= 8) {
-      scrollDirectionRef.current = null;
-      directionDistanceRef.current = 0;
-      updateProductFooterVisibility(true);
-      return;
-    }
-
-    if (Math.abs(delta) < 1) return;
-    const direction: 'up' | 'down' = delta > 0 ? 'down' : 'up';
-
-    if (scrollDirectionRef.current !== direction) {
-      scrollDirectionRef.current = direction;
-      directionDistanceRef.current = 0;
-    }
-    directionDistanceRef.current += Math.abs(delta);
-
-    if (direction === 'down' && offset > 24 && directionDistanceRef.current >= 18) {
-      directionDistanceRef.current = 0;
-      updateProductFooterVisibility(false);
-    } else if (direction === 'up' && directionDistanceRef.current >= 14) {
-      directionDistanceRef.current = 0;
-      updateProductFooterVisibility(true);
-    }
-  }, [updateProductFooterVisibility]);
-
   const selectedSignature = React.useMemo(() => {
     const selected = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
     return `${Number(product?.id || 0)}::${clean(selected || product?.unit || 'шт')}::${clean(activeRow?.rowId || '')}`;

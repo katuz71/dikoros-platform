@@ -2,6 +2,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrdersContext';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
@@ -57,6 +58,7 @@ const getCompositeId = (item: any) => `${item.id}-${String(getSizeKey(item))}`;
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { handleFooterScroll } = useAppFooterAutoHide();
   const {
     items: cartItems,
     addItem,
@@ -472,6 +474,8 @@ export default function CartScreen() {
 
       <ScrollView
         contentContainerStyle={!hasAnyContent ? styles.emptyContainer : styles.scrollContent}
+        onScroll={handleFooterScroll}
+        scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

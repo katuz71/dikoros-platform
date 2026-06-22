@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 
 const getOrderStatusLabel = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase();
@@ -67,6 +68,7 @@ const OrderItem = ({ order, onPress, formatPrice }: any) => (
 export default function OrdersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string }>();
+  const { handleFooterScroll } = useAppFooterAutoHide();
   const closeOrders = () => {
     if (params.from === 'profile') {
       router.replace('/(tabs)/profile' as any);
@@ -144,6 +146,8 @@ export default function OrdersScreen() {
 
       <FlatList
         data={orders}
+        onScroll={handleFooterScroll}
+        scrollEventThrottle={16}
         keyExtractor={(item: any) => item.id.toString()}
         renderItem={({ item }) => (
             <OrderItem 

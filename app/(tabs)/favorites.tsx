@@ -1,5 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { useCart } from '@/context/CartContext';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { trackEvent } from '@/utils/analytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 
 export default function FavoritesScreen() {
   const router = useRouter();
+  const { handleFooterScroll } = useAppFooterAutoHide();
   const { addItem } = useCart();
   const { favorites, toggleFavorite, clearFavorites } = useFavoritesStore();
   // Функция форматирования цены
@@ -298,6 +300,8 @@ export default function FavoritesScreen() {
       {/* Список товаров */}
       <FlatList
         data={favorites}
+        onScroll={handleFooterScroll}
+        scrollEventThrottle={16}
         renderItem={renderFavoriteItem}
         keyExtractor={(item) => item?.id?.toString() || Math.random().toString()}
         contentContainerStyle={styles.listContainer}

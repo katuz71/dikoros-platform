@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
@@ -44,6 +45,7 @@ interface UserProfile {
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { handleFooterScroll } = useAppFooterAutoHide();
   // Состояния
   const [phone, setPhone] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -497,6 +499,8 @@ export default function ProfileScreen() {
 
       <ScrollView 
         contentContainerStyle={{ paddingBottom: 130 }}
+        onScroll={handleFooterScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
       <View style={styles.welcomeBlock}>
@@ -587,6 +591,8 @@ export default function ProfileScreen() {
 
           <ScrollView 
             contentContainerStyle={{ paddingBottom: 130 }}
+            onScroll={handleFooterScroll}
+            scrollEventThrottle={16}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           >
 
