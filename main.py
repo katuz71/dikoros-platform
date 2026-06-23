@@ -1,10 +1,11 @@
+import json
 import logging
 import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -52,6 +53,45 @@ os.makedirs("uploads", exist_ok=True)
 install_admin_route_guard()
 app = FastAPI()
 add_admin_guard_middleware(app)
+
+
+@app.middleware("http")
+async def block_disabled_card_payment(request: Request, call_next):
+    """Disable removed card/Monobank payment paths before order routers run."""
+    disabled_payment_methods = {"card", "monobank", "mono"}
+
+    if request.method.upper() == "POST" and request.url.path == "/api/payment/callback":
+        return JSONResponse(
+            status_code=410,
+            content={
+                "detail": "Card payment callback is disabled. Cashback is applied only on final order status."
+            },
+        )
+
+    if request.method.upper() == "POST" and request.url.path == "/create_order":
+        body = await request.body()
+        try:
+            payload = json.loads(body.decode("utf-8") or "{}")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            payload = {}
+
+        payment_method = str(payload.get("payment_method") or "").strip().lower()
+        if payment_method in disabled_payment_methods:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": "Оплата карткою вимкнена. Оберіть післяплату або оплату на рахунок."
+                },
+            )
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        request = Request(request.scope, receive)
+
+    return await call_next(request)
+
+
 app.include_router(health.router)
 app.include_router(public_pages.router)
 app.include_router(pages.router)
