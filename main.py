@@ -38,6 +38,7 @@ from routers import (
 )
 from services.catalog_scheduler import start_catalog_sync_scheduler
 from services.images import UPLOADS_DIR
+from services.order_cancellation import cancel_order_and_revert_rewards, is_cancelled_order_status
 from services.security import add_admin_guard_middleware, install_admin_route_guard
 
 load_dotenv()
@@ -56,8 +57,8 @@ add_admin_guard_middleware(app)
 
 
 @app.middleware("http")
-async def block_disabled_card_payment(request: Request, call_next):
-    """Disable removed card/Monobank payment paths before order routers run."""
+async def enforce_payment_and_reward_rules(request: Request, call_next):
+    """Disable removed card payments and revert rewards when orders are canceled."""
     disabled_payment_methods = {"card", "monobank", "mono"}
 
     if request.method.upper() == "POST" and request.url.path == "/api/payment/callback":
@@ -88,6 +89,34 @@ async def block_disabled_card_payment(request: Request, call_next):
             return {"type": "http.request", "body": body, "more_body": False}
 
         request = Request(request.scope, receive)
+
+    if request.method.upper() == "PUT":
+        path_parts = [part for part in request.url.path.split("/") if part]
+        is_order_status_path = (
+            len(path_parts) >= 3 and path_parts[-3] == "orders" and path_parts[-1] == "status"
+        )
+        if is_order_status_path:
+            body = await request.body()
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                payload = {}
+
+            new_status = str(payload.get("new_status") or "").strip()
+            if is_cancelled_order_status(new_status):
+                try:
+                    order_id = int(path_parts[-2])
+                except (TypeError, ValueError):
+                    return JSONResponse(status_code=400, content={"detail": "Invalid order id"})
+
+                result = cancel_order_and_revert_rewards(order_id, new_status)
+                status_code = int(result.pop("status_code", 200 if result.get("status") == "ok" else 500))
+                return JSONResponse(status_code=status_code, content=result)
+
+            async def receive():
+                return {"type": "http.request", "body": body, "more_body": False}
+
+            request = Request(request.scope, receive)
 
     return await call_next(request)
 
