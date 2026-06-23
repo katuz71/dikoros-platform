@@ -1,5 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -33,6 +34,7 @@ export default function NewsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const { handleFooterScroll } = useAppFooterAutoHide();
 
   const loadPage = async () => {
     try {
@@ -113,6 +115,8 @@ export default function NewsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onScroll={handleFooterScroll}
+          scrollEventThrottle={16}
         >
           {!!error && <Text style={styles.error}>{error}</Text>}
 
