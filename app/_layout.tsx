@@ -28,6 +28,8 @@ const APP_FOOTER_ROUTES = new Set([
   '(tabs)/profile',
   '(tabs)/orders',
   'product/[id]',
+  'news',
+  'blog',
 ]);
 
 const FLOATING_CHAT_HIDDEN_ROUTES = new Set([
@@ -254,4 +256,3 @@ export default function Layout() {
     </SafeAreaProvider>
   );
 }
-
