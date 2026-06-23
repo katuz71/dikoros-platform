@@ -1106,9 +1106,21 @@ async def chat_endpoint(request: ChatRequest):
                 ["мухомор", "amanita", "mix", "мікс", "микс"]
             )
 
-        # Hard route for quick reply: sleep/calm must not match random "сон..." products like honey.
-        if not is_info_question and "для спокою та сну" in normalized_message:
-            found_products = get_products_by_ids([196])
+        # Hard route for sleep/calm intent: avoid random "сон..." matches like honey/sunflower.
+        if (
+            not is_info_question
+            and (
+                "sleep" in intents
+                or "stress" in intents
+                or "для спокою та сну" in normalized_message
+                or "сон" in normalized_message
+                or "сна" in normalized_message
+                or "сну" in normalized_message
+                or "спок" in normalized_message
+                or "спокой" in normalized_message
+            )
+        ):
+            found_products = get_products_by_ids([15, 16, 55])
 
         if not is_info_question and "набори для старту" in normalized_message:
             found_products = get_products_by_ids([11, 69, 65])
