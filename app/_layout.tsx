@@ -7,13 +7,14 @@ import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import { GlobalSearchProvider } from '@/context/GlobalSearchContext';
 import { AppFooterVisibilityProvider } from '@/context/AppFooterVisibilityContext';
 import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Linking, Platform, View } from 'react-native';
+import { BackHandler, Linking, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
 import { OrdersProvider } from '../context/OrdersContext';
@@ -118,6 +119,7 @@ export default function Layout() {
   const [productFooterVisible, setProductFooterVisible] = useState(true);
   const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && productFooterVisible;
   const showFloatingChat = !FLOATING_CHAT_HIDDEN_ROUTES.has(routeKey);
+  const showProfileNotificationsShortcut = routeKey === '(tabs)/profile';
   const footerVisibilityValue = useMemo(() => ({
     productFooterVisible,
     setProductFooterVisible,
@@ -272,6 +274,32 @@ export default function Layout() {
               <Stack.Screen name="about" options={{ headerShown: false }} />
               <Stack.Screen name="oauthredirect" options={{ headerShown: false }} />
             </Stack>
+            {showProfileNotificationsShortcut && (
+              <TouchableOpacity
+                onPress={() => router.push('/profile-notifications' as any)}
+                activeOpacity={0.86}
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  bottom: 206,
+                  backgroundColor: '#111827',
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 7,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.18,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 5,
+                }}
+              >
+                <Ionicons name="notifications-outline" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '800' }}>Оповіщення</Text>
+              </TouchableOpacity>
+            )}
             {showFloatingChat && <FloatingChatButton bottomOffset={142} />}
             {showAppFooter && <AppFooter />}
             <GlobalSearchModal />
