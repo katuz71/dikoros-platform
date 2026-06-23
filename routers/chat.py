@@ -1062,6 +1062,14 @@ async def chat_endpoint(request: ChatRequest):
                     ["мухомор", "amanita", "mix", "мікс", "микс"]
                 )
 
+            if (
+                ("настойк" in t or "настоянк" in t or "250" in t)
+                and ("мухомор" in t or "amanita" in t)
+            ):
+                tincture_products = get_products_by_ids([361])
+                if tincture_products:
+                    return tincture_products
+
             if "мухомор" in t or "amanita" in t:
                 return _topic_products_by_needles(
                     ["мухомор", "amanita"],
