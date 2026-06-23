@@ -12,7 +12,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from '../context/CartContext';
@@ -114,6 +114,7 @@ export default function Layout() {
   const routeKey = segments.join('/');
   const navigationHistoryRef = useRef<string[]>([]);
   const isHistoryBackRef = useRef(false);
+  const handledNotificationIdRef = useRef<string | null>(null);
   const [productFooterVisible, setProductFooterVisible] = useState(true);
   const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && productFooterVisible;
   const showFloatingChat = !FLOATING_CHAT_HIDDEN_ROUTES.has(routeKey);
@@ -151,6 +152,32 @@ export default function Layout() {
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
+
+  const handleNotificationResponse = useCallback((response: Notifications.NotificationResponse | null | undefined) => {
+    const notification = response?.notification;
+    if (!notification) return;
+
+    const notificationId = notification.request.identifier;
+    if (notificationId && handledNotificationIdRef.current === notificationId) return;
+    handledNotificationIdRef.current = notificationId || null;
+
+    const data = notification.request.content.data || {};
+    const screen = String(data.screen || '').trim().toLowerCase();
+    const type = String(data.type || '').trim().toLowerCase();
+
+    if (screen === 'orders' || type.includes('order')) {
+      router.replace('/(tabs)/orders' as any);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    Notifications.getLastNotificationResponseAsync()
+      .then(handleNotificationResponse)
+      .catch(() => {});
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    return () => subscription.remove();
+  }, [handleNotificationResponse]);
 
   // Android system back: go to previous app screen, or stay if there is no history.
   useEffect(() => {
