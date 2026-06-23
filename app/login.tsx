@@ -125,7 +125,7 @@ export default function LoginScreen() {
     const canon = canonicalizePhone(inputPhone);
 
     if (canon.length !== 12 || !canon.startsWith('380')) {
-      Alert.alert('РџРѕРјРёР»РєР°', 'Р’РІРµРґС–С‚СЊ РЅРѕРјРµСЂ Сѓ С„РѕСЂРјР°С‚С– +380 XX XXX XX XX');
+      Alert.alert('Помилка', 'Введіть номер у форматі +380 XX XXX XX XX');
       return;
     }
 
@@ -142,14 +142,14 @@ export default function LoginScreen() {
       if (res.ok) {
         setSmsSent(true);
         setSmsCode('');
-        Alert.alert('РљРѕРґ РІС–РґРїСЂР°РІР»РµРЅРѕ', 'Р’РІРµРґС–С‚СЊ SMS-РєРѕРґ РґР»СЏ РІС…РѕРґСѓ.');
+        Alert.alert('Код відправлено', 'Введіть SMS-код для входу.');
       } else {
         const err = await res.json().catch(() => null);
-        Alert.alert('РџРѕРјРёР»РєР°', err?.detail || 'РќРµ РІРґР°Р»РѕСЃСЏ РІС–РґРїСЂР°РІРёС‚Рё SMS-РєРѕРґ');
+        Alert.alert('Помилка', err?.detail || 'Не вдалося відправити SMS-код');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('РџРѕРјРёР»РєР°', 'РќРµРјР°С” Р·вЂ™С”РґРЅР°РЅРЅСЏ');
+      Alert.alert('Помилка', 'Немає з’єднання');
     } finally {
       setLoading(false);
     }
@@ -166,7 +166,7 @@ export default function LoginScreen() {
     const cleanSmsCode = smsCode.replace(/\D/g, '');
 
     if (cleanSmsCode.length !== 6) {
-      Alert.alert('РџРѕРјРёР»РєР°', 'Р’РІРµРґС–С‚СЊ SMS-РєРѕРґ');
+      Alert.alert('Помилка', 'Введіть SMS-код');
       return;
     }
 
@@ -182,14 +182,14 @@ export default function LoginScreen() {
       const user = await res.json().catch(() => null);
 
       if (!res.ok) {
-        Alert.alert('РџРѕРјРёР»РєР°', user?.detail || 'РќРµРІС–СЂРЅРёР№ SMS-РєРѕРґ');
+        Alert.alert('Помилка', user?.detail || 'Невірний SMS-код');
         return;
       }
 
       await finishLogin({ ...user, provider: 'sms' }, canon);
     } catch (error) {
       console.error(error);
-      Alert.alert('РџРѕРјРёР»РєР°', 'РќРµРјР°С” Р·вЂ™С”РґРЅР°РЅРЅСЏ');
+      Alert.alert('Помилка', 'Немає з’єднання');
     } finally {
       setLoading(false);
     }
@@ -213,7 +213,7 @@ export default function LoginScreen() {
       }
 
       if (!idToken) {
-        Alert.alert('РџРѕРјРёР»РєР° Google РІС…РѕРґСѓ', 'Google РЅРµ РїРѕРІРµСЂРЅСѓРІ ID token.');
+        Alert.alert('Помилка Google входу', 'Google не повернув ID token.');
         return;
       }
 
@@ -228,13 +228,13 @@ export default function LoginScreen() {
       if (!res.ok) {
         if (res.status === 409) {
           Alert.alert(
-            'РџРѕС‚СЂС–Р±РµРЅ SMS-РІС…С–Рґ',
-            'РЎРїРѕС‡Р°С‚РєСѓ СѓРІС–Р№РґС–С‚СЊ Р°Р±Рѕ Р·Р°СЂРµС”СЃС‚СЂСѓР№С‚РµСЃСЊ Р·Р° РЅРѕРјРµСЂРѕРј С‚РµР»РµС„РѕРЅСѓ С‡РµСЂРµР· SMS. РџС–СЃР»СЏ С†СЊРѕРіРѕ Google-РІС…С–Рґ РјРѕР¶РЅР° Р±СѓРґРµ РїСЂРёРІвЂ™СЏР·Р°С‚Рё РґРѕ Р°РєР°СѓРЅС‚Р°.'
+            'Потрібен SMS-вхід',
+            'Спочатку увійдіть або зареєструйтесь за номером телефону через SMS. Після цього Google-вхід можна буде прив’язати до акаунта.'
           );
           return;
         }
 
-        Alert.alert('РџРѕРјРёР»РєР°', user?.detail || 'РќРµ РІРґР°Р»РѕСЃСЏ СѓРІС–Р№С‚Рё С‡РµСЂРµР· Google');
+        Alert.alert('Помилка', user?.detail || 'Не вдалося увійти через Google');
         return;
       }
 
@@ -242,7 +242,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
       console.warn('Google native sign-in failed:', error);
-      Alert.alert('РџРѕРјРёР»РєР° Google РІС…РѕРґСѓ', error?.message || 'РќРµ РІРґР°Р»РѕСЃСЏ СѓРІС–Р№С‚Рё С‡РµСЂРµР· Google.');
+      Alert.alert('Помилка Google входу', error?.message || 'Не вдалося увійти через Google.');
     } finally {
       setLoading(false);
     }
@@ -260,7 +260,7 @@ export default function LoginScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Р’С…С–Рґ / Р РµС”СЃС‚СЂР°С†С–СЏ</Text>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Вхід / Реєстрація</Text>
         <View style={styles.unifiedTitleButton} />
       </View>
 
@@ -270,9 +270,9 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.title}>РЈРІС–Р№РґС–С‚СЊ Р·Р° РЅРѕРјРµСЂРѕРј С‚РµР»РµС„РѕРЅСѓ</Text>
+            <Text style={styles.title}>Увійдіть за номером телефону</Text>
             <Text style={styles.subtitle}>
-              SMS-РІС…С–Рґ С” РѕСЃРЅРѕРІРЅРёРј СЃРїРѕСЃРѕР±РѕРј Р°РІС‚РѕСЂРёР·Р°С†С–С—. Google РјРѕР¶РЅР° РїСЂРёРІвЂ™СЏР·Р°С‚Рё РїС–СЃР»СЏ SMS-РІС…РѕРґСѓ.
+              SMS-вхід є основним способом авторизації. Google можна прив’язати після SMS-входу.
             </Text>
 
             <TextInput
@@ -294,7 +294,7 @@ export default function LoginScreen() {
             {smsSent && (
               <TextInput
                 style={styles.input}
-                placeholder="SMS-РєРѕРґ"
+                placeholder="SMS-код"
                 value={smsCode}
                 onChangeText={setSmsCode}
                 keyboardType="number-pad"
@@ -313,14 +313,14 @@ export default function LoginScreen() {
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  {smsSent ? 'РЈРІС–Р№С‚Рё' : 'РћС‚СЂРёРјР°С‚Рё SMS-РєРѕРґ'}
+                  {smsSent ? 'Увійти' : 'Отримати SMS-код'}
                 </Text>
               )}
             </TouchableOpacity>
 
             {smsSent && (
               <TouchableOpacity style={styles.secondaryPlain} onPress={handleSendSmsCode} disabled={loading}>
-                <Text style={styles.secondaryPlainText}>РќР°РґС–СЃР»Р°С‚Рё РєРѕРґ С‰Рµ СЂР°Р·</Text>
+                <Text style={styles.secondaryPlainText}>Надіслати код ще раз</Text>
               </TouchableOpacity>
             )}
 
@@ -328,7 +328,7 @@ export default function LoginScreen() {
               <>
                 <View style={styles.orRow}>
                   <View style={styles.orLine} />
-                  <Text style={styles.orText}>Р°Р±Рѕ</Text>
+                  <Text style={styles.orText}>або</Text>
                   <View style={styles.orLine} />
                 </View>
 
@@ -339,7 +339,7 @@ export default function LoginScreen() {
                   activeOpacity={0.8}
                 >
                   <Ionicons name="logo-google" size={20} color="#111827" />
-                  <Text style={styles.googleButtonText}>РЈРІС–Р№С‚Рё С‡РµСЂРµР· Google</Text>
+                  <Text style={styles.googleButtonText}>Увійти через Google</Text>
                 </TouchableOpacity>
               </>
             )}
