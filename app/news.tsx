@@ -2,8 +2,9 @@ import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
 import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -28,6 +29,9 @@ type NewsPage = {
   sections?: NewsSection[];
 };
 
+const NEWS_CACHE_KEY = 'cached_news_page_v2';
+const NEWS_TIMEOUT_MS = 10000;
+
 export default function NewsScreen() {
   const router = useRouter();
   const [page, setPage] = useState<NewsPage | null>(null);
@@ -36,10 +40,48 @@ export default function NewsScreen() {
   const [error, setError] = useState('');
   const { handleFooterScroll } = useAppFooterAutoHide();
 
-  const loadPage = async () => {
+  const applyCachedPage = useCallback(async () => {
+    try {
+      const cachedData = await AsyncStorage.getItem(NEWS_CACHE_KEY);
+      if (!cachedData) return false;
+
+      const cachedPage = JSON.parse(cachedData);
+      if (cachedPage && typeof cachedPage === 'object') {
+        setPage(cachedPage);
+        setLoading(false);
+        return true;
+      }
+    } catch (cacheError) {
+      console.warn('News cache read failed:', cacheError);
+      try {
+        await AsyncStorage.removeItem(NEWS_CACHE_KEY);
+      } catch {}
+    }
+
+    return false;
+  }, []);
+
+  const loadPage = useCallback(async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
       setError('');
-      const response = await fetch(`${API_URL}${API_ENDPOINTS.newsPage}`);
+      const hadCache = await applyCachedPage();
+      if (!hadCache) setLoading(true);
+
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), NEWS_TIMEOUT_MS);
+
+      const response = await fetch(`${API_URL}${API_ENDPOINTS.newsPage}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -47,18 +89,25 @@ export default function NewsScreen() {
 
       const data = await response.json();
       setPage(data);
-    } catch (err) {
-      console.warn('News page load failed:', err);
-      setError('Не вдалося завантажити інформацію. Спробуйте оновити сторінку.');
+
+      try {
+        await AsyncStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(data));
+      } catch (cacheError) {
+        console.warn('News cache save failed:', cacheError);
+      }
+    } catch (err: any) {
+      if (timeoutId) clearTimeout(timeoutId);
+      console.warn('News page load failed:', err?.message || err);
+      if (!page) setError('Не вдалося завантажити інформацію. Спробуйте оновити сторінку.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [applyCachedPage, page]);
 
   useEffect(() => {
     loadPage();
-  }, []);
+  }, [loadPage]);
 
   const onRefresh = () => {
     setRefreshing(true);
