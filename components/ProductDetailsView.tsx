@@ -44,7 +44,7 @@ interface ProductDetailsViewProps {
   favorites?: any[];
 }
 
-type InfoModalKey = 'instruction' | 'contraindications' | 'delivery';
+type InfoModalKey = 'description' | 'instruction' | 'contraindications' | 'delivery';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -283,13 +283,15 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     const delivery = [deliveryInfo, returnInfo].filter(Boolean).join('\n\n') || DELIVERY_PAYMENT_RETURN_TEXT;
 
     return {
+      description: productInfoText,
       instruction: instruction || 'Інструкція буде оновлена найближчим часом.',
       contraindications: contraindications || 'Протипоказання будуть оновлені найближчим часом.',
       delivery,
     } satisfies Record<InfoModalKey, string>;
-  }, [normalizeText, product?.usage, product?.instruction, product?.instructions, product?.contraindications, product?.contraindication, product?.composition, product?.delivery_info, product?.deliveryInfo, product?.return_info, product?.returnInfo]);
+  }, [normalizeText, productInfoText, product?.usage, product?.instruction, product?.instructions, product?.contraindications, product?.contraindication, product?.composition, product?.delivery_info, product?.deliveryInfo, product?.return_info, product?.returnInfo]);
 
   const modalTitle = React.useMemo(() => {
+    if (infoModalKey === 'description') return 'Опис';
     if (infoModalKey === 'instruction') return 'Інструкція';
     if (infoModalKey === 'contraindications') return 'Протипоказання';
     if (infoModalKey === 'delivery') return 'Доставка, оплата і повернення';
@@ -481,6 +483,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           {renderProductInfo(productInfoText)}
 
           <View style={styles.infoModalRows}>
+            {renderInfoRow('description', 'Опис')}
             {renderInfoRow('instruction', 'Інструкція')}
             {renderInfoRow('contraindications', 'Протипоказання')}
             {renderInfoRow('delivery', 'Доставка, оплата і повернення')}
