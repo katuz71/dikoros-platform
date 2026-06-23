@@ -3,6 +3,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _default_push_data(title: str, data: dict | None) -> dict:
+    """Add navigation data for legacy order pushes that were sent without payload data."""
+    if data:
+        return data
+
+    normalized_title = str(title or "").strip().lower()
+    if "замовлення" in normalized_title or "заказ" in normalized_title:
+        return {
+            "type": "order_notification",
+            "screen": "orders",
+        }
+
+    return {}
+
+
 def send_expo_push(token: str, title: str, body: str, data: dict = None):
     """
     Отправляет push-уведомление через сервера Expo.
@@ -12,7 +28,7 @@ def send_expo_push(token: str, title: str, body: str, data: dict = None):
         return
 
     url = "https://exp.host/--/api/v2/push/send"
-    
+
     payload = {
         "to": token,
         "title": title,
@@ -23,7 +39,7 @@ def send_expo_push(token: str, title: str, body: str, data: dict = None):
         "projectId": "66618f31-dc39-46f1-ba09-55c52d037f4a",
         "experienceId": "@katuz71/dikorosua",
         "_displayInForeground": True,
-        "data": data or {}
+        "data": _default_push_data(title, data),
     }
 
     try:
