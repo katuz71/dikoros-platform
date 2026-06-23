@@ -644,7 +644,14 @@ const CONTACT_ACTIONS = [
 
 export default function PoliciesScreen() {
   const router = useRouter();
-  const goProfile = () => router.replace('/(tabs)/profile' as any);
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/(tabs)' as any);
+  };
   const params = useLocalSearchParams<{ page?: string }>();
   const pageKey = String(params.page || 'privacy');
   const page = PAGES[pageKey] || PAGES.privacy;
@@ -657,12 +664,17 @@ export default function PoliciesScreen() {
 
   return (
     <View style={styles.safe}>
-      <AppHeader
-        title={page.title}
-        showBack
-        onBack={goProfile}
-        showSearch={false}
-      />
+      <AppHeader showLogo showSearch showFavorites />
+
+      <View style={styles.titleRow}>
+        <TouchableOpacity onPress={goBack} style={styles.titleBackButton} activeOpacity={0.75}>
+          <Ionicons name="chevron-back" size={26} color="#111827" />
+        </TouchableOpacity>
+
+        <Text style={styles.titleText} numberOfLines={1}>{page.title}</Text>
+
+        <View style={styles.titleBackButton} />
+      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {page.sections.map((section, index) => {
@@ -728,6 +740,29 @@ export default function PoliciesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F7F7F7' },
+  titleRow: {
+    height: 54,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleBackButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#111827',
+  },
   header: {
     height: 62,
     backgroundColor: '#FFF',
