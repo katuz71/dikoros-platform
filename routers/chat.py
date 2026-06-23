@@ -1120,7 +1120,7 @@ async def chat_endpoint(request: ChatRequest):
                 or "спокой" in normalized_message
             )
         ):
-            found_products = get_products_by_ids([15, 16, 55])
+            found_products = get_products_by_ids([15, 55, 69])
 
         if not is_info_question and "набори для старту" in normalized_message:
             found_products = get_products_by_ids([11, 69, 65])
