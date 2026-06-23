@@ -36,8 +36,12 @@ REGISTRATION_BONUS_AMOUNT = 150
 REFERRAL_BONUS_AMOUNT = 50
 DEFAULT_CUMULATIVE_DISCOUNT_PERCENT = 0
 
-GOOGLE_WEB_CLIENT_ID = "451079322222-j59emqplkjkecod099fh759t2mmlr5jo.apps.googleusercontent.com"
-GOOGLE_ANDROID_CLIENT_ID = "451079322222-49sf5d8pc3kb2fr10022b5im58s21ao6.apps.googleusercontent.com"
+GOOGLE_WEB_CLIENT_ID = "579083559503-e578et6kgqf9k4aqb0b9265jkq0te264.apps.googleusercontent.com"
+GOOGLE_ANDROID_CLIENT_IDS = [
+    "579083559503-9id7h7c12f500f632sjf06pe3vs7iugs.apps.googleusercontent.com",
+    "579083559503-jv66svva25eqko069ncc3gj3n3rq94m7.apps.googleusercontent.com",
+    "579083559503-mn24g3m4ivpgc45p0ct4fotgfamfovju.apps.googleusercontent.com",
+]
 
 
 def _normalize_email(email: str) -> str:
@@ -93,7 +97,22 @@ def _verify_social_token(provider: str, token: str) -> dict:
             )
 
         google_web_id = os.getenv("GOOGLE_CLIENT_ID")
-        allowed_audiences = [a for a in [google_web_id, GOOGLE_WEB_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID] if a]
+        google_extra_ids = [
+            value.strip()
+            for value in os.getenv("GOOGLE_CLIENT_IDS", "").split(",")
+            if value.strip()
+        ]
+        allowed_audiences = [
+            a
+            for a in [
+                google_web_id,
+                GOOGLE_WEB_CLIENT_ID,
+                *GOOGLE_ANDROID_CLIENT_IDS,
+                *google_extra_ids,
+            ]
+            if a
+        ]
+        allowed_audiences = list(dict.fromkeys(allowed_audiences))
         try:
             decoded = id_token.verify_oauth2_token(
                 token,
