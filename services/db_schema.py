@@ -113,6 +113,19 @@ def fix_db_schema():
     ''')
 
     c.execute('''
+        CREATE TABLE IF NOT EXISTS user_notifications (
+            id BIGSERIAL PRIMARY KEY,
+            user_phone TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'system',
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            data TEXT DEFAULT '{}',
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -270,6 +283,19 @@ def fix_db_schema():
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cumulative_discount_amount DOUBLE PRECISION DEFAULT 0")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_earned INTEGER DEFAULT 0")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_applied BOOLEAN DEFAULT FALSE")
+    # User notifications
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS user_phone TEXT")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'system'")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS body TEXT DEFAULT ''")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS data TEXT DEFAULT '{}'")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE")
+    c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    try:
+        c.execute("CREATE INDEX IF NOT EXISTS user_notifications_phone_created_idx ON user_notifications (user_phone, created_at DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS user_notifications_phone_read_idx ON user_notifications (user_phone, is_read)")
+    except Exception:
+        pass
     # User: social ids and bonus protection
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_id TEXT")
