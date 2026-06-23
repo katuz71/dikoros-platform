@@ -8,8 +8,20 @@ from db import get_db_connection
 from services.cashback import normalize_cashback_percent
 
 
+VISIBLE_PRODUCT_CONDITIONS = [
+    "name IS NOT NULL",
+    "TRIM(name) != ''",
+    "LOWER(TRIM(name)) != 'без назви'",
+    "price IS NOT NULL",
+    "price > 0",
+    "COALESCE(status, '') != 'out_of_stock'",
+]
+
+VISIBLE_PRODUCT_WHERE_SQL = " AND ".join(VISIBLE_PRODUCT_CONDITIONS)
+
+
 def get_products_by_ids(ids: List[int]) -> List[dict]:
-    """Return product rows by ids preserving input order."""
+    """Return visible product rows by ids preserving input order."""
     if not ids:
         return []
 
@@ -18,10 +30,12 @@ def get_products_by_ids(ids: List[int]) -> List[dict]:
     placeholders = ",".join(["?" for _ in unique_ids])
     rows = conn.execute(
         f"""
-        SELECT id, name, price, old_price, image, images, description, link_url, status
+        SELECT id, sku, name, price, old_price, image, images, category,
+               description, link_url, status, parent_sku, variant_name,
+               variant_options, external_id
         FROM products
         WHERE id IN ({placeholders})
-          AND status = 'available'
+          AND {VISIBLE_PRODUCT_WHERE_SQL}
           AND coalesce(trim(link_url), '') <> ''
         """,
         tuple(unique_ids),
@@ -30,6 +44,8 @@ def get_products_by_ids(ids: List[int]) -> List[dict]:
 
     by_id = {int(row["id"]): dict(row) for row in rows}
     return [by_id[item_id] for item_id in unique_ids if item_id in by_id]
+
+
 def normalize_product_row(d: dict) -> dict:
     """Normalize product DB row for API responses."""
     d["discount"] = d.get("discount", 0) if d.get("discount") is not None else 0
