@@ -293,13 +293,20 @@ export function AppFooter() {
               contentContainerStyle={styles.menuScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.menuSectionTitle}>Каталог</Text>
+              <Text style={styles.menuSectionTitle}>Магазин</Text>
 
               <MenuRow
                 icon="grid-outline"
                 title="Усі товари"
                 subtitle="Відкрити повний каталог"
                 onPress={() => menuAction(() => goCategory(''))}
+              />
+
+              <MenuRow
+                icon="information-circle-outline"
+                title="Про нас"
+                subtitle="Хто ми та як працює DikorosUA"
+                onPress={() => menuAction(() => router.push('/about' as any))}
               />
 
               <MenuRow
@@ -316,21 +323,21 @@ export function AppFooter() {
                 onPress={() => menuAction(() => router.push('/blog' as any))}
               />
 
-              <Text style={styles.menuSectionTitle}>Сервіс</Text>
-
-              <MenuRow
-                icon="information-circle-outline"
-                title="Про нас"
-                subtitle="Хто ми та як працює DikorosUA"
-                onPress={() => menuAction(() => router.push('/about' as any))}
-              />
-
               <MenuRow
                 icon="search-outline"
                 title="Пошук"
                 subtitle="Знайти товар у каталозі"
                 onPress={() => menuAction(openSearch)}
               />
+
+              <MenuRow
+                icon="chatbubble-ellipses-outline"
+                title="Підтримка"
+                subtitle="Написати менеджеру"
+                onPress={() => menuAction(() => router.push('/(tabs)/chat' as any))}
+              />
+
+              <Text style={styles.menuSectionTitle}>Акаунт</Text>
 
               <MenuRow
                 icon="heart-outline"
@@ -360,26 +367,18 @@ export function AppFooter() {
                 onPress={() => menuAction(() => router.push('/(tabs)/orders' as any))}
               />
 
-              <MenuRow
-                icon="chatbubble-ellipses-outline"
-                title="Підтримка"
-                subtitle="Написати менеджеру"
-                onPress={() => menuAction(() => router.push('/(tabs)/chat' as any))}
-              />
-
               <Text style={styles.menuSectionTitle}>Юридична інформація</Text>
 
-
-                <View style={styles.legalMenuBox}>
-                  <LegalMenuRow title="Оплата і доставка" page="delivery" icon="card-outline" />
-                  <LegalMenuRow title="Обмін та повернення" page="returns" icon="swap-horizontal-outline" />
-                  <LegalMenuRow title="Міжнародні відправки" page="international" icon="airplane-outline" />
-                  <LegalMenuRow title="Контактна інформація" page="contacts" icon="call-outline" />
-                  <LegalMenuRow title="Договір оферти" page="offer" icon="document-text-outline" />
-                  <LegalMenuRow title="Політика конфіденційності" page="privacy" icon="shield-checkmark-outline" />
-                  <LegalMenuRow title="Видалення акаунта" page="deleteAccount" icon="trash-outline" />
-                  <LegalMenuRow title="Часті питання" page="faq" icon="help-circle-outline" isLast />
-                </View>
+              <View style={styles.legalMenuBox}>
+                <LegalMenuRow title="Оплата і доставка" page="delivery" icon="card-outline" />
+                <LegalMenuRow title="Обмін та повернення" page="returns" icon="swap-horizontal-outline" />
+                <LegalMenuRow title="Міжнародні відправки" page="international" icon="airplane-outline" />
+                <LegalMenuRow title="Контактна інформація" page="contacts" icon="call-outline" />
+                <LegalMenuRow title="Договір оферти" page="offer" icon="document-text-outline" />
+                <LegalMenuRow title="Політика конфіденційності" page="privacy" icon="shield-checkmark-outline" />
+                <LegalMenuRow title="Видалення акаунта" page="deleteAccount" icon="trash-outline" />
+                <LegalMenuRow title="Часті питання" page="faq" icon="help-circle-outline" isLast />
+              </View>
             </ScrollView>
           </View>
         </View>
