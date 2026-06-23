@@ -1098,6 +1098,14 @@ async def chat_endpoint(request: ChatRequest):
         if not is_info_question and exact_quick_reply_products:
             found_products = exact_quick_reply_products
 
+        # Hard route for energy intent: prefer pure cordyceps products, not amanita mixes.
+        if not is_info_question and not found_products and "energy" in intents:
+            found_products = _topic_products_by_needles(
+                ["кордицеп", "cordyceps"],
+                3,
+                ["мухомор", "amanita", "mix", "мікс", "микс"]
+            )
+
         # Hard route for quick reply: sleep/calm must not match random "сон..." products like honey.
         if not is_info_question and "для спокою та сну" in normalized_message:
             found_products = get_products_by_ids([196])
