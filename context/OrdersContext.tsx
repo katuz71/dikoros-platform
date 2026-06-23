@@ -1,5 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { checkServerHealth, getConnectionErrorMessage } from '../utils/serverCheck';
 import { API_URL } from '../config/api';
 
 export interface Variant {
@@ -81,7 +81,9 @@ const OrdersContext = createContext<OrdersContextType>({
   clearOrders: () => {},
 });
 
-
+const PRODUCTS_CACHE_KEY = 'cached_products_v4';
+const PRODUCTS_CACHE_MAX_SIZE = 1_500_000;
+const PRODUCTS_TIMEOUT_MS = 15000;
 
 const isProductAvailable = (product: Product): boolean => {
   const negativeStrings = [
@@ -146,6 +148,16 @@ const isProductAvailable = (product: Product): boolean => {
   return true;
 };
 
+const parseProductsPayload = (data: any): Product[] => {
+  const productsArray = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.products)
+      ? data.products
+      : [];
+
+  // Availability is displayed/blocked in UI, but products must not disappear.
+  return productsArray;
+};
 
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   // --- PRODUCTS STATE ---
@@ -153,90 +165,79 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchProducts = async () => {
+    let usedCachedProducts = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
       setIsLoading(true);
-      
-      // Сначала проверяем доступность сервера
-      const serverAvailable = await checkServerHealth();
-      if (!serverAvailable) {
-        console.error("❌ Server is not available at", API_URL);
-        console.error(getConnectionErrorMessage());
-        setProducts([]);
-        setIsLoading(false);
-        return;
+
+      try {
+        const cachedData = await AsyncStorage.getItem(PRODUCTS_CACHE_KEY);
+        if (cachedData) {
+          const cachedProducts = JSON.parse(cachedData);
+          if (Array.isArray(cachedProducts) && cachedProducts.length > 0) {
+            setProducts(cachedProducts);
+            usedCachedProducts = true;
+            setIsLoading(false);
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Product cache read failed:', cacheError);
+        try {
+          await AsyncStorage.removeItem(PRODUCTS_CACHE_KEY);
+        } catch {}
       }
-      
-      // Horoshop catalog is the source of truth: load all grouped products.
-      // Availability is displayed/blocked in UI, but products must not disappear.
+
       const productsUrl = `${API_URL}/products?limit=500`;
-      console.log("🔥 TRYING TO FETCH:", productsUrl);
-      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 10 секунд timeout
-      
+      timeoutId = setTimeout(() => controller.abort(), PRODUCTS_TIMEOUT_MS);
+
       const response = await fetch(productsUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         signal: controller.signal,
       });
-      
-      clearTimeout(timeoutId);
-      
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`products HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log("Products response:", data);
+      const productsArray = parseProductsPayload(data);
 
-      const productsArray = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.products)
-          ? data.products
-          : [];
+      if (productsArray.length > 0) {
+        setProducts(productsArray);
 
-      const availableProducts = productsArray.filter(isProductAvailable);
-      console.log("Products loaded:", productsArray.length);
-      console.log("Available products:", availableProducts.length);
-
-      if (productsArray.length > 0 && productsArray[0]) {
-        console.log("First product sample:", {
-          id: productsArray[0].id,
-          name: productsArray[0].name,
-          hasVariants: 'variants' in productsArray[0],
-          variants: productsArray[0].variants,
-          variantsType: typeof productsArray[0].variants,
-          hasImages: 'images' in productsArray[0],
-          images: productsArray[0].images,
-          imagesType: typeof productsArray[0].images,
-          image: productsArray[0].image,
-          picture: productsArray[0].picture
-        });
+        try {
+          const serialized = JSON.stringify(productsArray);
+          if (serialized.length < PRODUCTS_CACHE_MAX_SIZE) {
+            await AsyncStorage.setItem(PRODUCTS_CACHE_KEY, serialized);
+          }
+        } catch (cacheError) {
+          console.warn('Product cache save failed:', cacheError);
+        }
       }
-
-      setProducts(productsArray);
     } catch (error: any) {
-      console.error("🔥 FETCH ERROR:", error);
-      console.error("Error fetching products:", error);
-      console.error("Error details:", {
-        message: error.message,
-        name: error.name,
-        type: typeof error,
-        stack: error.stack
-      });
-      
-      // More detailed error logging
-      if (error.name === 'AbortError') {
-        console.error("⏱️ Request timeout - Server is too slow to respond");
-      } else if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
-        console.error("🌐 Network error - Server may not be running");
-        console.error(getConnectionErrorMessage());
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-      
-      // Ensure products is always an array even on error
-      setProducts([]);
+
+      if (error?.name === 'AbortError') {
+        console.warn('⏱️ Products request timeout, keeping cached products if available');
+      } else {
+        console.warn('Products fetch failed, keeping cached products if available:', error?.message || error);
+      }
+
+      if (!usedCachedProducts && products.length === 0) {
+        setProducts([]);
+      }
     } finally {
       setIsLoading(false);
     }
