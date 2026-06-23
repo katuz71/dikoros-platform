@@ -6,7 +6,7 @@ import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeader } from './AppHeader';
@@ -44,7 +44,18 @@ interface ProductDetailsViewProps {
   favorites?: any[];
 }
 
+type InfoModalKey = 'instruction' | 'contraindications' | 'delivery';
+
 const screenWidth = Dimensions.get('window').width;
+
+const DELIVERY_PAYMENT_RETURN_TEXT = `Доставка
+Доставка здійснюється Новою поштою та Укрпоштою по Україні. Умови, строки та вартість доставки залежать від обраного перевізника, населеного пункту, ваги та габаритів замовлення.
+
+Оплата
+Доступна оплата за реквізитами, карткою або післяплата, якщо цей спосіб доступний для обраної доставки. Для окремих замовлень менеджер може погодити часткову або повну передплату.
+
+Повернення
+Повернення або обмін можливі відповідно до умов магазину. Перед відправленням товару на обмін або повернення потрібно звʼязатися зі службою підтримки DikorosUA.`;
 
 export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   product,
@@ -76,12 +87,12 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onSimilarProductToggleFavorite,
   favorites = [],
 }) => {
-  const [tab, setTab] = React.useState<'desc' | 'ingr' | 'use'>('desc');
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
   const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
   const [selectedQuantity, setSelectedQuantity] = React.useState(1);
   const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
+  const [infoModalKey, setInfoModalKey] = React.useState<InfoModalKey | null>(null);
   const insets = useSafeAreaInsets();
   const { footerVisible: productFooterVisible, handleFooterScroll: handlePageScroll } = useAppFooterAutoHide();
   const router = useRouter();
@@ -101,6 +112,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   React.useEffect(() => {
     setDescriptionExpanded(false);
+    setInfoModalKey(null);
   }, [product?.id]);
 
   const normalizeText = React.useCallback((value: any) => {
@@ -259,17 +271,33 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     setActiveImageIndex(Math.max(0, Math.min(nextIndex, images.length - 1)));
   };
 
-  const tabText = React.useMemo(() => {
-    const desc = normalizeText(product?.description) || '—';
-    return {
-      desc,
-      ingr: normalizeText(product?.composition) || 'Інформація про склад не вказана.',
-      use: normalizeText(product?.usage) || 'Спосіб використання не вказаний.',
-    };
-  }, [normalizeText, product?.description, product?.composition, product?.usage]);
+  const productInfoText = React.useMemo(() => {
+    return normalizeText(product?.description) || 'Опис товару буде оновлено найближчим часом.';
+  }, [normalizeText, product?.description]);
 
-  const renderParagraphs = (text: string) => (
-    <View style={styles.structuredWrap}>
+  const modalText = React.useMemo(() => {
+    const instruction = normalizeText(product?.usage || product?.instruction || product?.instructions);
+    const contraindications = normalizeText(product?.contraindications || product?.contraindication || product?.composition);
+    const deliveryInfo = normalizeText(product?.delivery_info || product?.deliveryInfo);
+    const returnInfo = normalizeText(product?.return_info || product?.returnInfo);
+    const delivery = [deliveryInfo, returnInfo].filter(Boolean).join('\n\n') || DELIVERY_PAYMENT_RETURN_TEXT;
+
+    return {
+      instruction: instruction || 'Інструкція буде оновлена найближчим часом.',
+      contraindications: contraindications || 'Протипоказання будуть оновлені найближчим часом.',
+      delivery,
+    } satisfies Record<InfoModalKey, string>;
+  }, [normalizeText, product?.usage, product?.instruction, product?.instructions, product?.contraindications, product?.contraindication, product?.composition, product?.delivery_info, product?.deliveryInfo, product?.return_info, product?.returnInfo]);
+
+  const modalTitle = React.useMemo(() => {
+    if (infoModalKey === 'instruction') return 'Інструкція';
+    if (infoModalKey === 'contraindications') return 'Протипоказання';
+    if (infoModalKey === 'delivery') return 'Доставка, оплата і повернення';
+    return '';
+  }, [infoModalKey]);
+
+  const renderParagraphs = (text: string, wrapStyle: any = styles.structuredWrap) => (
+    <View style={wrapStyle}>
       {String(text || '').split(/\r?\n/).map((line, index) => {
         const trimmed = line.trim();
         if (!trimmed) return <View key={`sp-${index}`} style={styles.structuredSpacer} />;
@@ -340,6 +368,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
       </View>
     );
   };
+
+  const renderInfoRow = (key: InfoModalKey, title: string) => (
+    <TouchableOpacity key={key} style={styles.infoModalRow} onPress={() => setInfoModalKey(key)} activeOpacity={0.82}>
+      <Text style={styles.infoModalRowText}>{title}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#4B5563" />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.root}>
@@ -443,15 +478,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             </View>
           )}
 
-          <View style={styles.tabsContainer}>
-            {(['desc', 'ingr', 'use'] as const).map((key) => (
-              <TouchableOpacity key={key} onPress={() => setTab(key)} style={[styles.tabBtn, tab === key && styles.tabBtnActive]}>
-                <Text style={[styles.tabBtnText, tab === key && styles.tabBtnTextActive]}>{key === 'desc' ? 'Опис' : key === 'ingr' ? 'Склад' : 'Використання'}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {renderProductInfo(productInfoText)}
 
-          {tab === 'desc' ? renderProductInfo(tabText.desc) : renderParagraphs(tabText[tab])}
+          <View style={styles.infoModalRows}>
+            {renderInfoRow('instruction', 'Інструкція')}
+            {renderInfoRow('contraindications', 'Протипоказання')}
+            {renderInfoRow('delivery', 'Доставка, оплата і повернення')}
+          </View>
 
           {similarProducts.length > 0 && (
             <View style={styles.similarSection}>
@@ -537,6 +570,24 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal visible={!!infoModalKey} animationType="slide" transparent onRequestClose={() => setInfoModalKey(null)}>
+        <View style={styles.infoModalBackdrop}>
+          <TouchableOpacity style={styles.infoModalBackdropTouch} activeOpacity={1} onPress={() => setInfoModalKey(null)} />
+          <View style={[styles.infoModalSheet, { paddingBottom: Math.max(18, insets.bottom + 16) }]}>
+            <View style={styles.infoModalHandle} />
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>{modalTitle}</Text>
+              <TouchableOpacity onPress={() => setInfoModalKey(null)} style={styles.infoModalClose} activeOpacity={0.8}>
+                <Ionicons name="close" size={23} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.infoModalBody}>
+              {infoModalKey ? renderParagraphs(modalText[infoModalKey], styles.infoModalTextWrap) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -585,12 +636,7 @@ const styles = StyleSheet.create({
   optionBtnText: { color: '#111827', fontWeight: '800', fontSize: 13, lineHeight: 16 },
   optionBtnTextDisabled: { color: '#9CA3AF' },
   optionBtnTextActive: { color: 'white' },
-  tabsContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 4 },
-  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  tabBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, elevation: 2 },
-  tabBtnText: { fontWeight: '500', fontSize: 14, color: '#666' },
-  tabBtnTextActive: { fontWeight: 'bold', color: '#000' },
-  productInfoBlock: { marginBottom: 30 },
+  productInfoBlock: { marginBottom: 16 },
   infoSectionTitle: { fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 14 },
   infoCard: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1.2, borderColor: '#BFD8E0', padding: 16, paddingBottom: 28, overflow: 'hidden' },
   infoHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
@@ -603,6 +649,9 @@ const styles = StyleSheet.create({
   infoFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, backgroundColor: 'rgba(255,255,255,0.88)' },
   expandButton: { position: 'absolute', alignSelf: 'center', bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 18, height: 38, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 },
   expandButtonText: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  infoModalRows: { backgroundColor: '#F7F8F6', borderRadius: 16, paddingVertical: 6, marginBottom: 30 },
+  infoModalRow: { minHeight: 58, backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 18, marginHorizontal: 0, marginVertical: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#EEF0F2' },
+  infoModalRowText: { flex: 1, color: '#111827', fontSize: 17, fontWeight: '900', paddingRight: 12 },
   structuredWrap: { marginBottom: 30 },
   structuredSpacer: { height: 13 },
   paragraphText: { color: '#4b5563', lineHeight: 23, fontSize: 15.5, marginBottom: 6 },
@@ -637,4 +686,13 @@ const styles = StyleSheet.create({
   similarSection: { marginTop: 30, marginBottom: 20 },
   similarList: { gap: 15, paddingRight: 20 },
   similarCardContainer: { width: 180 },
+  infoModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  infoModalBackdropTouch: { flex: 1 },
+  infoModalSheet: { maxHeight: '82%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 10 },
+  infoModalHandle: { alignSelf: 'center', width: 42, height: 4, borderRadius: 999, backgroundColor: '#D1D5DB', marginBottom: 12 },
+  infoModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
+  infoModalTitle: { flex: 1, color: '#111827', fontSize: 21, fontWeight: '900', lineHeight: 27 },
+  infoModalClose: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  infoModalBody: { paddingBottom: 18 },
+  infoModalTextWrap: { marginBottom: 0 },
 });
