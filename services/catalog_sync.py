@@ -311,6 +311,31 @@ def _safe_product_title(item: dict) -> str:
     return "Без назви"
 
 
+def _sanitize_description(value: object) -> str:
+    text = _localized_value(value or {})
+    text = str(text or "").strip()
+
+    # Horoshop can sometimes return a whole product page/html dump instead of a clean tab.
+    # Do not persist page dumps into product descriptions.
+    if len(text) > 30000:
+        return ""
+
+    lower = text.casefold()
+    garbage_markers = (
+        "catalogtabs",
+        "j-product-container",
+        "specialoffers",
+        "особистий кабінет",
+        "кошик",
+        "схожі товари",
+        "переглянуті товари",
+    )
+    if sum(1 for marker in garbage_markers if marker in lower) >= 2:
+        return ""
+
+    return text
+
+
 def _parse_float(value: object, default: float = 0.0) -> float:
     try:
         return float(value or default)
@@ -745,7 +770,7 @@ async def sync_catalog_from_horoshop() -> dict:
 
                 variant_name = _localized_value(item.get("mod_title") or {})
                 title = _safe_product_title(item)
-                description = _localized_value(item.get("description") or {})
+                description = _sanitize_description(item.get("description") or {})
 
                 parent_obj = item.get("parent") or {}
                 category = parent_obj.get("value") or "Загальне"

@@ -122,42 +122,179 @@ def _heading_key(line: str) -> str | None:
     return None
 
 
-def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
-    """Extract product tab sections from a Horoshop product page HTML."""
-    sections = {key: "" for key in SECTION_KEYS}
-    text = _html_to_text(html)
-    if not text:
-        return sections
+def _section_key_from_tab_id(tab_id: str) -> str | None:
+    normalized = _clean_text(tab_id).casefold()
+    normalized = (
+        normalized
+        .replace("і", "i")
+        .replace("ї", "i")
+        .replace("є", "e")
+        .replace("ґ", "g")
+    )
 
-    active_key: str | None = None
-    seen_headings = set()
+    if "opis" in normalized:
+        return "description"
+    if "instruk" in normalized:
+        return "usage"
+    if "protipokaz" in normalized:
+        return "composition"
+    if "dostav" in normalized or "oplat" in normalized:
+        return "delivery_info"
+    if "povern" in normalized or "obmin" in normalized:
+        return "return_info"
 
-    for raw_line in text.splitlines():
-        line = _clean_text(raw_line)
+    return None
+
+
+def _find_balanced_element_html(html: str, start_pos: int, tag_name: str) -> str:
+    tag = re.escape(tag_name)
+    pattern = re.compile(rf"</?{tag}\b[^>]*>", re.IGNORECASE | re.DOTALL)
+    depth = 0
+
+    for match in pattern.finditer(html, start_pos):
+        token = match.group(0)
+        if token.startswith("</"):
+            depth -= 1
+            if depth <= 0:
+                return html[start_pos:match.end()]
+        elif token.endswith("/>"):
+            continue
+        else:
+            depth += 1
+
+    return html[start_pos:]
+
+
+def _split_long_text_line(line: str) -> list[str]:
+    text = _clean_text(line)
+    if len(text) <= 800:
+        return [text]
+
+    # Horoshop often stores description as one huge paragraph.
+    # Split by sentence boundaries instead of dropping the whole description.
+    parts = re.split(r"(?<=[.!?…])\s+", text)
+    chunks: list[str] = []
+    current = ""
+
+    for part in parts:
+        part = _clean_text(part)
+        if not part:
+            continue
+
+        if len(part) > 1200:
+            for i in range(0, len(part), 800):
+                piece = _clean_text(part[i:i + 800])
+                if piece:
+                    chunks.append(piece)
+            continue
+
+        candidate = f"{current} {part}".strip()
+        if len(candidate) > 900:
+            if current:
+                chunks.append(current)
+            current = part
+        else:
+            current = candidate
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+def _clean_tab_text(text: str) -> str:
+    stop_headings = {
+        "відгуки",
+        "залишити відгук",
+        "схожі товари",
+        "рекомендовані товари",
+        "переглянуті товари",
+        "нещодавно переглянуті",
+    }
+
+    garbage_exact = {
+        "купити",
+        "в кошик",
+        "додати до кошика",
+        "в наявності",
+        "немає в наявності",
+        "артикул",
+    }
+
+    garbage_markers = (
+        "footer__",
+        "header__",
+        "site-menu",
+        "p-review",
+        "j-comment",
+        "data-href",
+        "javascript:",
+        "особистий кабінет",
+        "схожі товари",
+        "переглянуті товари",
+    )
+
+    lines = []
+    for raw in str(text or "").splitlines():
+        line = _clean_text(raw)
         if not line:
             continue
 
-        key = _heading_key(line)
-        if key:
-            active_key = key
-            seen_headings.add(key)
+        lowered = line.casefold().strip(" .:-")
+        if lowered in stop_headings:
+            break
+        if lowered in garbage_exact:
+            continue
+        if any(marker in lowered for marker in garbage_markers):
+            continue
+        if re.search(r"^(\+?38|\w+@\w+)", lowered):
             continue
 
-        if not active_key:
+        lines.extend(_split_long_text_line(line))
+
+    cleaned = _clean_text("\n".join(lines))
+
+    return cleaned
+
+def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
+    """Extract only real Horoshop tab blocks: div.j-product-block__tab[data-content-id]."""
+    sections = {key: "" for key in SECTION_KEYS}
+
+    source = str(html or "")
+    source = re.sub(r"<script[\s\S]*?</script>", " ", source, flags=re.IGNORECASE)
+    source = re.sub(r"<style[\s\S]*?</style>", " ", source, flags=re.IGNORECASE)
+    source = re.sub(r"<svg[\s\S]*?</svg>", " ", source, flags=re.IGNORECASE)
+
+    tab_pattern = re.compile(
+        r"<div\b(?=[^>]*\bj-product-block__tab\b)(?=[^>]*\bdata-content-id\s*=\s*(['\"])(?P<tab_id>.*?)\1)[^>]*>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    for match in tab_pattern.finditer(source):
+        tab_id = unescape(match.group("tab_id")).strip()
+        key = _section_key_from_tab_id(tab_id)
+        if not key:
             continue
 
-        sections[active_key] = f"{sections[active_key]}\n{line}".strip()
+        block_html = _find_balanced_element_html(source, match.start(), "div")
+        text = _clean_tab_text(_html_to_text(block_html))
+        if not text:
+            continue
 
-    for key in list(sections.keys()):
+        max_len = 60000 if key == "description" else 25000
+        if len(text) > max_len:
+            logger.warning("Skip oversized Horoshop tab %s: %s chars", tab_id, len(text))
+            continue
+
+        if sections[key]:
+            sections[key] = f"{sections[key]}\n\n{text}".strip()
+        else:
+            sections[key] = text
+
+    for key in SECTION_KEYS:
         sections[key] = _clean_text(sections[key])
 
-    # If the page has no product headings, do not try to infer from the full page:
-    # it would mix header/footer/legal text into product fields.
-    if not seen_headings:
-        return {key: "" for key in SECTION_KEYS}
-
     return sections
-
 
 def _is_product_page_url(candidate: str, domain: str) -> bool:
     value = str(candidate or "").strip()
@@ -251,11 +388,11 @@ def _api_text(item: dict, *keys: str) -> str:
 
 async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_key: str, items: list[dict]) -> dict:
     first_item = items[0]
-    fallback_description = _api_text(first_item, "description")
-    fallback_usage = _api_text(first_item, "usage", "instruction", "instructions", "how_to_use")
-    fallback_composition = _api_text(first_item, "contraindications", "contraindication", "composition")
-    fallback_delivery = _api_text(first_item, "delivery_info", "delivery", "payment", "shipping")
-    fallback_return = _api_text(first_item, "return_info", "returns", "return", "warranty")
+    fallback_description = ""
+    fallback_usage = ""
+    fallback_composition = ""
+    fallback_delivery = ""
+    fallback_return = ""
 
     best_sections = {key: "" for key in SECTION_KEYS}
     used_url = None

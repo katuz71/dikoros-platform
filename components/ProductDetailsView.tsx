@@ -334,8 +334,10 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   }, [normalizeText, product?.description]);
 
   const productInfoText = React.useMemo(() => {
-    return horoshopDescriptionSections.description || normalizeText(product?.description) || 'Опис товару буде оновлено найближчим часом.';
+    return horoshopDescriptionSections.description || normalizeText(product?.description);
   }, [horoshopDescriptionSections.description, normalizeText, product?.description]);
+
+  const productInfoDisplayText = productInfoText || 'Опис товару буде оновлено найближчим часом.';
 
   const modalText = React.useMemo(() => {
     const instruction = normalizeText(product?.usage || product?.instruction || product?.instructions) || horoshopDescriptionSections.instruction;
@@ -542,13 +544,13 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             </View>
           )}
 
-          {renderProductInfo(productInfoText)}
+          {renderProductInfo(productInfoDisplayText)}
 
           <View style={styles.infoModalRows}>
-            {renderInfoRow('description', 'Опис')}
-            {renderInfoRow('instruction', 'Інструкція')}
-            {renderInfoRow('contraindications', 'Протипоказання')}
-            {renderInfoRow('delivery', 'Доставка, оплата і повернення')}
+            {!!modalText.description && renderInfoRow('description', 'Опис')}
+            {!!modalText.instruction && renderInfoRow('instruction', 'Інструкція')}
+            {!!modalText.contraindications && renderInfoRow('contraindications', 'Протипоказання')}
+            {!!modalText.delivery && renderInfoRow('delivery', 'Доставка, оплата і повернення')}
           </View>
 
           {similarProducts.length > 0 && (
