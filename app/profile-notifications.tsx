@@ -4,11 +4,16 @@ import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Linking,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -25,6 +30,10 @@ type NotificationItem = {
   is_read: boolean;
   created_at?: string;
 };
+
+type PushStatus = 'checking' | 'granted' | 'undetermined' | 'denied' | 'unavailable';
+
+const EXPO_PROJECT_ID = '66618f31-dc39-46f1-ba09-55c52d037f4a';
 
 const TYPE_FILTERS = [
   { id: 'all', label: 'Всі' },
@@ -72,6 +81,34 @@ export default function ProfileNotificationsScreen() {
   const [dateFilter, setDateFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushStatus>('checking');
+  const [subscribing, setSubscribing] = useState(false);
+
+  const checkPushSubscriptionStatus = useCallback(async () => {
+    try {
+      if (!Device.isDevice) {
+        setPushStatus('unavailable');
+        return;
+      }
+
+      const permission = await Notifications.getPermissionsAsync();
+      const storedToken = await AsyncStorage.getItem('expoPushToken');
+
+      if (permission.status === 'granted' && storedToken) {
+        setPushStatus('granted');
+        return;
+      }
+
+      if (permission.status === 'denied') {
+        setPushStatus('denied');
+        return;
+      }
+
+      setPushStatus('undetermined');
+    } catch {
+      setPushStatus('undetermined');
+    }
+  }, []);
 
   const fetchNotifications = useCallback(async (nextType = typeFilter, nextDate = dateFilter) => {
     try {
@@ -102,9 +139,85 @@ export default function ProfileNotificationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      checkPushSubscriptionStatus();
       fetchNotifications();
-    }, [fetchNotifications])
+    }, [checkPushSubscriptionStatus, fetchNotifications])
   );
+
+  const subscribeToPushNotifications = async () => {
+    if (subscribing) return;
+
+    try {
+      setSubscribing(true);
+
+      if (!Device.isDevice) {
+        setPushStatus('unavailable');
+        Alert.alert('Недоступно', 'Push-оповіщення працюють тільки на реальному телефоні.');
+        return;
+      }
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#458B00',
+        });
+      }
+
+      const existingPermission = await Notifications.getPermissionsAsync();
+      let finalStatus = existingPermission.status;
+
+      if (existingPermission.status !== 'granted') {
+        const requestedPermission = await Notifications.requestPermissionsAsync();
+        finalStatus = requestedPermission.status;
+      }
+
+      if (finalStatus !== 'granted') {
+        setPushStatus('denied');
+        Alert.alert(
+          'Дозвіл не надано',
+          'Щоб отримувати статуси замовлень, увімкніть оповіщення в налаштуваннях телефону.',
+          [
+            { text: 'Пізніше', style: 'cancel' },
+            { text: 'Налаштування', onPress: () => Linking.openSettings().catch(() => {}) },
+          ]
+        );
+        return;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: EXPO_PROJECT_ID });
+      const token = tokenData.data;
+      await AsyncStorage.setItem('expoPushToken', token);
+
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) {
+        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб підписатися на оповіщення.');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/user/push-token/me`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save push token');
+      }
+
+      setPushStatus('granted');
+      Alert.alert('Готово', 'Оповіщення увімкнено.');
+    } catch (error) {
+      console.log(error);
+      Alert.alert('Помилка', 'Не вдалося увімкнути оповіщення. Спробуйте ще раз.');
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   const setTypeAndReload = (value: string) => {
     setTypeFilter(value);
@@ -158,6 +271,7 @@ export default function ProfileNotificationsScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
+    checkPushSubscriptionStatus();
     fetchNotifications();
   };
 
@@ -171,6 +285,45 @@ export default function ProfileNotificationsScreen() {
       <Text style={[styles.filterText, activeValue === filter.id && styles.filterTextActive]}>{filter.label}</Text>
     </TouchableOpacity>
   );
+
+  const renderPushSubscriptionCard = () => {
+    if (pushStatus === 'checking' || pushStatus === 'granted') return null;
+
+    const isDenied = pushStatus === 'denied';
+    const isUnavailable = pushStatus === 'unavailable';
+
+    return (
+      <View style={styles.subscribeCard}>
+        <View style={styles.subscribeIconBox}>
+          <Ionicons name={isDenied ? 'settings-outline' : 'notifications-outline'} size={24} color="#458B00" />
+        </View>
+        <View style={styles.subscribeTextBox}>
+          <Text style={styles.subscribeTitle}>Увімкніть push-оповіщення</Text>
+          <Text style={styles.subscribeText}>
+            {isUnavailable
+              ? 'Push працюють тільки на реальному телефоні.'
+              : isDenied
+                ? 'Дозвіл вимкнено. Відкрийте налаштування телефону та дозвольте оповіщення.'
+                : 'Отримуйте статуси замовлень, кешбек та важливі повідомлення одразу.'}
+          </Text>
+        </View>
+        {!isUnavailable && (
+          <TouchableOpacity
+            style={[styles.subscribeButton, subscribing && styles.subscribeButtonDisabled]}
+            onPress={isDenied ? () => Linking.openSettings().catch(() => {}) : subscribeToPushNotifications}
+            activeOpacity={0.85}
+            disabled={subscribing}
+          >
+            {subscribing ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.subscribeButtonText}>{isDenied ? 'Налаштування' : 'Увімкнути'}</Text>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
     <TouchableOpacity style={[styles.card, !item.is_read && styles.cardUnread]} onPress={() => openNotification(item)} activeOpacity={0.85}>
@@ -202,6 +355,8 @@ export default function ProfileNotificationsScreen() {
           <Ionicons name="checkmark-done-outline" size={23} color={unreadCount > 0 ? '#458B00' : '#9CA3AF'} />
         </TouchableOpacity>
       </View>
+
+      {renderPushSubscriptionCard()}
 
       <View style={styles.filtersWrap}>
         <FlatList
@@ -289,6 +444,41 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: '#458B00' },
   filterText: { color: '#374151', fontWeight: '700', fontSize: 13 },
   filterTextActive: { color: '#FFF' },
+  subscribeCard: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D7E7D1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  subscribeIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF7EA',
+  },
+  subscribeTextBox: { flex: 1 },
+  subscribeTitle: { fontSize: 15, fontWeight: '900', color: '#111827', marginBottom: 3 },
+  subscribeText: { fontSize: 12, lineHeight: 17, color: '#4B5563' },
+  subscribeButton: {
+    minWidth: 92,
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#458B00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subscribeButtonDisabled: { opacity: 0.65 },
+  subscribeButtonText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
   list: { padding: 14, paddingBottom: 130 },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
