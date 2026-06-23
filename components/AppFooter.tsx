@@ -167,13 +167,13 @@ export function AppFooter() {
   };
 
   const menuAction = (action: () => void) => {
+    action();
     closeMenu();
-    setTimeout(action, 120);
   };
 
   const categoryAction = (category: string) => {
+    goCategory(category);
     closeCategories();
-    setTimeout(() => goCategory(category), 120);
   };
 
   const MenuRow = ({
