@@ -24,6 +24,26 @@ def _default_push_data(title: str, data: dict | None) -> dict:
     return {}
 
 
+def _resolve_user_phone_from_push_token(token: str | None) -> str | None:
+    """Find the current user that owns a push token when callers do not pass user_phone."""
+    clean_token = str(token or "").strip()
+    if not clean_token:
+        return None
+
+    conn = get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT phone FROM users WHERE push_token = ? LIMIT 1",
+            (clean_token,),
+        ).fetchone()
+        return normalize_phone((row or {}).get("phone") or "") if row else None
+    except Exception:
+        logger.exception("Failed to resolve push token owner")
+        return None
+    finally:
+        conn.close()
+
+
 def create_user_notification(user_phone: str, notification_type: str, title: str, body: str, data: dict | None = None) -> int | None:
     """Persist an in-app notification for the user notification center."""
     clean_phone = normalize_phone(user_phone or "")
@@ -67,13 +87,14 @@ def send_expo_push(
     notification_type: str | None = None,
 ):
     """
-    Отправляет push-уведомление через сервера Expo и сохраняет его в центр оповещений, если передан user_phone.
+    Отправляет push-уведомление через сервера Expo и сохраняет его в центр оповещений.
     """
     push_data = _default_push_data(title, data)
+    owner_phone = normalize_phone(user_phone or "") or _resolve_user_phone_from_push_token(token)
 
-    if user_phone:
+    if owner_phone:
         create_user_notification(
-            user_phone=user_phone,
+            user_phone=owner_phone,
             notification_type=notification_type or str(push_data.get("type") or "system"),
             title=title,
             body=body,
