@@ -1,9 +1,9 @@
 
+import { AppHeader } from '@/components/AppHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type PolicySection = { h: string; p: string[] };
 type PolicyPage = { title: string; sections: PolicySection[] };
@@ -645,8 +645,6 @@ const CONTACT_ACTIONS = [
 export default function PoliciesScreen() {
   const router = useRouter();
   const goProfile = () => router.replace('/(tabs)/profile' as any);
-  const insets = useSafeAreaInsets();
-  const headerTopInset = Math.max(insets.top, 18);
   const params = useLocalSearchParams<{ page?: string }>();
   const pageKey = String(params.page || 'privacy');
   const page = PAGES[pageKey] || PAGES.privacy;
@@ -658,14 +656,13 @@ export default function PoliciesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { height: 62 + headerTopInset, paddingTop: headerTopInset }]}>
-        <TouchableOpacity onPress={goProfile} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={26} color="#111" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{page.title}</Text>
-        <View style={{ width: 42 }} />
-      </View>
+    <View style={styles.safe}>
+      <AppHeader
+        title={page.title}
+        showBack
+        onBack={goProfile}
+        showSearch={false}
+      />
 
       <ScrollView contentContainerStyle={styles.content}>
         {page.sections.map((section, index) => {
@@ -725,7 +722,7 @@ export default function PoliciesScreen() {
         )}
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
