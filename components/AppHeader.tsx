@@ -1,6 +1,6 @@
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,11 +55,16 @@ export function AppHeader({
   style,
 }: AppHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { openSearch } = useGlobalSearch();
 
+  const isProfileHeader = (pathname || '').includes('/profile');
   const goBack = () => (onBack ? onBack() : router.back());
   const openFavorites = () => router.push('/(tabs)/favorites' as any);
+  const openNotifications = () => router.push('/profile-notifications' as any);
+  const openHeaderSecondaryAction = () => (isProfileHeader ? openNotifications() : openFavorites());
+  const secondaryActionIcon = isProfileHeader ? 'notifications-outline' : 'heart-outline';
   const openCart = () => router.push('/(tabs)/cart' as any);
 
   if (showLogo) {
@@ -86,8 +91,8 @@ export function AppHeader({
 
           <View style={[styles.logoActionSlot, styles.logoRightActionSlot]}>
             {(showFavorites || showFavoriteToggle) ? (
-              <TouchableOpacity onPress={openFavorites} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name="heart-outline" size={22} color="#111827" />
+              <TouchableOpacity onPress={openHeaderSecondaryAction} style={styles.iconButton} activeOpacity={0.75}>
+                <Ionicons name={secondaryActionIcon as any} size={22} color="#111827" />
               </TouchableOpacity>
             ) : null}
             {showCart && (
@@ -129,8 +134,8 @@ export function AppHeader({
             </TouchableOpacity>
           )}
           {showFavorites && (
-            <TouchableOpacity onPress={openFavorites} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="heart-outline" size={22} color="#111827" />
+            <TouchableOpacity onPress={openHeaderSecondaryAction} style={styles.iconButton} activeOpacity={0.75}>
+              <Ionicons name={secondaryActionIcon as any} size={22} color="#111827" />
             </TouchableOpacity>
           )}
           {showCart && (
