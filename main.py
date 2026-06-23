@@ -22,6 +22,7 @@ from routers import (
     checkout_profile,
     delivery,
     health,
+    notifications,
     orders,
     orders_secure,
     pages,
@@ -139,6 +140,7 @@ app.include_router(orders.router)
 app.include_router(products.router)
 app.include_router(users.router)
 app.include_router(checkout_profile.router)
+app.include_router(notifications.router)
 app.include_router(auth.router)
 app.include_router(admin_tools.router)
 app.include_router(sync.router)
