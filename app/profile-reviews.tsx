@@ -101,15 +101,7 @@ export default function ProfileReviewsScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Мої відгуки</Text>
-        <View style={styles.unifiedTitleButton} />
-      </View>
+      <AppHeader title="Мої відгуки" showBack />
 
       {loading ? (
         <View style={styles.loadingBox}>
@@ -167,16 +159,6 @@ export default function ProfileReviewsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  unifiedTitle: { flex: 1, textAlign: 'center', fontSize: 22, fontWeight: '900', color: '#111827' },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 15, paddingBottom: 150 },
   emptyCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 28, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
