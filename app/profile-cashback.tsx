@@ -1,10 +1,9 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type UserProfile = {
   phone: string;
@@ -79,15 +78,7 @@ export default function ProfileCashbackScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Бонуси та знижка</Text>
-        <View style={styles.unifiedTitleButton} />
-      </View>
+      <AppHeader title="Бонуси та знижка" showBack />
 
       {loading ? (
         <View style={styles.loadingBox}>
@@ -157,16 +148,6 @@ export default function ProfileCashbackScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  unifiedTitle: { flex: 1, textAlign: 'center', fontSize: 22, fontWeight: '900', color: '#111827' },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 15, paddingBottom: 150 },
   bonusCard: { padding: 20, backgroundColor: '#222', borderRadius: 18, marginBottom: 14 },
