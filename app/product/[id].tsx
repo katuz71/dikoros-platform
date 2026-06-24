@@ -67,7 +67,6 @@ export default function ProductScreen() {
   
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [addedCartKeys, setAddedCartKeys] = useState<Record<string, boolean>>({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const cartCount = cartItems.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
@@ -697,18 +696,6 @@ export default function ProductScreen() {
     : product;
 
   const isFavorite = favorites.some(f => f.id === displayProduct.id);
-
-  const activeSelections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-  const activeSelectedUnit = displayProduct.unit || product.unit || 'шт';
-  const activeCartKey = activeSelections || activeSelectedUnit;
-  const activeCartSignature = `${Number(displayProduct.id)}::${clean(activeCartKey)}`;
-
-  const isCurrentProductInCart = !!addedCartKeys[activeCartSignature] || cartItems.some((item: any) => (
-    Number(item.id) === Number(displayProduct.id)
-    && clean(item.variantSize || item.packSize || item.unit || 'шт') === clean(activeCartKey)
-  ));
-
-  const productCartButtonLabel = isCurrentProductInCart ? 'Перейти в кошик' : 'В кошик';
 
   return (
     <SafeAreaView style={styles.container}>

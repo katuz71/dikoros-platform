@@ -84,12 +84,13 @@ export function AppFooter() {
   const [categoriesVisible, setCategoriesVisible] = useState(false);
 
   const cartCount = items.reduce((sum: number, item: any) => sum + Number(item?.quantity || 1), 0);
+  const hasProducts = Array.isArray(products) && products.length > 0;
 
   useEffect(() => {
-    if (!Array.isArray(products) || products.length === 0) {
+    if (!hasProducts) {
       fetchProducts().catch(() => {});
     }
-  }, []);
+  }, [fetchProducts, hasProducts]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();

@@ -229,7 +229,6 @@ const scoreProduct = (product: any, query: string, tokens: string[]) => {
 const scoreContent = (item: any, query: string, tokens: string[]) => {
   const title = normalize(item?.heading || item?.__pageTitle || '');
   const body = normalize(item?.body || '');
-  const allText = `${title} ${body}`;
 
   let score = 0;
   if (title === query) score += 80;

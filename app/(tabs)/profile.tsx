@@ -11,7 +11,6 @@ import React, { useCallback, useState , useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   RefreshControl,
   ScrollView,
   Share,
@@ -394,7 +393,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const openLink = (url: string) => Linking.openURL(url).catch(() => {});
   const openPolicy = (page: string) => router.push({ pathname: '/policies', params: { page } } as any);
 
   // === Вспомогательные компоненты ===

@@ -8,7 +8,7 @@ import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -83,14 +83,15 @@ export default function CartScreen() {
   const hasPostponedItems = postponedItems.length > 0;
   const hasFavoriteItems = favorites.length > 0;
   const hasAnyContent = hasCartItems || hasPostponedItems || hasFavoriteItems;
+  const hasProducts = Array.isArray(products) && products.length > 0;
   const hasPromo = discount > 0 || discountAmount > 0;
   const totalAmount = finalPrice;
 
   useEffect(() => {
-    if (!Array.isArray(products) || products.length === 0) {
+    if (!hasProducts) {
       fetchProducts().catch(() => {});
     }
-  }, []);
+  }, [fetchProducts, hasProducts]);
 
   // Android back in cart: close modal first, then let global history handler work.
   useEffect(() => {
@@ -108,28 +109,28 @@ export default function CartScreen() {
     return () => subscription.remove();
   }, [quantityPickerItem]);
 
-  const normalizeText = (value: any) => String(value || '')
+  const normalizeText = useCallback((value: any) => String(value || '')
     .toLowerCase()
     .replace(/&[a-z]+;/g, ' ')
     .replace(/[’'`ʼ]/g, '')
     .replace(/[^a-zа-яіїєґ0-9\s-]/gi, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim(), []);
 
-  const getCategoryParts = (item: any) => normalizeText(item?.category)
+  const getCategoryParts = useCallback((item: any) => normalizeText(item?.category)
     .split(/[>»/|,]/)
     .map(part => part.trim())
-    .filter(Boolean);
+    .filter(Boolean), [normalizeText]);
 
-  const getSearchText = (item: any) => normalizeText([
+  const getSearchText = useCallback((item: any) => normalizeText([
     item?.name,
     item?.category,
     item?.unit,
     item?.packSize,
     item?.variantSize,
-  ].filter(Boolean).join(' '));
+  ].filter(Boolean).join(' ')), [normalizeText]);
 
-  const getTokens = (item: any) => {
+  const getTokens = useCallback((item: any) => {
     const stopWords = new Set([
       'для', 'та', 'і', 'й', 'з', 'із', 'на', 'у', 'в', 'по', 'до', 'від', 'або', 'без', 'при',
       'грн', 'шт', 'мл', 'г', 'кг', 'капсул', 'капсули', 'капсула', 'упаковка', 'товар', 'dikoros',
@@ -142,9 +143,9 @@ export default function CartScreen() {
         .map(token => token.trim())
         .filter(token => token.length >= 3 && !stopWords.has(token) && !/^\d+$/.test(token))
     ));
-  };
+  }, [getSearchText]);
 
-  const getReviewStats = (item: any) => {
+  const getReviewStats = useCallback((item: any) => {
     const rating = Number(
       item?.averageRating ??
       item?.average_rating ??
@@ -169,7 +170,7 @@ export default function CartScreen() {
       count,
       stars: `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`,
     };
-  };
+  }, []);
 
   const recommendationProducts = useMemo(() => {
     const blockedIds = new Set<number>();
@@ -247,7 +248,7 @@ export default function CartScreen() {
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .slice(0, 8)
       .map(({ item }) => item) as Product[];
-  }, [products, cartItems, postponedItems, favorites]);
+  }, [products, cartItems, postponedItems, favorites, getCategoryParts, getTokens, getReviewStats]);
 
   const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
   const formatItemCount = (count: number) => `${count} товарів`;

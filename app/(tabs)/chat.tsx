@@ -1,4 +1,4 @@
-﻿import { AppHeader } from '@/components/AppHeader';
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
