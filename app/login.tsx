@@ -250,19 +250,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.unifiedTitleButton}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Вхід / Реєстрація</Text>
-        <View style={styles.unifiedTitleButton} />
-      </View>
+      <AppHeader title="Вхід / Реєстрація" showBack />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -352,27 +340,6 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
   content: { padding: 16, paddingBottom: 150 },
   card: {
     backgroundColor: '#FFF',
