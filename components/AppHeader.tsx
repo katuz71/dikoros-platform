@@ -21,6 +21,9 @@ type AppHeaderProps = {
   showCart?: boolean;
   showShare?: boolean;
   onShare?: () => void;
+  showDone?: boolean;
+  onDone?: () => void;
+  doneColor?: string;
   showFavoriteToggle?: boolean;
   isFavorite?: boolean;
   onFavoritePress?: () => void;
@@ -47,6 +50,9 @@ export function AppHeader({
   showCart = false,
   showShare = false,
   onShare,
+  showDone = false,
+  onDone,
+  doneColor = '#458B00',
   showFavoriteToggle = false,
   isFavorite = false,
   onFavoritePress,
@@ -164,6 +170,11 @@ export function AppHeader({
           {showShare && (
             <TouchableOpacity onPress={onShare} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name="share-outline" size={20} color="#111827" />
+            </TouchableOpacity>
+          )}
+          {showDone && !!onDone && (
+            <TouchableOpacity onPress={onDone} style={styles.iconButton} activeOpacity={0.75}>
+              <Ionicons name="checkmark-done-outline" size={23} color={doneColor} />
             </TouchableOpacity>
           )}
           {showFavoriteToggle && !!onFavoritePress && (
