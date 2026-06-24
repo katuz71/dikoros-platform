@@ -1,8 +1,7 @@
 import { AppHeader } from '@/components/AppHeader';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const advantages = [
   'Власний цикл виробництва: збір, сушіння та обробка продукції.',
@@ -13,21 +12,9 @@ const advantages = [
 ];
 
 export default function AboutScreen() {
-  const router = useRouter();
-
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.titleRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.75}>
-          <Ionicons name="chevron-back" size={26} color="#111827" />
-        </TouchableOpacity>
-
-        <Text style={styles.title} numberOfLines={1}>Про нас</Text>
-
-        <View style={styles.backButton} />
-      </View>
+      <AppHeader title="Про нас" showBack />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
@@ -81,29 +68,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAF8',
-  },
-  titleRow: {
-    height: 54,
-    paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#111827',
   },
   content: {
     padding: 16,
