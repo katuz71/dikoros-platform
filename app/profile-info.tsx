@@ -1,8 +1,8 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
+import { safeBack } from '@/utils/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -62,6 +62,7 @@ const splitFullName = (value: string) => {
 
 export default function ProfileInfoScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [phone, setPhone] = useState('');
@@ -75,6 +76,7 @@ export default function ProfileInfoScreen() {
   const [infoContactPreference, setInfoContactPreference] = useState<ContactPreference>('call');
 
   const buildFullName = () => [lastName, firstName, middleName].map(v => v.trim()).filter(Boolean).join(' ');
+  const goBack = useCallback(() => safeBack(router, pathname), [pathname, router]);
 
   const loadUserInfo = useCallback(async () => {
     setLoading(true);
@@ -84,7 +86,7 @@ export default function ProfileInfoScreen() {
 
       if (!accessToken) {
         Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб редагувати дані.');
-        router.back();
+        goBack();
         return;
       }
 
@@ -94,7 +96,7 @@ export default function ProfileInfoScreen() {
 
       if (!res.ok) {
         Alert.alert('Помилка', 'Не вдалося завантажити дані профілю.');
-        router.back();
+        goBack();
         return;
       }
 
@@ -113,11 +115,11 @@ export default function ProfileInfoScreen() {
     } catch (e) {
       console.error(e);
       Alert.alert('Помилка', 'Немає зʼєднання');
-      router.back();
+      goBack();
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [goBack]);
 
   useEffect(() => {
     loadUserInfo();
@@ -174,7 +176,7 @@ export default function ProfileInfoScreen() {
       );
 
       Alert.alert('Успіх', 'Дані оновлено', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: goBack },
       ]);
     } catch (e) {
       console.error(e);
@@ -186,15 +188,7 @@ export default function ProfileInfoScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity style={styles.unifiedTitleButton} onPress={() => router.back()} activeOpacity={0.75}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Особиста інформація</Text>
-        <View style={styles.unifiedTitleButton} />
-      </View>
+      <AppHeader title="Особиста інформація" showBack />
 
       {loading ? (
         <View style={styles.loadingBox}>
@@ -313,47 +307,6 @@ export default function ProfileInfoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  header: {
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
   loadingBox: {
     flex: 1,
     alignItems: 'center',
