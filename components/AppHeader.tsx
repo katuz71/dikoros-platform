@@ -64,6 +64,7 @@ export function AppHeader({
 
   const useLogoHeader = showLogo ?? (!title && !subtitle);
   const normalizedPathname = String(pathname || '');
+  const suppressLegacyProductHeader = normalizedPathname.startsWith('/product/') && useLogoHeader && showBack;
   const goBack = () => (onBack ? onBack() : safeBack(router, pathname));
   const openFavorites = () => {
     if (normalizedPathname.includes('/favorites')) return;
@@ -96,6 +97,8 @@ export function AppHeader({
       <Ionicons name="notifications-outline" size={23} color="#111827" />
     </TouchableOpacity>
   );
+
+  if (suppressLegacyProductHeader) return null;
 
   if (useLogoHeader) {
     return (
@@ -163,7 +166,7 @@ export function AppHeader({
               <Ionicons name="share-outline" size={20} color="#111827" />
             </TouchableOpacity>
           )}
-          {showFavoriteToggle && (
+          {showFavoriteToggle && !!onFavoritePress && (
             <TouchableOpacity onPress={onFavoritePress} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={22} color={isFavorite ? '#EF4444' : '#111827'} />
             </TouchableOpacity>
