@@ -32,7 +32,7 @@ const clean = (v: unknown) => String(v ?? "").trim().replace(/^"+|"+$/g, "").rep
 const variantIdentity = (variant: any) => clean(variant?.id ?? variant?.sku ?? variant?.article);
 const isVariantAvailable = (row: any) => {
   const status = clean(row?.raw?.status ?? row?.status).toLowerCase();
-  return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'РІС–РґСЃСѓС‚РЅС–Р№', 'РЅРµРјР°С” РІ РЅР°СЏРІРЅРѕСЃС‚С–', 'РЅРµС‚ РІ РЅР°Р»РёС‡РёРё']
+  return !['out_of_stock', 'not_available', 'unavailable', 'disabled', 'відсутній', 'немає в наявності', 'нет в наличии']
     .some(value => status.includes(value));
 };
 
@@ -68,7 +68,6 @@ export default function ProductScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [addedCartKeys, setAddedCartKeys] = useState<Record<string, boolean>>({});
-  void setAddedCartKeys;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const cartCount = cartItems.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
@@ -76,7 +75,7 @@ export default function ProductScreen() {
   // --- Helpers ---
   
   const formatPrice = (price: number) => {
-    return `${(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} в‚ґ`;
+    return `${(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₴`;
   };
 
   const showToast = (message: string) => {
@@ -577,7 +576,7 @@ export default function ProductScreen() {
     try {
       if (!item) return;
       await Share.share({
-        message: `Р”С–Р·РЅР°Р№С‚РµСЃСЏ Р±С–Р»СЊС€Рµ РїСЂРѕ ${item.name}: ${getImageUrl(item.image)}`,
+        message: `Дізнайтеся більше про ${item.name}: ${getImageUrl(item.image)}`,
         title: item.name
       });
     } catch {}
@@ -586,14 +585,14 @@ export default function ProductScreen() {
   const submitReview = async () => {
     if (!newReview.user_name || !newReview.comment) {
       Vibration.vibrate(50);
-      showToast('Р—Р°РїРѕРІРЅС–С‚СЊ С–РјКјСЏ С‚Р° РІС–РґРіСѓРє');
+      showToast('Заповніть імʼя та відгук');
       return;
     }
 
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
       if (!accessToken) {
-        showToast('РЈРІС–Р№РґС–С‚СЊ Сѓ РїСЂРѕС„С–Р»СЊ, С‰РѕР± Р·Р°Р»РёС€РёС‚Рё РІС–РґРіСѓРє');
+        showToast('Увійдіть у профіль, щоб залишити відгук');
         return;
       }
 
@@ -620,7 +619,7 @@ export default function ProductScreen() {
 
       if (!res.ok) {
         console.warn('Submit review error:', res.status, submitData);
-        showToast(submitData?.detail || submitData?.message || 'РќРµ РІРґР°Р»РѕСЃСЏ РґРѕРґР°С‚Рё РІС–РґРіСѓРє');
+        showToast(submitData?.detail || submitData?.message || 'Не вдалося додати відгук');
         return;
       }
 
@@ -649,7 +648,7 @@ export default function ProductScreen() {
       setReviews(prev => mergeReviews(Array.isArray(prev) ? prev : []));
       setReviewModalVisible(false);
       setNewReview({ rating: 5, user_name: '', comment: '', user_phone: newReview.user_phone || '' });
-      showToast('Р”СЏРєСѓС”РјРѕ Р·Р° РІС–РґРіСѓРє!');
+      showToast('Дякуємо за відгук!');
 
       const refreshRes = await fetch(`${API_URL}/api/reviews/${productId}`);
       if (refreshRes.ok) {
@@ -659,22 +658,22 @@ export default function ProductScreen() {
       }
     } catch (e) {
       console.warn('Submit review exception:', e);
-      showToast('РџРѕРјРёР»РєР° РІС–РґРїСЂР°РІРєРё РІС–РґРіСѓРєСѓ');
+      showToast('Помилка відправки відгуку');
     }
   };
 
   if (loading) return (
     <SafeAreaView style={styles.center}>
       <ActivityIndicator size="large" color="#000" />
-      <Text style={{ marginTop: 10 }}>Р—Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ С‚РѕРІР°СЂСѓ...</Text>
+      <Text style={{ marginTop: 10 }}>Завантаження товару...</Text>
     </SafeAreaView>
   );
 
   if (error || !product) return (
     <SafeAreaView style={styles.center}>
-      <Text style={styles.errorText}>{error || "РўРѕРІР°СЂ РЅРµ Р·РЅР°Р№РґРµРЅРѕ"} (ID: {productId})</Text>
+      <Text style={styles.errorText}>{error || "Товар не знайдено"} (ID: {productId})</Text>
       <TouchableOpacity onPress={() => router.back()} style={styles.mainBtn}>
-        <Text style={styles.whiteText}>РќР°Р·Р°Рґ</Text>
+        <Text style={styles.whiteText}>Назад</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -700,17 +699,16 @@ export default function ProductScreen() {
   const isFavorite = favorites.some(f => f.id === displayProduct.id);
 
   const activeSelections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-  const activeSelectedUnit = displayProduct.unit || product.unit || 'С€С‚';
+  const activeSelectedUnit = displayProduct.unit || product.unit || 'шт';
   const activeCartKey = activeSelections || activeSelectedUnit;
   const activeCartSignature = `${Number(displayProduct.id)}::${clean(activeCartKey)}`;
 
   const isCurrentProductInCart = !!addedCartKeys[activeCartSignature] || cartItems.some((item: any) => (
     Number(item.id) === Number(displayProduct.id)
-    && clean(item.variantSize || item.packSize || item.unit || 'С€С‚') === clean(activeCartKey)
+    && clean(item.variantSize || item.packSize || item.unit || 'шт') === clean(activeCartKey)
   ));
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const productCartButtonLabel = isCurrentProductInCart ? 'РџРµСЂРµР№С‚Рё РІ РєРѕС€РёРє' : 'Р’ РєРѕС€РёРє';
+  const productCartButtonLabel = isCurrentProductInCart ? 'Перейти в кошик' : 'В кошик';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -727,7 +725,7 @@ export default function ProductScreen() {
             <TouchableOpacity onPress={() => onShare(displayProduct)} style={styles.iconBtn}>
                 <Ionicons name="share-outline" size={20} color="#000" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { toggleFavorite(displayProduct); showToast(isFavorite ? 'Р’РёРґР°Р»РµРЅРѕ' : 'Р”РѕРґР°РЅРѕ'); }} style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => { toggleFavorite(displayProduct); showToast(isFavorite ? 'Видалено' : 'Додано'); }} style={styles.iconBtn}>
               <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ef4444" : "#000"} />
             </TouchableOpacity>
           </View>
@@ -753,7 +751,7 @@ export default function ProductScreen() {
             const selectedVariantProduct = displayProduct;
 
             const selections = internalKeys.map(k => selectedOptions[k]).filter(Boolean).join(' | ');
-            const selectedUnit = selectedVariantProduct.unit || product.unit || 'С€С‚';
+            const selectedUnit = selectedVariantProduct.unit || product.unit || 'шт';
             addItem(selectedVariantProduct, 1, selections || selectedUnit, selectedUnit, currentPrice);
             showToast('\u0414\u043e\u0434\u0430\u043d\u043e \u0432 \u043a\u043e\u0448\u0438\u043a');
             trackEvent('AddToCart', {
@@ -806,9 +804,9 @@ export default function ProductScreen() {
               variantPrice = Number(first?.price ?? 0) || variantPrice;
              } catch {}
 
-             const pack = variantLabel || p.pack_sizes?.[0] || (p.unit || 'С€С‚');
-             addItem(p, 1, pack, p.unit || 'С€С‚', variantPrice);
-             showToast('Р”РѕРґР°РЅРѕ РІ РєРѕС€РёРє');
+             const pack = variantLabel || p.pack_sizes?.[0] || (p.unit || 'шт');
+             addItem(p, 1, pack, p.unit || 'шт', variantPrice);
+             showToast('Додано в кошик');
              const similarCartItem = {
                item_id: String(p.id),
                item_name: p.name,
@@ -836,7 +834,7 @@ export default function ProductScreen() {
           onSimilarProductToggleFavorite={(p: any) => {
              toggleFavorite(p);
              // We don't show toast here to avoid clutter or maybe we should?
-             // showToast(favorites.some(f => f.id === p.id) ? 'Р’РёРґР°Р»РµРЅРѕ' : 'Р”РѕРґР°РЅРѕ'); // State not updated yet
+             // showToast(favorites.some(f => f.id === p.id) ? 'Видалено' : 'Додано'); // State not updated yet
           }}
           favorites={favorites}
        />
@@ -850,7 +848,7 @@ export default function ProductScreen() {
            >
             <View style={[styles.modalContent, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>РќР°РїРёСЃР°С‚Рё РІС–РґРіСѓРє</Text>
+                <Text style={styles.modalTitle}>Написати відгук</Text>
                 <TouchableOpacity onPress={() => setReviewModalVisible(false)}>
                   <Ionicons name="close" size={24} color="#000" />
                 </TouchableOpacity>
@@ -862,13 +860,13 @@ export default function ProductScreen() {
               contentContainerStyle={{ paddingBottom: Math.max(120, insets.bottom + 120) }}
               >
                 <TextInput
-                 placeholder="Р’Р°С€Рµ С–Рј'СЏ"
+                 placeholder="Ваше ім'я"
                  style={styles.input}
                  value={newReview.user_name}
                  onChangeText={t => setNewReview({ ...newReview, user_name: t })}
                 />
                                 <View style={styles.ratingPicker}>
-                  <Text style={styles.ratingPickerTitle}>РћС†С–РЅРєР°</Text>
+                  <Text style={styles.ratingPickerTitle}>Оцінка</Text>
                   <View style={styles.ratingStarsRow}>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <TouchableOpacity
@@ -887,7 +885,7 @@ export default function ProductScreen() {
                 </View>
 
 <TextInput
-                 placeholder="Р’Р°С€ РІС–РґРіСѓРє"
+                 placeholder="Ваш відгук"
                  multiline
                  numberOfLines={4}
                  style={[styles.input, { height: 100 }]}
@@ -897,7 +895,7 @@ export default function ProductScreen() {
               </ScrollView>
 
               <TouchableOpacity onPress={submitReview} style={[styles.submitBtn, { marginTop: 8 }]}>
-                <Text style={styles.whiteText}>Р’С–РґРїСЂР°РІРёС‚Рё</Text>
+                <Text style={styles.whiteText}>Відправити</Text>
               </TouchableOpacity>
             </View>
            </KeyboardAvoidingView>

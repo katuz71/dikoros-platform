@@ -52,7 +52,7 @@ type Product = {
 
 const quantityOptions = Array.from({ length: 11 }, (_, index) => index);
 
-const getSizeKey = (item: any) => item?.variantSize || item?.packSize || item?.unit || 'РЎв‚¬РЎвЂљ';
+const getSizeKey = (item: any) => item?.variantSize || item?.packSize || item?.unit || 'шт';
 const getCompositeId = (item: any) => `${item.id}-${String(getSizeKey(item))}`;
 
 export default function CartScreen() {
@@ -90,7 +90,7 @@ export default function CartScreen() {
     if (!Array.isArray(products) || products.length === 0) {
       fetchProducts().catch(() => {});
     }
-  }, [fetchProducts, products]);
+  }, []);
 
   // Android back in cart: close modal first, then let global history handler work.
   useEffect(() => {
@@ -111,13 +111,13 @@ export default function CartScreen() {
   const normalizeText = (value: any) => String(value || '')
     .toLowerCase()
     .replace(/&[a-z]+;/g, ' ')
-    .replace(/[РІР‚в„ў'`РљС]/g, '')
-    .replace(/[^a-zР В°-РЎРЏРЎвЂ“РЎвЂ”РЎвЂќРўвЂ0-9\s-]/gi, ' ')
+    .replace(/[’'`ʼ]/g, '')
+    .replace(/[^a-zа-яіїєґ0-9\s-]/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const getCategoryParts = (item: any) => normalizeText(item?.category)
-    .split(/[>Р’В»/|,]/)
+    .split(/[>»/|,]/)
     .map(part => part.trim())
     .filter(Boolean);
 
@@ -131,8 +131,8 @@ export default function CartScreen() {
 
   const getTokens = (item: any) => {
     const stopWords = new Set([
-      'Р Т‘Р В»РЎРЏ', 'РЎвЂљР В°', 'РЎвЂ“', 'Р в„–', 'Р В·', 'РЎвЂ“Р В·', 'Р Р…Р В°', 'РЎС“', 'Р Р†', 'Р С—Р С•', 'Р Т‘Р С•', 'Р Р†РЎвЂ“Р Т‘', 'Р В°Р В±Р С•', 'Р В±Р ВµР В·', 'Р С—РЎР‚Р С‘',
-      'Р С–РЎР‚Р Р…', 'РЎв‚¬РЎвЂљ', 'Р СР В»', 'Р С–', 'Р С”Р С–', 'Р С”Р В°Р С—РЎРѓРЎС“Р В»', 'Р С”Р В°Р С—РЎРѓРЎС“Р В»Р С‘', 'Р С”Р В°Р С—РЎРѓРЎС“Р В»Р В°', 'РЎС“Р С—Р В°Р С”Р С•Р Р†Р С”Р В°', 'РЎвЂљР С•Р Р†Р В°РЎР‚', 'dikoros',
+      'для', 'та', 'і', 'й', 'з', 'із', 'на', 'у', 'в', 'по', 'до', 'від', 'або', 'без', 'при',
+      'грн', 'шт', 'мл', 'г', 'кг', 'капсул', 'капсули', 'капсула', 'упаковка', 'товар', 'dikoros',
       'the', 'and', 'with', 'for', 'of', 'in', 'new', 'best',
     ]);
 
@@ -167,7 +167,7 @@ export default function CartScreen() {
     return {
       rating,
       count,
-      stars: `${'РІВвЂ¦'.repeat(filled)}${'РІВвЂ '.repeat(5 - filled)}`,
+      stars: `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`,
     };
   };
 
@@ -247,17 +247,16 @@ export default function CartScreen() {
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .slice(0, 8)
       .map(({ item }) => item) as Product[];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, cartItems, postponedItems, favorites]);
 
-  const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} РІвЂљТ‘`;
-  const formatItemCount = (count: number) => `${count} РЎвЂљР С•Р Р†Р В°РЎР‚РЎвЂ“Р Р†`;
+  const formatPrice = (price: number) => `${Math.round(price || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
+  const formatItemCount = (count: number) => `${count} товарів`;
 
   const applyPromo = async () => {
     const normalizedPromoCode = promoCode.trim().toUpperCase();
 
     if (!normalizedPromoCode) {
-      Alert.alert('Р СџР С•Р СР С‘Р В»Р С”Р В°', 'Р вЂ™Р Р†Р ВµР Т‘РЎвЂ“РЎвЂљРЎРЉ Р С—РЎР‚Р С•Р СР С•Р С”Р С•Р Т‘');
+      Alert.alert('Помилка', 'Введіть промокод');
       return;
     }
 
@@ -276,15 +275,15 @@ export default function CartScreen() {
           setPromoDiscount(0, data.discount_amount, data.code);
         }
         setPromoCode('');
-        Alert.alert('Р вЂњР С•РЎвЂљР С•Р Р†Р С•', `Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘ ${data.code} Р В·Р В°РЎРѓРЎвЂљР С•РЎРѓР С•Р Р†Р В°Р Р…Р С•`);
+        Alert.alert('Готово', `Промокод ${data.code} застосовано`);
       } else {
         const error = await response.json();
         setPromoDiscount(0, 0, '');
-        Alert.alert('Р СџР С•Р СР С‘Р В»Р С”Р В°', error.detail || 'Р СњР ВµР Р†РЎвЂ“РЎР‚Р Р…Р С‘Р в„– Р С—РЎР‚Р С•Р СР С•Р С”Р С•Р Т‘');
+        Alert.alert('Помилка', error.detail || 'Невірний промокод');
       }
     } catch (error) {
       console.error('Error validating promo code:', error);
-      Alert.alert('Р СџР С•Р СР С‘Р В»Р С”Р В°', 'Р СњР Вµ Р Р†Р Т‘Р В°Р В»Р С•РЎРѓРЎРЏ Р С—Р ВµРЎР‚Р ВµР Р†РЎвЂ“РЎР‚Р С‘РЎвЂљР С‘ Р С—РЎР‚Р С•Р СР С•Р С”Р С•Р Т‘');
+      Alert.alert('Помилка', 'Не вдалося перевірити промокод');
     }
   };
 
@@ -345,9 +344,9 @@ export default function CartScreen() {
       ...item,
       image: item.image || item.image_url || item.picture || '',
       quantity: Number(item.quantity || 1),
-      packSize: item.packSize || item.variantSize || item.unit || 'РЎв‚¬РЎвЂљ',
-      unit: item.unit || item.packSize || item.variantSize || 'РЎв‚¬РЎвЂљ',
-      variantSize: item.variantSize || item.packSize || item.unit || 'РЎв‚¬РЎвЂљ',
+      packSize: item.packSize || item.variantSize || item.unit || 'шт',
+      unit: item.unit || item.packSize || item.variantSize || 'шт',
+      variantSize: item.variantSize || item.packSize || item.unit || 'шт',
     };
 
     setPostponedItems((prev) => {
@@ -370,7 +369,7 @@ export default function CartScreen() {
   const restorePostponedItem = (item: Product) => {
     const compositeId = getCompositeId(item);
     const sizeKey = getSizeKey(item);
-    const unit = item.unit || sizeKey || 'РЎв‚¬РЎвЂљ';
+    const unit = item.unit || sizeKey || 'шт';
 
     addItem(item, Number(item.quantity || 1), sizeKey, unit, item.price);
     setPostponedItems((prev) => prev.filter((saved) => getCompositeId(saved) !== compositeId));
@@ -382,7 +381,7 @@ export default function CartScreen() {
 
     postponedItems.forEach((item) => {
       const sizeKey = getSizeKey(item);
-      const unit = item.unit || sizeKey || 'РЎв‚¬РЎвЂљ';
+      const unit = item.unit || sizeKey || 'шт';
       addItem(item, Number(item.quantity || 1), sizeKey, unit, item.price);
     });
 
@@ -392,7 +391,7 @@ export default function CartScreen() {
   };
 
   const addFavoriteToCart = (item: Product) => {
-    const unit = item.unit || item.packSize || item.variantSize || 'РЎв‚¬РЎвЂљ';
+    const unit = item.unit || item.packSize || item.variantSize || 'шт';
     addItem(
       {
         ...item,
@@ -448,7 +447,7 @@ export default function CartScreen() {
         </View>
 
         <Text numberOfLines={3} style={styles.postponedName}>{item.name}</Text>
-        <Text style={styles.postponedMeta}>{sizeKey}{options?.postponed ? ` Р’В· ${Number(item.quantity || 1)} РЎв‚¬РЎвЂљ.` : ''}</Text>
+        <Text style={styles.postponedMeta}>{sizeKey}{options?.postponed ? ` · ${Number(item.quantity || 1)} шт.` : ''}</Text>
         {reviewStats && (
           <Text style={styles.reviewSummary}>{reviewStats.stars} {reviewStats.count}</Text>
         )}
@@ -456,7 +455,7 @@ export default function CartScreen() {
 
         {options?.postponed && (
           <TouchableOpacity onPress={() => removePostponedItem(item)} activeOpacity={0.78}>
-            <Text style={styles.postponedRemoveText}>Р вЂ™Р С‘Р Т‘Р В°Р В»Р С‘РЎвЂљР С‘</Text>
+            <Text style={styles.postponedRemoveText}>Видалити</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -485,10 +484,10 @@ export default function CartScreen() {
             <View style={styles.emptyIconContainer}>
               <Ionicons name="cart-outline" size={60} color="#D1D5DB" />
             </View>
-            <Text style={styles.emptyTitle}>Р С™Р С•РЎв‚¬Р С‘Р С” Р С—Р С•РЎР‚Р С•Р В¶Р Р…РЎвЂ“Р в„–</Text>
-            <Text style={styles.emptyText}>Р вЂ™Р С‘ РЎвЂ°Р Вµ Р Р…РЎвЂ“РЎвЂЎР С•Р С–Р С• Р Р…Р Вµ Р Т‘Р С•Р Т‘Р В°Р В»Р С‘. Р СџР ВµРЎР‚Р ВµР в„–Р Т‘РЎвЂ“РЎвЂљРЎРЉ Р Т‘Р С• Р С”Р В°РЎвЂљР В°Р В»Р С•Р С–РЎС“ РЎвЂљР В° Р С•Р В±Р ВµРЎР‚РЎвЂ“РЎвЂљРЎРЉ Р С—Р С•РЎвЂљРЎР‚РЎвЂ“Р В±Р Р…РЎвЂ“ РЎвЂљР С•Р Р†Р В°РЎР‚Р С‘.</Text>
+            <Text style={styles.emptyTitle}>Кошик порожній</Text>
+            <Text style={styles.emptyText}>Ви ще нічого не додали. Перейдіть до каталогу та оберіть потрібні товари.</Text>
             <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.emptyButton} activeOpacity={0.88}>
-              <Text style={styles.emptyButtonText}>Р СџР ВµРЎР‚Р ВµР в„–РЎвЂљР С‘ Р Т‘Р С• Р С”Р В°РЎвЂљР В°Р В»Р С•Р С–РЎС“</Text>
+              <Text style={styles.emptyButtonText}>Перейти до каталогу</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -499,15 +498,15 @@ export default function CartScreen() {
                   <Ionicons name="cart-outline" size={52} color="#7A7A7A" />
                 </View>
                 <View style={styles.emptyNoticeTextBox}>
-                  <Text style={styles.emptyNoticeTitle}>Р вЂ™Р В°РЎв‚¬ Р С”Р С•РЎв‚¬Р С‘Р С” Р С—Р С•РЎР‚Р С•Р В¶Р Р…РЎвЂ“Р в„–</Text>
-                  <Text style={styles.emptyNoticeText}>Р вЂ™РЎвЂ“Р Т‘Р С”Р В»Р В°Р Т‘Р ВµР Р…РЎвЂ“ РЎвЂљР С•Р Р†Р В°РЎР‚Р С‘ РЎвЂљР В° Р СР С•РЎвЂ” РЎРѓР С—Р С‘РЎРѓР С”Р С‘ Р В·Р В°Р В»Р С‘РЎв‚¬Р В°РЎР‹РЎвЂљРЎРЉРЎРѓРЎРЏ Р Р…Р С‘Р В¶РЎвЂЎР Вµ Р Р…Р В° РЎвЂ РЎвЂ“Р в„– РЎРѓР В°Р СРЎвЂ“Р в„– РЎРѓРЎвЂљР С•РЎР‚РЎвЂ“Р Р…РЎвЂ РЎвЂ“.</Text>
+                  <Text style={styles.emptyNoticeTitle}>Ваш кошик порожній</Text>
+                  <Text style={styles.emptyNoticeText}>Відкладені товари та мої списки залишаються нижче на цій самій сторінці.</Text>
                 </View>
               </View>
             )}
 
             {hasCartItems && (
               <View style={styles.cartTopRow}>
-                <Text style={styles.cartTitle}>Р С™Р С•РЎв‚¬Р С‘Р С” ({cartItems.length})</Text>
+                <Text style={styles.cartTitle}>Кошик ({cartItems.length})</Text>
               </View>
             )}
 
@@ -543,7 +542,7 @@ export default function CartScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity onPress={() => postponeItem(item)} style={styles.postponeButton} activeOpacity={0.82}>
-                        <Text style={styles.postponeText}>Р вЂ™РЎвЂ“Р Т‘Р С”Р В»Р В°РЎРѓРЎвЂљР С‘</Text>
+                        <Text style={styles.postponeText}>Відкласти</Text>
                       </TouchableOpacity>
                     </View>
 
@@ -557,7 +556,7 @@ export default function CartScreen() {
 
             {hasCartItems && (
               <View style={styles.promoSection}>
-                <Text style={styles.promoLabel}>Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘</Text>
+                <Text style={styles.promoLabel}>Промокод</Text>
                 <View style={styles.promoContainer}>
                   <TextInput
                     value={promoCode}
@@ -568,15 +567,15 @@ export default function CartScreen() {
                     style={styles.promoInput}
                   />
                   <TouchableOpacity onPress={applyPromo} style={styles.promoButton} activeOpacity={0.88}>
-                    <Text style={styles.promoButtonText}>Р вЂ”Р В°РЎРѓРЎвЂљР С•РЎРѓРЎС“Р Р†Р В°РЎвЂљР С‘</Text>
+                    <Text style={styles.promoButtonText}>Застосувати</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.promoHint}>Р С›Р Т‘Р С‘Р Р… Р С”Р С•Р Т‘ Р Р† Р В·Р В°Р СР С•Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ“</Text>
+                <Text style={styles.promoHint}>Один код в замовленні</Text>
                 {hasPromo && (
                   <View style={styles.discountBox}>
                     <Ionicons name="checkmark-circle" size={17} color="#2E7D32" />
                     <Text style={styles.discountText}>
-                      {appliedPromoCode} Р В·Р В°РЎРѓРЎвЂљР С•РЎРѓР С•Р Р†Р В°Р Р…Р С• Р’В· {discount > 0 ? `Р В·Р Р…Р С‘Р В¶Р С”Р В° ${Math.round(discount * 100)}%` : `Р В·Р Р…Р С‘Р В¶Р С”Р В° ${formatPrice(discountAmount)}`}
+                      {appliedPromoCode} застосовано · {discount > 0 ? `знижка ${Math.round(discount * 100)}%` : `знижка ${formatPrice(discountAmount)}`}
                     </Text>
                   </View>
                 )}
@@ -590,14 +589,14 @@ export default function CartScreen() {
                   style={[styles.savedTab, activeListTab === 'saved' && styles.savedTabActive]}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.savedTabText, activeListTab === 'saved' && styles.savedTabTextActive]}>Р вЂ™РЎвЂ“Р Т‘Р С”Р В»Р В°Р Т‘Р ВµР Р…Р С•</Text>
+                  <Text style={[styles.savedTabText, activeListTab === 'saved' && styles.savedTabTextActive]}>Відкладено</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setActiveListTab('lists')}
                   style={[styles.savedTab, activeListTab === 'lists' && styles.savedTabActive]}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.savedTabText, activeListTab === 'lists' && styles.savedTabTextActive]}>Р СљР С•РЎвЂ” РЎРѓР С—Р С‘РЎРѓР С”Р С‘</Text>
+                  <Text style={[styles.savedTabText, activeListTab === 'lists' && styles.savedTabTextActive]}>Мої списки</Text>
                 </TouchableOpacity>
               </View>
 
@@ -612,8 +611,8 @@ export default function CartScreen() {
                     </>
                   ) : (
                     <View style={styles.savedPreviewCard}>
-                      <Text style={styles.savedHintTitle}>Р вЂ™РЎвЂ“Р Т‘Р С”Р В»Р В°Р Т‘Р ВµР Р…Р С‘РЎвЂ¦ РЎвЂљР С•Р Р†Р В°РЎР‚РЎвЂ“Р Р† Р Р…Р ВµР СР В°РЎвЂќ</Text>
-                      <Text style={styles.savedHintText}>Р СњР В°РЎвЂљР С‘РЎРѓР Р…РЎвЂ“РЎвЂљРЎРЉ Р’В«Р вЂ™РЎвЂ“Р Т‘Р С”Р В»Р В°РЎРѓРЎвЂљР С‘Р’В» Р Р† Р С”Р С•РЎв‚¬Р С‘Р С”РЎС“, РЎвЂ°Р С•Р В± РЎвЂљР С•Р Р†Р В°РЎР‚ Р В·РІР‚в„ўРЎРЏР Р†Р С‘Р Р†РЎРѓРЎРЏ РЎвЂљРЎС“РЎвЂљ Р В±Р ВµР В· Р С—Р ВµРЎР‚Р ВµРЎвЂ¦Р С•Р Т‘РЎС“ Р Р…Р В° РЎвЂ“Р Р…РЎв‚¬РЎС“ РЎРѓРЎвЂљР С•РЎР‚РЎвЂ“Р Р…Р С”РЎС“.</Text>
+                      <Text style={styles.savedHintTitle}>Відкладених товарів немає</Text>
+                      <Text style={styles.savedHintText}>Натисніть «Відкласти» в кошику, щоб товар з’явився тут без переходу на іншу сторінку.</Text>
                     </View>
                   )}
                 </View>
@@ -628,8 +627,8 @@ export default function CartScreen() {
                     </>
                   ) : (
                     <View style={styles.savedPreviewCard}>
-                      <Text style={styles.savedHintTitle}>Р СљР С•РЎвЂ” РЎРѓР С—Р С‘РЎРѓР С”Р С‘ Р С—Р С•РЎР‚Р С•Р В¶Р Р…РЎвЂ“</Text>
-                      <Text style={styles.savedHintText}>Р СћРЎС“РЎвЂљ Р В±РЎС“Р Т‘РЎС“РЎвЂљРЎРЉ РЎвЂљР С•Р Р†Р В°РЎР‚Р С‘, РЎРЏР С”РЎвЂ“ Р Р†Р С‘ Р Т‘Р С•Р Т‘Р В°Р В»Р С‘ Р Р† Р С•Р В±РЎР‚Р В°Р Р…Р Вµ. Р СџР ВµРЎР‚Р ВµРЎвЂ¦Р С•Р Т‘РЎС“ Р Р…Р В° РЎРѓРЎвЂљР С•РЎР‚РЎвЂ“Р Р…Р С”РЎС“ Р С•Р В±РЎР‚Р В°Р Р…Р С•Р С–Р С• Р Р…Р ВµР СР В°РЎвЂќ.</Text>
+                      <Text style={styles.savedHintTitle}>Мої списки порожні</Text>
+                      <Text style={styles.savedHintText}>Тут будуть товари, які ви додали в обране. Переходу на сторінку обраного немає.</Text>
                     </View>
                   )}
                 </View>
@@ -640,7 +639,7 @@ export default function CartScreen() {
               <View style={styles.recommendSection}>
                 <View style={styles.recommendHeader}>
                   <View style={styles.recommendLine} />
-                  <Text style={styles.recommendTitle}>Р В¦Р Вµ Р СР С•Р В¶Р Вµ Р Р†Р В°РЎРѓ Р В·Р В°РЎвЂ РЎвЂ“Р С”Р В°Р Р†Р С‘РЎвЂљР С‘</Text>
+                  <Text style={styles.recommendTitle}>Це може вас зацікавити</Text>
                   <View style={styles.recommendLine} />
                 </View>
 
@@ -660,7 +659,7 @@ export default function CartScreen() {
             <Ionicons name="chevron-up" size={18} color="#111827" />
           </TouchableOpacity>
           <TouchableOpacity onPress={goCheckout} style={styles.checkoutButton} activeOpacity={0.9}>
-            <Text style={styles.checkoutButtonText}>Р С›РЎвЂћР С•РЎР‚Р СР С‘РЎвЂљР С‘ Р В·Р В°Р СР С•Р Р†Р В»Р ВµР Р…Р Р…РЎРЏ ({cartCount})</Text>
+            <Text style={styles.checkoutButtonText}>Оформити замовлення ({cartCount})</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -668,7 +667,7 @@ export default function CartScreen() {
       {!hasCartItems && hasPostponedItems && (
         <View style={[styles.stickyCheckout, { bottom: 58 + Math.max(insets.bottom, 4) }]}> 
           <TouchableOpacity onPress={restoreAllPostponedItems} style={styles.addPostponedButton} activeOpacity={0.9}>
-            <Text style={styles.addPostponedButtonText}>Р вЂќР С•Р Т‘Р В°РЎвЂљР С‘ РЎвЂљР С•Р Р†Р В°РЎР‚Р С‘ Р Р† Р С”Р С•РЎв‚¬Р С‘Р С”</Text>
+            <Text style={styles.addPostponedButtonText}>Додати товари в кошик</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -684,7 +683,7 @@ export default function CartScreen() {
 
           <View style={[styles.quantitySheet, { paddingBottom: Math.max(insets.bottom + 18, 28) }]}> 
             <View style={styles.quantitySheetHeader}>
-              <Text style={styles.quantitySheetTitle}>Р С›Р В±Р ВµРЎР‚РЎвЂ“РЎвЂљРЎРЉ Р С”РЎвЂ“Р В»РЎРЉР С”РЎвЂ“РЎРѓРЎвЂљРЎРЉ РЎвЂљР С•Р Р†Р В°РЎР‚РЎС“</Text>
+              <Text style={styles.quantitySheetTitle}>Оберіть кількість товару</Text>
               <TouchableOpacity onPress={closeQuantityPicker} style={styles.quantityCloseButton} activeOpacity={0.75}>
                 <Ionicons name="close" size={34} color="#222222" />
               </TouchableOpacity>
@@ -701,7 +700,7 @@ export default function CartScreen() {
                     activeOpacity={0.82}
                   >
                     <Text style={styles.quantitySheetOptionText}>
-                      {quantity === 0 ? '0 (Р Р†Р С‘Р Т‘Р В°Р В»Р С‘РЎвЂљР С‘)' : quantity}
+                      {quantity === 0 ? '0 (видалити)' : quantity}
                     </Text>
                   </TouchableOpacity>
                 );
