@@ -72,6 +72,7 @@ export function AppHeader({
   const normalizedPathname = String(pathname || '');
   const suppressLegacyProductHeader = normalizedPathname.startsWith('/product/') && useLogoHeader && showBack;
   const suppressLegacyPoliciesHeader = normalizedPathname.startsWith('/policies') && useLogoHeader && !title && !subtitle;
+  const suppressLegacyCheckoutHeader = normalizedPathname.startsWith('/checkout') && useLogoHeader && !title && !subtitle;
   const goBack = () => (onBack ? onBack() : safeBack(router, pathname));
   const openFavorites = () => {
     if (normalizedPathname.includes('/favorites')) return;
@@ -105,7 +106,7 @@ export function AppHeader({
     </TouchableOpacity>
   );
 
-  if (suppressLegacyProductHeader || suppressLegacyPoliciesHeader) return null;
+  if (suppressLegacyProductHeader || suppressLegacyPoliciesHeader || suppressLegacyCheckoutHeader) return null;
 
   if (useLogoHeader) {
     return (
