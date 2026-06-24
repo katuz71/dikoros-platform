@@ -1,7 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
 import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -113,14 +112,6 @@ export default function BlogScreen() {
     loadPage();
   };
 
-  const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/(tabs)' as any);
-  };
-
   const openArticle = (section: BlogSection) => {
     if (!section.source_url) return;
 
@@ -137,23 +128,7 @@ export default function BlogScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.pageTitleRow}>
-        <TouchableOpacity
-          onPress={goBack}
-          style={styles.pageBackButton}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-
-        <Text style={styles.pageTitle} numberOfLines={1}>
-          {page?.title || 'Блог'}
-        </Text>
-
-        <View style={styles.pageBackButton} />
-      </View>
+      <AppHeader title={page?.title || 'Блог'} showBack />
 
       {loading ? (
         <View style={styles.center}>
@@ -204,27 +179,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAF8',
-  },
-  pageTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageBackButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
   },
   scroll: {
     flex: 1,
