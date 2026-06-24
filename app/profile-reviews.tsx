@@ -20,7 +20,7 @@ export default function ProfileReviewsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
@@ -52,12 +52,12 @@ export default function ProfileReviewsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [router]);
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
     loadReviews();
-  }, []));
+  }, [loadReviews]));
 
   const onRefresh = () => {
     setRefreshing(true);
