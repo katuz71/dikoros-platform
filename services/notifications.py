@@ -8,6 +8,36 @@ from services.users import normalize_phone
 
 logger = logging.getLogger(__name__)
 
+ORDER_STATUS_PUSH_PREFIX = "Ваше замовлення переведено в статус:"
+ORDER_STATUS_PUSH_LABELS = {
+    "Pending": "Очікує обробки",
+    "Processing": "В обробці",
+    "Shipped": "Відправлено",
+    "Paid": "Оплачено",
+    "Completed": "Виконано",
+    "Delivered": "Доставлено",
+    "Отправлен": "Відправлено",
+    "В обработке": "В обробці",
+    "Оплачено": "Оплачено",
+    "Доставлен": "Доставлено",
+    "Виконано": "Виконано",
+    "Выполнен": "Виконано",
+}
+
+
+def _localize_order_status_label(status: str | None) -> str:
+    clean_status = str(status or "").strip()
+    return ORDER_STATUS_PUSH_LABELS.get(clean_status, clean_status)
+
+
+def _localize_push_body(body: str | None) -> str:
+    clean_body = str(body or "")
+    if clean_body.startswith(ORDER_STATUS_PUSH_PREFIX):
+        raw_status = clean_body[len(ORDER_STATUS_PUSH_PREFIX):].strip()
+        if raw_status:
+            return f"{ORDER_STATUS_PUSH_PREFIX} {_localize_order_status_label(raw_status)}"
+    return clean_body
+
 
 def _default_push_data(title: str, data: dict | None) -> dict:
     """Add navigation data for legacy order pushes that were sent without payload data."""
@@ -89,6 +119,7 @@ def send_expo_push(
     """
     Отправляет push-уведомление через сервера Expo и сохраняет его в центр оповещений.
     """
+    body = _localize_push_body(body)
     push_data = _default_push_data(title, data)
     owner_phone = normalize_phone(user_phone or "") or _resolve_user_phone_from_push_token(token)
 
