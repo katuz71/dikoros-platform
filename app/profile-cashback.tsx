@@ -27,7 +27,7 @@ export default function ProfileCashbackScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -59,11 +59,11 @@ export default function ProfileCashbackScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useFocusEffect(useCallback(() => {
     loadProfile();
-  }, []));
+  }, [loadProfile]));
 
   const totalSpent = profile?.total_spent || 0;
   const bonusBalance = profile?.bonus_balance || 0;
