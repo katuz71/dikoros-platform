@@ -1,6 +1,7 @@
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
+import { safeBack } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,14 +58,25 @@ export function AppHeader({
   style,
 }: AppHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { openSearch } = useGlobalSearch();
 
   const useLogoHeader = showLogo ?? (!title && !subtitle);
-  const goBack = () => (onBack ? onBack() : router.back());
-  const openFavorites = () => router.push('/(tabs)/favorites' as any);
-  const openNotifications = () => router.push('/profile-notifications' as any);
-  const openCart = () => router.push('/(tabs)/cart' as any);
+  const normalizedPathname = String(pathname || '');
+  const goBack = () => (onBack ? onBack() : safeBack(router, pathname));
+  const openFavorites = () => {
+    if (normalizedPathname.includes('/favorites')) return;
+    router.replace('/(tabs)/favorites' as any);
+  };
+  const openNotifications = () => {
+    if (normalizedPathname.includes('/profile-notifications')) return;
+    router.push('/profile-notifications' as any);
+  };
+  const openCart = () => {
+    if (normalizedPathname.includes('/cart')) return;
+    router.replace('/(tabs)/cart' as any);
+  };
   const openHome = () => router.replace('/(tabs)' as any);
 
   const renderSearchButton = () => (
@@ -176,12 +188,12 @@ const styles = StyleSheet.create({
   header: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', zIndex: 50 },
   row: { height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
   logoCenteredRow: { height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  logoActionSlot: { width: 72, flexDirection: 'row', alignItems: 'center' },
+  logoActionSlot: { width: 108, flexDirection: 'row', alignItems: 'center' },
   logoLeftActionSlot: { justifyContent: 'flex-start' },
   logoRightActionSlot: { justifyContent: 'flex-end' },
   backOverlayButton: { position: 'absolute', left: 8, top: 6, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', zIndex: 3 },
   leftArea: { width: 48, alignItems: 'flex-start', justifyContent: 'center', zIndex: 2 },
-  centerArea: { position: 'absolute', left: 76, right: 76, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  centerArea: { position: 'absolute', left: 124, right: 124, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   rightArea: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', zIndex: 2 },
   iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   iconButtonPlaceholder: { width: 36, height: 36 },
