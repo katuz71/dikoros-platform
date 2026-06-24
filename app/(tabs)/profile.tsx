@@ -11,7 +11,6 @@ import React, { useCallback, useState , useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   RefreshControl,
   ScrollView,
   Share,
@@ -23,7 +22,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 
-// --- ТИПЫ ---
+// --- РўРРџР« ---
 interface UserProfile {
   phone: string;
   bonus_balance: number;
@@ -46,7 +45,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { handleFooterScroll } = useAppFooterAutoHide();
-  // Состояния
+  // РЎРѕСЃС‚РѕСЏРЅРёСЏ
   const [phone, setPhone] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -75,7 +74,7 @@ export default function ProfileScreen() {
       }
 
       if (!idToken) {
-        Alert.alert('Помилка Google входу', 'Google не повернув ID token.');
+        Alert.alert('РџРѕРјРёР»РєР° Google РІС…РѕРґСѓ', 'Google РЅРµ РїРѕРІРµСЂРЅСѓРІ ID token.');
         return;
       }
 
@@ -84,12 +83,12 @@ export default function ProfileScreen() {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
 
       console.warn('Google native sign-in failed:', error);
-      Alert.alert('Помилка Google входу', error?.message || 'Не вдалося увійти через Google.');
+      Alert.alert('РџРѕРјРёР»РєР° Google РІС…РѕРґСѓ', error?.message || 'РќРµ РІРґР°Р»РѕСЃСЏ СѓРІС–Р№С‚Рё С‡РµСЂРµР· Google.');
     }
   };
 
 
-  // 1. Проверка авторизации и обновление данных при фокусе
+  // 1. РџСЂРѕРІРµСЂРєР° Р°РІС‚РѕСЂРёР·Р°С†РёРё Рё РѕР±РЅРѕРІР»РµРЅРёРµ РґР°РЅРЅС‹С… РїСЂРё С„РѕРєСѓСЃРµ
   useFocusEffect(
     useCallback(() => {
       checkLogin();
@@ -172,7 +171,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // 2. Загрузка данных
+  // 2. Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С…
   const fetchData = async (_phoneNumber?: string) => {
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -210,14 +209,14 @@ export default function ProfileScreen() {
     }
   };
 
-  // 3. Логика входа / выхода
+  // 3. Р›РѕРіРёРєР° РІС…РѕРґР° / РІС‹С…РѕРґР°
   const handleGoogleLinkStart = async () => {
     const accessToken = await AsyncStorage.getItem('accessToken');
 
     if (!accessToken || !profile?.phone_verified) {
       Alert.alert(
-        'Потрібен SMS-вхід',
-        'Спочатку увійдіть за номером телефону через SMS, потім прив’яжіть Google.'
+        'РџРѕС‚СЂС–Р±РµРЅ SMS-РІС…С–Рґ',
+        'РЎРїРѕС‡Р°С‚РєСѓ СѓРІС–Р№РґС–С‚СЊ Р·Р° РЅРѕРјРµСЂРѕРј С‚РµР»РµС„РѕРЅСѓ С‡РµСЂРµР· SMS, РїРѕС‚С–Рј РїСЂРёРІвЂ™СЏР¶С–С‚СЊ Google.'
       );
       router.push('/login' as any);
       return;
@@ -231,7 +230,7 @@ export default function ProfileScreen() {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
       if (!accessToken) {
-        Alert.alert('Потрібен SMS-вхід', 'Увійдіть через SMS перед прив’язкою Google.');
+        Alert.alert('РџРѕС‚СЂС–Р±РµРЅ SMS-РІС…С–Рґ', 'РЈРІС–Р№РґС–С‚СЊ С‡РµСЂРµР· SMS РїРµСЂРµРґ РїСЂРёРІвЂ™СЏР·РєРѕСЋ Google.');
         return;
       }
 
@@ -250,7 +249,7 @@ export default function ProfileScreen() {
       const result = await res.json().catch(() => null);
 
       if (!res.ok) {
-        Alert.alert('Помилка', result?.detail || 'Не вдалося прив’язати Google');
+        Alert.alert('РџРѕРјРёР»РєР°', result?.detail || 'РќРµ РІРґР°Р»РѕСЃСЏ РїСЂРёРІвЂ™СЏР·Р°С‚Рё Google');
         return;
       }
 
@@ -267,29 +266,29 @@ export default function ProfileScreen() {
 
       setProfile(result);
       fetchData(authId);
-      Alert.alert('Готово', 'Google успішно прив’язано до вашого акаунта.');
+      Alert.alert('Р“РѕС‚РѕРІРѕ', 'Google СѓСЃРїС–С€РЅРѕ РїСЂРёРІвЂ™СЏР·Р°РЅРѕ РґРѕ РІР°С€РѕРіРѕ Р°РєР°СѓРЅС‚Р°.');
     } catch (error) {
       console.error(error);
-      Alert.alert('Помилка', 'Немає з’єднання');
+      Alert.alert('РџРѕРјРёР»РєР°', 'РќРµРјР°С” Р·вЂ™С”РґРЅР°РЅРЅСЏ');
     }
   };
 
 
   const handleDeleteAccount = async () => {
     Alert.alert(
-      'Видалити акаунт?',
-      'Профіль, бонуси, прив’язки входу та ваші відгуки буде видалено. Історія замовлень буде знеособлена.',
+      'Р’РёРґР°Р»РёС‚Рё Р°РєР°СѓРЅС‚?',
+      'РџСЂРѕС„С–Р»СЊ, Р±РѕРЅСѓСЃРё, РїСЂРёРІвЂ™СЏР·РєРё РІС…РѕРґСѓ С‚Р° РІР°С€С– РІС–РґРіСѓРєРё Р±СѓРґРµ РІРёРґР°Р»РµРЅРѕ. Р†СЃС‚РѕСЂС–СЏ Р·Р°РјРѕРІР»РµРЅСЊ Р±СѓРґРµ Р·РЅРµРѕСЃРѕР±Р»РµРЅР°.',
       [
-        { text: 'Скасувати', style: 'cancel' },
+        { text: 'РЎРєР°СЃСѓРІР°С‚Рё', style: 'cancel' },
         {
-          text: 'Видалити',
+          text: 'Р’РёРґР°Р»РёС‚Рё',
           style: 'destructive',
           onPress: async () => {
             try {
               const accessToken = await AsyncStorage.getItem('accessToken');
 
               if (!accessToken) {
-                Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб видалити акаунт.');
+                Alert.alert('РџРѕС‚СЂС–Р±РµРЅ РІС…С–Рґ', 'РЈРІС–Р№РґС–С‚СЊ Сѓ РїСЂРѕС„С–Р»СЊ, С‰РѕР± РІРёРґР°Р»РёС‚Рё Р°РєР°СѓРЅС‚.');
                 return;
               }
 
@@ -303,7 +302,7 @@ export default function ProfileScreen() {
               const result = await res.json().catch(() => null);
 
               if (!res.ok) {
-                Alert.alert('Помилка', result?.detail || 'Не вдалося видалити акаунт');
+                Alert.alert('РџРѕРјРёР»РєР°', result?.detail || 'РќРµ РІРґР°Р»РѕСЃСЏ РІРёРґР°Р»РёС‚Рё Р°РєР°СѓРЅС‚');
                 return;
               }
 
@@ -318,10 +317,10 @@ export default function ProfileScreen() {
               setPhone('');
                     
 
-              Alert.alert('Акаунт видалено', 'Ваш акаунт успішно видалено.');
+              Alert.alert('РђРєР°СѓРЅС‚ РІРёРґР°Р»РµРЅРѕ', 'Р’Р°С€ Р°РєР°СѓРЅС‚ СѓСЃРїС–С€РЅРѕ РІРёРґР°Р»РµРЅРѕ.');
             } catch (error) {
               console.error(error);
-              Alert.alert('Помилка', 'Немає з’єднання');
+              Alert.alert('РџРѕРјРёР»РєР°', 'РќРµРјР°С” Р·вЂ™С”РґРЅР°РЅРЅСЏ');
             }
           },
         },
@@ -330,10 +329,10 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert('Вихід', 'Ви впевнені?', [
-      { text: 'Ні', style: 'cancel' },
+    Alert.alert('Р’РёС…С–Рґ', 'Р’Рё РІРїРµРІРЅРµРЅС–?', [
+      { text: 'РќС–', style: 'cancel' },
       {
-        text: 'Так',
+        text: 'РўР°Рє',
         style: 'destructive',
         onPress: async () => {
           await AsyncStorage.multiRemove([
@@ -349,10 +348,10 @@ export default function ProfileScreen() {
     ]);
   };
 
-  /* 🔥 UPDATE USER INFO */
+  /* рџ”Ґ UPDATE USER INFO */
   const openInfoPage = () => {
     if (!profile) {
-      Alert.alert('Увага', 'Спочатку увійдіть в акаунт');
+      Alert.alert('РЈРІР°РіР°', 'РЎРїРѕС‡Р°С‚РєСѓ СѓРІС–Р№РґС–С‚СЊ РІ Р°РєР°СѓРЅС‚');
       return;
     }
     router.push('/profile-info' as any);
@@ -363,13 +362,13 @@ export default function ProfileScreen() {
     else setTimeout(() => setRefreshing(false), 1000);
   }, [phone]);
 
-  // 4. Реферальная ссылка
+  // 4. Р РµС„РµСЂР°Р»СЊРЅР°СЏ СЃСЃС‹Р»РєР°
   const handleShare = async () => {
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
 
       if (!accessToken) {
-        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб запросити друга.');
+        Alert.alert('РџРѕС‚СЂС–Р±РµРЅ РІС…С–Рґ', 'РЈРІС–Р№РґС–С‚СЊ Сѓ РїСЂРѕС„С–Р»СЊ, С‰РѕР± Р·Р°РїСЂРѕСЃРёС‚Рё РґСЂСѓРіР°.');
         router.push('/login' as any);
         return;
       }
@@ -384,20 +383,18 @@ export default function ProfileScreen() {
       }
 
       await Share.share({
-        message: referral.message || `Запрошую тебе в DikorosUA 🍄\nЗа реєстрацію отримаєш 150 грн бонусами.\nМоє реферальне посилання: ${referral.web_link}`,
+        message: referral.message || `Р—Р°РїСЂРѕС€СѓСЋ С‚РµР±Рµ РІ DikorosUA рџЌ„\nР—Р° СЂРµС”СЃС‚СЂР°С†С–СЋ РѕС‚СЂРёРјР°С”С€ 150 РіСЂРЅ Р±РѕРЅСѓСЃР°РјРё.\nРњРѕС” СЂРµС„РµСЂР°Р»СЊРЅРµ РїРѕСЃРёР»Р°РЅРЅСЏ: ${referral.web_link}`,
         url: referral.web_link,
-        title: 'Запрошення в DikorosUA',
+        title: 'Р—Р°РїСЂРѕС€РµРЅРЅСЏ РІ DikorosUA',
       });
     } catch (error: any) {
       console.log(error?.message || error);
-      Alert.alert('Помилка', 'Не вдалося створити реферальне посилання. Спробуйте ще раз.');
+      Alert.alert('РџРѕРјРёР»РєР°', 'РќРµ РІРґР°Р»РѕСЃСЏ СЃС‚РІРѕСЂРёС‚Рё СЂРµС„РµСЂР°Р»СЊРЅРµ РїРѕСЃРёР»Р°РЅРЅСЏ. РЎРїСЂРѕР±СѓР№С‚Рµ С‰Рµ СЂР°Р·.');
     }
   };
-
-  const openLink = (url: string) => Linking.openURL(url).catch(() => {});
   const openPolicy = (page: string) => router.push({ pathname: '/policies', params: { page } } as any);
 
-  // === Вспомогательные компоненты ===
+  // === Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РєРѕРјРїРѕРЅРµРЅС‚С‹ ===
   
   const GridBtn = ({ icon, label, onPress, color = "#4CAF50" }: any) => (
     <TouchableOpacity style={styles.gridItem} onPress={onPress}>
@@ -425,45 +422,45 @@ export default function ProfileScreen() {
     </View>
   );
 
-  // === ОБЩИЙ КОНТЕНТ ===
+  // === РћР‘Р©РР™ РљРћРќРўР•РќРў ===
   const renderCommonMenu = () => (
     <>
       <View style={styles.gridContainer}>
-        <GridBtn icon="receipt-outline" label="Замовлення" onPress={() => router.push({ pathname: '/(tabs)/orders', params: { from: 'profile' } } as any)} />
-        <GridBtn icon="heart-outline" label="Обране" onPress={() => router.push('/(tabs)/favorites')} />
-        <GridBtn icon="person-outline" label="Особиста інформація" onPress={openInfoPage} />
-        <GridBtn icon="chatbubble-ellipses-outline" label="Підтримка" onPress={() => router.push({ pathname: '/(tabs)/chat', params: { from: 'profile' } } as any)} />
+        <GridBtn icon="receipt-outline" label="Р—Р°РјРѕРІР»РµРЅРЅСЏ" onPress={() => router.push({ pathname: '/(tabs)/orders', params: { from: 'profile' } } as any)} />
+        <GridBtn icon="heart-outline" label="РћР±СЂР°РЅРµ" onPress={() => router.push('/(tabs)/favorites')} />
+        <GridBtn icon="person-outline" label="РћСЃРѕР±РёСЃС‚Р° С–РЅС„РѕСЂРјР°С†С–СЏ" onPress={openInfoPage} />
+        <GridBtn icon="chatbubble-ellipses-outline" label="РџС–РґС‚СЂРёРјРєР°" onPress={() => router.push({ pathname: '/(tabs)/chat', params: { from: 'profile' } } as any)} />
       </View>
 
-      <MenuSection title="Бонуси та знижка">
-        <MenuItem label="Бонуси та накопичувальна знижка" isLast onPress={() => router.push('/profile-cashback' as any)} />
+      <MenuSection title="Р‘РѕРЅСѓСЃРё С‚Р° Р·РЅРёР¶РєР°">
+        <MenuItem label="Р‘РѕРЅСѓСЃРё С‚Р° РЅР°РєРѕРїРёС‡СѓРІР°Р»СЊРЅР° Р·РЅРёР¶РєР°" isLast onPress={() => router.push('/profile-cashback' as any)} />
       </MenuSection>
 
-      <MenuSection title="Моя активність">
-        <MenuItem label="Мої відгуки" isLast onPress={() => router.push('/profile-reviews' as any)} />
+      <MenuSection title="РњРѕСЏ Р°РєС‚РёРІРЅС–СЃС‚СЊ">
+        <MenuItem label="РњРѕС— РІС–РґРіСѓРєРё" isLast onPress={() => router.push('/profile-reviews' as any)} />
       </MenuSection>
 
-      <MenuSection title="Налаштування">
+      <MenuSection title="РќР°Р»Р°С€С‚СѓРІР°РЅРЅСЏ">
         <MenuItem
-          label={profile?.google_connected ? 'Google підключено' : 'Прив’язати Google'}
+          label={profile?.google_connected ? 'Google РїС–РґРєР»СЋС‡РµРЅРѕ' : 'РџСЂРёРІвЂ™СЏР·Р°С‚Рё Google'}
           onPress={profile?.google_connected
-            ? () => Alert.alert('Google', 'Google вже підключено до вашого акаунта.')
+            ? () => Alert.alert('Google', 'Google РІР¶Рµ РїС–РґРєР»СЋС‡РµРЅРѕ РґРѕ РІР°С€РѕРіРѕ Р°РєР°СѓРЅС‚Р°.')
             : handleGoogleLinkStart
           }
         />
-        <MenuItem label="Видалити акаунт" color="#D32F2F" isLast onPress={handleDeleteAccount} />
+        <MenuItem label="Р’РёРґР°Р»РёС‚Рё Р°РєР°СѓРЅС‚" color="#D32F2F" isLast onPress={handleDeleteAccount} />
       </MenuSection>
 
-      <MenuSection title="Інформація">
-        <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
-        <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
-        <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
-        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
-        <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
-        <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
-        <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
-        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
-        <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
+      <MenuSection title="Р†РЅС„РѕСЂРјР°С†С–СЏ">
+        <MenuItem label="РџСЂРѕ РЅР°СЃ" onPress={() => router.push('/about' as any)} />
+        <MenuItem label="Р‘Р»РѕРі" onPress={() => router.push('/blog' as any)} />
+        <MenuItem label="РћРїР»Р°С‚Р° С– РґРѕСЃС‚Р°РІРєР°" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="РћР±РјС–РЅ С‚Р° РїРѕРІРµСЂРЅРµРЅРЅСЏ" onPress={() => openPolicy("returns")} />
+        <MenuItem label="РњС–Р¶РЅР°СЂРѕРґРЅС– РІС–РґРїСЂР°РІРєРё" onPress={() => openPolicy("international")} />
+        <MenuItem label="РљРѕРЅС‚Р°РєС‚РЅР° С–РЅС„РѕСЂРјР°С†С–СЏ" onPress={() => openPolicy("contacts")} />
+        <MenuItem label="Р”РѕРіРѕРІС–СЂ РѕС„РµСЂС‚Рё" onPress={() => openPolicy("offer")} />
+        <MenuItem label="РџРѕР»С–С‚РёРєР° РєРѕРЅС„С–РґРµРЅС†С–Р№РЅРѕСЃС‚С–" onPress={() => openPolicy("privacy")} />
+        <MenuItem label="Р§Р°СЃС‚С– РїРёС‚Р°РЅРЅСЏ" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
 
       <View style={{height: 50}} />
@@ -476,7 +473,7 @@ export default function ProfileScreen() {
 
       <View style={styles.unifiedTitleRow}>
         <View style={styles.unifiedTitleButton} />
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>РџСЂРѕС„С–Р»СЊ</Text>
         <View style={styles.unifiedTitleButton} />
       </View>
 
@@ -486,14 +483,14 @@ export default function ProfileScreen() {
     </View>
   );
 
-  // === ЭКРАН ГОСТЯ ===
+  // === Р­РљР РђРќ Р“РћРЎРўРЇ ===
   const renderGuestView = () => (
     <View style={styles.container}>
       <AppHeader showLogo showSearch showFavorites />
 
       <View style={styles.unifiedTitleRow}>
         <View style={styles.unifiedTitleButton} />
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>РџСЂРѕС„С–Р»СЊ</Text>
         <View style={styles.unifiedTitleButton} />
       </View>
 
@@ -504,35 +501,35 @@ export default function ProfileScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
       <View style={styles.welcomeBlock}>
-        <Text style={styles.welcomeTitle}>Вітаємо в Dikoros!</Text>
+        <Text style={styles.welcomeTitle}>Р’С–С‚Р°С”РјРѕ РІ Dikoros!</Text>
         <Text style={styles.welcomeSubtitle}>
-          Авторизуйтесь, щоб керувати замовленнями, отримувати кешбек та персональні знижки.
+          РђРІС‚РѕСЂРёР·СѓР№С‚РµСЃСЊ, С‰РѕР± РєРµСЂСѓРІР°С‚Рё Р·Р°РјРѕРІР»РµРЅРЅСЏРјРё, РѕС‚СЂРёРјСѓРІР°С‚Рё РєРµС€Р±РµРє С‚Р° РїРµСЂСЃРѕРЅР°Р»СЊРЅС– Р·РЅРёР¶РєРё.
         </Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/login' as any)}>
-          <Text style={styles.primaryBtnText}>Увійти / Створити акаунт</Text>
+          <Text style={styles.primaryBtnText}>РЈРІС–Р№С‚Рё / РЎС‚РІРѕСЂРёС‚Рё Р°РєР°СѓРЅС‚</Text>
         </TouchableOpacity>
       </View>
-      <MenuSection title="Інформація">
-        <MenuItem label="Про нас" onPress={() => router.push('/about' as any)} />
-        <MenuItem label="Блог" onPress={() => router.push('/blog' as any)} />
-        <MenuItem label="Оплата і доставка" onPress={() => openPolicy("delivery")} />
-        <MenuItem label="Обмін та повернення" onPress={() => openPolicy("returns")} />
-        <MenuItem label="Міжнародні відправки" onPress={() => openPolicy("international")} />
-        <MenuItem label="Контактна інформація" onPress={() => openPolicy("contacts")} />
-        <MenuItem label="Договір оферти" onPress={() => openPolicy("offer")} />
-        <MenuItem label="Політика конфіденційності" onPress={() => openPolicy("privacy")} />
-        <MenuItem label="Часті питання" isLast onPress={() => openPolicy("faq")} />
+      <MenuSection title="Р†РЅС„РѕСЂРјР°С†С–СЏ">
+        <MenuItem label="РџСЂРѕ РЅР°СЃ" onPress={() => router.push('/about' as any)} />
+        <MenuItem label="Р‘Р»РѕРі" onPress={() => router.push('/blog' as any)} />
+        <MenuItem label="РћРїР»Р°С‚Р° С– РґРѕСЃС‚Р°РІРєР°" onPress={() => openPolicy("delivery")} />
+        <MenuItem label="РћР±РјС–РЅ С‚Р° РїРѕРІРµСЂРЅРµРЅРЅСЏ" onPress={() => openPolicy("returns")} />
+        <MenuItem label="РњС–Р¶РЅР°СЂРѕРґРЅС– РІС–РґРїСЂР°РІРєРё" onPress={() => openPolicy("international")} />
+        <MenuItem label="РљРѕРЅС‚Р°РєС‚РЅР° С–РЅС„РѕСЂРјР°С†С–СЏ" onPress={() => openPolicy("contacts")} />
+        <MenuItem label="Р”РѕРіРѕРІС–СЂ РѕС„РµСЂС‚Рё" onPress={() => openPolicy("offer")} />
+        <MenuItem label="РџРѕР»С–С‚РёРєР° РєРѕРЅС„С–РґРµРЅС†С–Р№РЅРѕСЃС‚С–" onPress={() => openPolicy("privacy")} />
+        <MenuItem label="Р§Р°СЃС‚С– РїРёС‚Р°РЅРЅСЏ" isLast onPress={() => openPolicy("faq")} />
       </MenuSection>
       </ScrollView>
     </View>
   );
 
-  // === ЭКРАН КЛИЕНТА ===
+  // === Р­РљР РђРќ РљР›РР•РќРўРђ ===
   const renderUserView = () => {
-    // 🔥 РАСЧЕТ УРОВНЕЙ ЛОЯЛЬНОСТИ
+    // рџ”Ґ Р РђРЎР§Р•Рў РЈР РћР’РќР•Р™ Р›РћРЇР›Р¬РќРћРЎРўР
     const totalSpent = profile?.total_spent || 0;
     
-    // Накопичувальна знижка залежить тільки від підтверджених витрат.
+    // РќР°РєРѕРїРёС‡СѓРІР°Р»СЊРЅР° Р·РЅРёР¶РєР° Р·Р°Р»РµР¶РёС‚СЊ С‚С–Р»СЊРєРё РІС–Рґ РїС–РґС‚РІРµСЂРґР¶РµРЅРёС… РІРёС‚СЂР°С‚.
     let currentPercent = 0;
     let nextLevel = 1999;
     let nextPercent = 5;
@@ -567,7 +564,7 @@ export default function ProfileScreen() {
     currentPercent = profile?.cumulative_discount_percent ?? profile?.cashback_percent ?? currentPercent;
     const globalCashbackPercent = profile?.global_cashback_percent ?? 5;
 
-    // Считаем % заполнения шкалы (относительно текущего диапазона)
+    // РЎС‡РёС‚Р°РµРј % Р·Р°РїРѕР»РЅРµРЅРёСЏ С€РєР°Р»С‹ (РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С‚РµРєСѓС‰РµРіРѕ РґРёР°РїР°Р·РѕРЅР°)
     const progressPercent = nextLevel > 0 
         ? Math.min(((totalSpent - prevLevel) / (nextLevel - prevLevel)) * 100, 100) 
         : 100;
@@ -579,7 +576,7 @@ export default function ProfileScreen() {
 
           <View style={styles.unifiedTitleRow}>
             <View style={styles.unifiedTitleButton} />
-            <Text style={styles.unifiedTitle} numberOfLines={1}>Профіль</Text>
+            <Text style={styles.unifiedTitle} numberOfLines={1}>РџСЂРѕС„С–Р»СЊ</Text>
             <TouchableOpacity
               onPress={handleLogout}
               style={styles.unifiedTitleButton}
@@ -597,29 +594,29 @@ export default function ProfileScreen() {
           >
 
 
-            {/* ЧЕРНАЯ КАРТОЧКА */}
+            {/* Р§Р•Р РќРђРЇ РљРђР РўРћР§РљРђ */}
             <View style={styles.bonusCard}>
-                {/* ВЕРХНЯЯ ЧАСТЬ: БАЛАНС + БЕЙДЖ */}
+                {/* Р’Р•Р РҐРќРЇРЇ Р§РђРЎРўР¬: Р‘РђР›РђРќРЎ + Р‘Р•Р™Р”Р– */}
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                     <View>
-                    <Text style={styles.bonusLabel}>Доступні бонуси</Text>
-                    <Text style={styles.bonusValue}>{profile?.bonus_balance || 0} ₴</Text>
+                    <Text style={styles.bonusLabel}>Р”РѕСЃС‚СѓРїРЅС– Р±РѕРЅСѓСЃРё</Text>
+                    <Text style={styles.bonusValue}>{profile?.bonus_balance || 0} в‚ґ</Text>
                     </View>
-                    {/* Глобальний кешбек не залежить від накопичувальної знижки. */}
+                    {/* Р“Р»РѕР±Р°Р»СЊРЅРёР№ РєРµС€Р±РµРє РЅРµ Р·Р°Р»РµР¶РёС‚СЊ РІС–Рґ РЅР°РєРѕРїРёС‡СѓРІР°Р»СЊРЅРѕС— Р·РЅРёР¶РєРё. */}
                     <View style={styles.cashbackBadge}>
-                    <Text style={styles.cashbackText}>{globalCashbackPercent}% Кешбек</Text>
+                    <Text style={styles.cashbackText}>{globalCashbackPercent}% РљРµС€Р±РµРє</Text>
                     </View>
                 </View>
 
-                {/* ПРОГРЕСС БАР */}
+                {/* РџР РћР“Р Р•РЎРЎ Р‘РђР  */}
                 <View style={styles.progressSection}>
                     <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom: 5, alignItems: 'center'}}>
                         <Text style={styles.progressText}>
-                            Всього витрачено: <Text style={{fontWeight: 'bold', color: '#FFF'}}>{totalSpent} ₴</Text>
+                            Р’СЃСЊРѕРіРѕ РІРёС‚СЂР°С‡РµРЅРѕ: <Text style={{fontWeight: 'bold', color: '#FFF'}}>{totalSpent} в‚ґ</Text>
                         </Text>
-                        {/* 🔥 КНОПКА УМОВИ */}
+                        {/* рџ”Ґ РљРќРћРџРљРђ РЈРњРћР’Р */}
                         <TouchableOpacity onPress={() => router.push('/profile-cashback' as any)} activeOpacity={0.8}>
-                            <Text style={{color: '#4CAF50', fontSize: 12, fontWeight: 'bold'}}>ⓘ Умови</Text>
+                            <Text style={{color: '#4CAF50', fontSize: 12, fontWeight: 'bold'}}>в“ РЈРјРѕРІРё</Text>
                         </TouchableOpacity>
                     </View>
                     
@@ -627,19 +624,19 @@ export default function ProfileScreen() {
                     <View style={[styles.progressBarFill, {width: `${progressPercent}%`}]} />
                     </View>
                     
-                    {/* 🔥 ТЕКСТ О СЛЕДУЮЩЕМ УРОВНЕ */}
+                    {/* рџ”Ґ РўР•РљРЎРў Рћ РЎР›Р•Р”РЈР®Р©Р•Рњ РЈР РћР’РќР• */}
                     <Text style={styles.progressSubtext}>
                     {nextLevel > 0 
-                        ? `Накопичувальна знижка: ${currentPercent}%. Ще ${Math.max(0, nextLevel - totalSpent)} ₴ до ${nextPercent}%`
-                        : `Ви досягли максимальної накопичувальної знижки! 🎉`}
+                        ? `РќР°РєРѕРїРёС‡СѓРІР°Р»СЊРЅР° Р·РЅРёР¶РєР°: ${currentPercent}%. Р©Рµ ${Math.max(0, nextLevel - totalSpent)} в‚ґ РґРѕ ${nextPercent}%`
+                        : `Р’Рё РґРѕСЃСЏРіР»Рё РјР°РєСЃРёРјР°Р»СЊРЅРѕС— РЅР°РєРѕРїРёС‡СѓРІР°Р»СЊРЅРѕС— Р·РЅРёР¶РєРё! рџЋ‰`}
                     </Text>
                 </View>
             </View>
 
-            {/* Кнопка Рефералки */}
+            {/* РљРЅРѕРїРєР° Р РµС„РµСЂР°Р»РєРё */}
             <TouchableOpacity style={styles.inviteBanner} onPress={handleShare}>
                 <Ionicons name="gift" size={24} color="#FFF" />
-                <Text style={styles.inviteText}>Запросити друга (+50 грн)</Text>
+                <Text style={styles.inviteText}>Р—Р°РїСЂРѕСЃРёС‚Рё РґСЂСѓРіР° (+50 РіСЂРЅ)</Text>
                 <Ionicons name="chevron-forward" size={20} color="#FFF" />
             </TouchableOpacity>
 
@@ -650,21 +647,21 @@ export default function ProfileScreen() {
                   color="#333"
                 />
                 <View style={{flex: 1}}>
-                  <Text style={styles.authStatusTitle}>Google авторизація</Text>
+                  <Text style={styles.authStatusTitle}>Google Р°РІС‚РѕСЂРёР·Р°С†С–СЏ</Text>
                   <Text style={styles.authStatusText}>
                     {profile?.google_connected
-                      ? `Підключено${profile?.email ? `: ${profile.email}` : ''}`
-                      : 'Не підключено. Можна прив’язати після SMS-входу.'}
+                      ? `РџС–РґРєР»СЋС‡РµРЅРѕ${profile?.email ? `: ${profile.email}` : ''}`
+                      : 'РќРµ РїС–РґРєР»СЋС‡РµРЅРѕ. РњРѕР¶РЅР° РїСЂРёРІвЂ™СЏР·Р°С‚Рё РїС–СЃР»СЏ SMS-РІС…РѕРґСѓ.'}
                   </Text>
                 </View>
                 {!profile?.google_connected && (
                   <TouchableOpacity style={styles.authStatusButton} onPress={handleGoogleLinkStart}>
-                    <Text style={styles.authStatusButtonText}>Підключити</Text>
+                    <Text style={styles.authStatusButtonText}>РџС–РґРєР»СЋС‡РёС‚Рё</Text>
                   </TouchableOpacity>
                 )}
             </View>
 
-            {/* ОСНОВНОЕ МЕНЮ */}
+            {/* РћРЎРќРћР’РќРћР• РњР•РќР® */}
             <View style={{marginTop: 20}}>
                 {renderCommonMenu()}
             </View>

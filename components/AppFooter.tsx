@@ -16,47 +16,47 @@ type FooterItem = {
 };
 
 const SITE_CATEGORY_ORDER = [
-  'Мікродозінг',
-  'Сушені гриби',
+  'РњС–РєСЂРѕРґРѕР·С–РЅРі',
+  'РЎСѓС€РµРЅС– РіСЂРёР±Рё',
   'CBD',
-  'Адаптогени та суперфуди',
-  'Мазі',
-  'Настоянки',
-  'Трави та ягоди',
-  'Ваги',
-  'Консервація та мед',
+  'РђРґР°РїС‚РѕРіРµРЅРё С‚Р° СЃСѓРїРµСЂС„СѓРґРё',
+  'РњР°Р·С–',
+  'РќР°СЃС‚РѕСЏРЅРєРё',
+  'РўСЂР°РІРё С‚Р° СЏРіРѕРґРё',
+  'Р’Р°РіРё',
+  'РљРѕРЅСЃРµСЂРІР°С†С–СЏ С‚Р° РјРµРґ',
 ];
 
 const ITEMS: FooterItem[] = [
   {
     key: 'home',
-    label: 'Головна',
+    label: 'Р“РѕР»РѕРІРЅР°',
     icon: 'home-outline',
     activeIcon: 'home',
     route: { pathname: '/(tabs)', params: { homeReset: '1' } },
   },
   {
     key: 'menu',
-    label: 'Меню',
+    label: 'РњРµРЅСЋ',
     icon: 'compass-outline',
     activeIcon: 'compass',
   },
   {
     key: 'categories',
-    label: 'Категорії',
+    label: 'РљР°С‚РµРіРѕСЂС–С—',
     icon: 'list-outline',
     activeIcon: 'list',
   },
   {
     key: 'cart',
-    label: 'Кошик',
+    label: 'РљРѕС€РёРє',
     icon: 'cart-outline',
     activeIcon: 'cart',
     route: '/(tabs)/cart',
   },
   {
     key: 'profile',
-    label: 'Профіль',
+    label: 'РџСЂРѕС„С–Р»СЊ',
     icon: 'person-outline',
     activeIcon: 'person',
     route: '/(tabs)/profile',
@@ -68,7 +68,7 @@ const getRootCategoryName = (value: any) => {
   if (!raw) return '';
 
   return raw
-    .split(/[>»/|]/)
+    .split(/[>В»/|]/)
     .map(part => part.trim())
     .filter(Boolean)[0] || raw;
 };
@@ -89,7 +89,7 @@ export function AppFooter() {
     if (!Array.isArray(products) || products.length === 0) {
       fetchProducts().catch(() => {});
     }
-  }, []);
+  }, [fetchProducts, products]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -281,7 +281,7 @@ export function AppFooter() {
             <View style={styles.menuHandle} />
 
             <View style={styles.menuHeader}>
-              <Text style={styles.menuHeading}>Меню</Text>
+              <Text style={styles.menuHeading}>РњРµРЅСЋ</Text>
 
               <TouchableOpacity onPress={closeMenu} style={styles.closeButton} activeOpacity={0.75}>
                 <Ionicons name="close" size={24} color="#111827" />
@@ -293,91 +293,91 @@ export function AppFooter() {
               contentContainerStyle={styles.menuScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.menuSectionTitle}>Магазин</Text>
+              <Text style={styles.menuSectionTitle}>РњР°РіР°Р·РёРЅ</Text>
 
               <MenuRow
                 icon="grid-outline"
-                title="Усі товари"
-                subtitle="Відкрити повний каталог"
+                title="РЈСЃС– С‚РѕРІР°СЂРё"
+                subtitle="Р’С–РґРєСЂРёС‚Рё РїРѕРІРЅРёР№ РєР°С‚Р°Р»РѕРі"
                 onPress={() => menuAction(() => goCategory(''))}
               />
 
               <MenuRow
                 icon="information-circle-outline"
-                title="Про нас"
-                subtitle="Хто ми та як працює DikorosUA"
+                title="РџСЂРѕ РЅР°СЃ"
+                subtitle="РҐС‚Рѕ РјРё С‚Р° СЏРє РїСЂР°С†СЋС” DikorosUA"
                 onPress={() => menuAction(() => router.push('/about' as any))}
               />
 
               <MenuRow
                 icon="pricetag-outline"
-                title="Акції"
-                subtitle="Поточні пропозиції та знижки"
+                title="РђРєС†С–С—"
+                subtitle="РџРѕС‚РѕС‡РЅС– РїСЂРѕРїРѕР·РёС†С–С— С‚Р° Р·РЅРёР¶РєРё"
                 onPress={() => menuAction(() => router.push('/news' as any))}
               />
 
               <MenuRow
                 icon="newspaper-outline"
-                title="Блог"
-                subtitle="Інформаційні статті Dikoros"
+                title="Р‘Р»РѕРі"
+                subtitle="Р†РЅС„РѕСЂРјР°С†С–Р№РЅС– СЃС‚Р°С‚С‚С– Dikoros"
                 onPress={() => menuAction(() => router.push('/blog' as any))}
               />
 
               <MenuRow
                 icon="search-outline"
-                title="Пошук"
-                subtitle="Знайти товар у каталозі"
+                title="РџРѕС€СѓРє"
+                subtitle="Р—РЅР°Р№С‚Рё С‚РѕРІР°СЂ Сѓ РєР°С‚Р°Р»РѕР·С–"
                 onPress={() => menuAction(openSearch)}
               />
 
               <MenuRow
                 icon="chatbubble-ellipses-outline"
-                title="Підтримка"
-                subtitle="Написати менеджеру"
+                title="РџС–РґС‚СЂРёРјРєР°"
+                subtitle="РќР°РїРёСЃР°С‚Рё РјРµРЅРµРґР¶РµСЂСѓ"
                 onPress={() => menuAction(() => router.push('/(tabs)/chat' as any))}
               />
 
-              <Text style={styles.menuSectionTitle}>Акаунт</Text>
+              <Text style={styles.menuSectionTitle}>РђРєР°СѓРЅС‚</Text>
 
               <MenuRow
                 icon="heart-outline"
-                title="Обране"
-                subtitle="Збережені товари"
+                title="РћР±СЂР°РЅРµ"
+                subtitle="Р—Р±РµСЂРµР¶РµРЅС– С‚РѕРІР°СЂРё"
                 onPress={() => menuAction(() => router.replace('/(tabs)/favorites' as any))}
               />
 
               <MenuRow
                 icon="cart-outline"
-                title="Кошик"
-                subtitle={cartCount > 0 ? `Товарів у кошику: ${cartCount}` : 'Ваш кошик'}
+                title="РљРѕС€РёРє"
+                subtitle={cartCount > 0 ? `РўРѕРІР°СЂС–РІ Сѓ РєРѕС€РёРєСѓ: ${cartCount}` : 'Р’Р°С€ РєРѕС€РёРє'}
                 onPress={() => menuAction(() => router.replace('/(tabs)/cart' as any))}
               />
 
               <MenuRow
                 icon="person-outline"
-                title="Профіль"
-                subtitle="Бонуси, замовлення та дані клієнта"
+                title="РџСЂРѕС„С–Р»СЊ"
+                subtitle="Р‘РѕРЅСѓСЃРё, Р·Р°РјРѕРІР»РµРЅРЅСЏ С‚Р° РґР°РЅС– РєР»С–С”РЅС‚Р°"
                 onPress={() => menuAction(() => router.replace('/(tabs)/profile' as any))}
               />
 
               <MenuRow
                 icon="receipt-outline"
-                title="Замовлення"
-                subtitle="Історія покупок"
+                title="Р—Р°РјРѕРІР»РµРЅРЅСЏ"
+                subtitle="Р†СЃС‚РѕСЂС–СЏ РїРѕРєСѓРїРѕРє"
                 onPress={() => menuAction(() => router.push('/(tabs)/orders' as any))}
               />
 
-              <Text style={styles.menuSectionTitle}>Юридична інформація</Text>
+              <Text style={styles.menuSectionTitle}>Р®СЂРёРґРёС‡РЅР° С–РЅС„РѕСЂРјР°С†С–СЏ</Text>
 
               <View style={styles.legalMenuBox}>
-                <LegalMenuRow title="Оплата і доставка" page="delivery" icon="card-outline" />
-                <LegalMenuRow title="Обмін та повернення" page="returns" icon="swap-horizontal-outline" />
-                <LegalMenuRow title="Міжнародні відправки" page="international" icon="airplane-outline" />
-                <LegalMenuRow title="Контактна інформація" page="contacts" icon="call-outline" />
-                <LegalMenuRow title="Договір оферти" page="offer" icon="document-text-outline" />
-                <LegalMenuRow title="Політика конфіденційності" page="privacy" icon="shield-checkmark-outline" />
-                <LegalMenuRow title="Видалення акаунта" page="deleteAccount" icon="trash-outline" />
-                <LegalMenuRow title="Часті питання" page="faq" icon="help-circle-outline" isLast />
+                <LegalMenuRow title="РћРїР»Р°С‚Р° С– РґРѕСЃС‚Р°РІРєР°" page="delivery" icon="card-outline" />
+                <LegalMenuRow title="РћР±РјС–РЅ С‚Р° РїРѕРІРµСЂРЅРµРЅРЅСЏ" page="returns" icon="swap-horizontal-outline" />
+                <LegalMenuRow title="РњС–Р¶РЅР°СЂРѕРґРЅС– РІС–РґРїСЂР°РІРєРё" page="international" icon="airplane-outline" />
+                <LegalMenuRow title="РљРѕРЅС‚Р°РєС‚РЅР° С–РЅС„РѕСЂРјР°С†С–СЏ" page="contacts" icon="call-outline" />
+                <LegalMenuRow title="Р”РѕРіРѕРІС–СЂ РѕС„РµСЂС‚Рё" page="offer" icon="document-text-outline" />
+                <LegalMenuRow title="РџРѕР»С–С‚РёРєР° РєРѕРЅС„С–РґРµРЅС†С–Р№РЅРѕСЃС‚С–" page="privacy" icon="shield-checkmark-outline" />
+                <LegalMenuRow title="Р’РёРґР°Р»РµРЅРЅСЏ Р°РєР°СѓРЅС‚Р°" page="deleteAccount" icon="trash-outline" />
+                <LegalMenuRow title="Р§Р°СЃС‚С– РїРёС‚Р°РЅРЅСЏ" page="faq" icon="help-circle-outline" isLast />
               </View>
             </ScrollView>
           </View>
@@ -397,7 +397,7 @@ export function AppFooter() {
             <View style={styles.menuHandle} />
 
             <View style={styles.menuHeader}>
-              <Text style={styles.menuHeading}>Категорії</Text>
+              <Text style={styles.menuHeading}>РљР°С‚РµРіРѕСЂС–С—</Text>
 
               <TouchableOpacity onPress={closeCategories} style={styles.closeButton} activeOpacity={0.75}>
                 <Ionicons name="close" size={24} color="#111827" />

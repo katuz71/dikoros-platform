@@ -1,4 +1,4 @@
-﻿import { AppHeader } from '@/components/AppHeader';
+import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
 import { getImageUrl } from '@/utils/image';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,31 +49,31 @@ const CHAT_STORAGE_VERSION = '20260613_encoding_v2';
 const CHAT_STORAGE_VERSION_KEY = 'chat_storage_version';
 
 const INITIAL_QUICK_REPLIES = [
-  'Що таке мікродозинг?',
-  'Для фокусу та енергії',
-  'Для спокою та сну',
-  'Набори для старту',
-  'Каталог усіх грибів',
+  'Р©Рѕ С‚Р°РєРµ РјС–РєСЂРѕРґРѕР·РёРЅРі?',
+  'Р”Р»СЏ С„РѕРєСѓСЃСѓ С‚Р° РµРЅРµСЂРіС–С—',
+  'Р”Р»СЏ СЃРїРѕРєРѕСЋ С‚Р° СЃРЅСѓ',
+  'РќР°Р±РѕСЂРё РґР»СЏ СЃС‚Р°СЂС‚Сѓ',
+  'РљР°С‚Р°Р»РѕРі СѓСЃС–С… РіСЂРёР±С–РІ',
 ];
 
 const INITIAL_WELCOME_MESSAGE: Message = {
   id: 'welcome',
-  text: 'Привіт! Я експерт Dikoros. Допоможу підібрати гриби, вітаміни чи трави під вашу потребу. Що шукаємо?',
+  text: 'РџСЂРёРІС–С‚! РЇ РµРєСЃРїРµСЂС‚ Dikoros. Р”РѕРїРѕРјРѕР¶Сѓ РїС–РґС–Р±СЂР°С‚Рё РіСЂРёР±Рё, РІС–С‚Р°РјС–РЅРё С‡Рё С‚СЂР°РІРё РїС–Рґ РІР°С€Сѓ РїРѕС‚СЂРµР±Сѓ. Р©Рѕ С€СѓРєР°С”РјРѕ?',
   sender: 'bot',
   quickReplies: INITIAL_QUICK_REPLIES,
 };
 
 const mojibakePairs: Record<string, string> = {
-  'Рђ': 'А', 'Р‘': 'Б', 'Р’': 'В', 'Р“': 'Г', 'Р”': 'Д', 'Р•': 'Е', 'Р–': 'Ж', 'Р—': 'З',
-  'Р˜': 'И', 'Р™': 'Й', 'Рљ': 'К', 'Р›': 'Л', 'Рњ': 'М', 'Рќ': 'Н', 'Рћ': 'О', 'Рџ': 'П',
-  'Р ': 'Р', 'РЎ': 'С', 'Рў': 'Т', 'РЈ': 'У', 'Р¤': 'Ф', 'РҐ': 'Х', 'Р¦': 'Ц', 'Р§': 'Ч',
-  'РЁ': 'Ш', 'Р©': 'Щ', 'РЄ': 'Ъ', 'Р«': 'Ы', 'Р¬': 'Ь', 'Р­': 'Э', 'Р®': 'Ю', 'РЇ': 'Я',
-  'Р°': 'а', 'Р±': 'б', 'РІ': 'в', 'Рі': 'г', 'Рґ': 'д', 'Рµ': 'е', 'Р¶': 'ж', 'Р·': 'з',
-  'Рё': 'и', 'Р№': 'й', 'Рє': 'к', 'Р»': 'л', 'Рј': 'м', 'РЅ': 'н', 'Рѕ': 'о', 'Рї': 'п',
-  'СЂ': 'р', 'СЃ': 'с', 'С‚': 'т', 'Сѓ': 'у', 'С„': 'ф', 'С…': 'х', 'С†': 'ц', 'С‡': 'ч',
-  'С€': 'ш', 'С‰': 'щ', 'СЉ': 'ъ', 'С‹': 'ы', 'СЊ': 'ь', 'СЌ': 'э', 'СЋ': 'ю', 'СЏ': 'я',
-  'РЃ': 'Ё', 'С‘': 'ё', 'Р„': 'Є', 'С”': 'є', 'Р†': 'І', 'С–': 'і', 'Р‡': 'Ї', 'С—': 'ї',
-  'Тђ': 'Ґ', 'Т‘': 'ґ', 'вЂ™': '’', 'вЂњ': '“', 'вЂќ': '”', 'вЂ“': '–', 'вЂ”': '—', 'в„–': '№',
+  'Р С’': 'Рђ', 'Р вЂ': 'Р‘', 'Р вЂ™': 'Р’', 'Р вЂњ': 'Р“', 'Р вЂќ': 'Р”', 'Р вЂў': 'Р•', 'Р вЂ“': 'Р–', 'Р вЂ”': 'Р—',
+  'Р Лњ': 'Р', 'Р в„ў': 'Р™', 'Р С™': 'Рљ', 'Р вЂє': 'Р›', 'Р Сљ': 'Рњ', 'Р Сњ': 'Рќ', 'Р С›': 'Рћ', 'Р Сџ': 'Рџ',
+  'Р В ': 'Р ', 'Р РЋ': 'РЎ', 'Р Сћ': 'Рў', 'Р Р€': 'РЈ', 'Р В¤': 'Р¤', 'Р Тђ': 'РҐ', 'Р В¦': 'Р¦', 'Р В§': 'Р§',
+  'Р РЃ': 'РЁ', 'Р В©': 'Р©', 'Р Р„': 'РЄ', 'Р В«': 'Р«', 'Р В¬': 'Р¬', 'Р В­': 'Р­', 'Р В®': 'Р®', 'Р Р‡': 'РЇ',
+  'Р В°': 'Р°', 'Р В±': 'Р±', 'Р Р†': 'РІ', 'Р С–': 'Рі', 'Р Т‘': 'Рґ', 'Р Вµ': 'Рµ', 'Р В¶': 'Р¶', 'Р В·': 'Р·',
+  'Р С‘': 'Рё', 'Р в„–': 'Р№', 'Р С”': 'Рє', 'Р В»': 'Р»', 'Р С': 'Рј', 'Р Р…': 'РЅ', 'Р С•': 'Рѕ', 'Р С—': 'Рї',
+  'РЎР‚': 'СЂ', 'РЎРѓ': 'СЃ', 'РЎвЂљ': 'С‚', 'РЎС“': 'Сѓ', 'РЎвЂћ': 'С„', 'РЎвЂ¦': 'С…', 'РЎвЂ ': 'С†', 'РЎвЂЎ': 'С‡',
+  'РЎв‚¬': 'С€', 'РЎвЂ°': 'С‰', 'РЎР‰': 'СЉ', 'РЎвЂ№': 'С‹', 'РЎРЉ': 'СЊ', 'РЎРЊ': 'СЌ', 'РЎР‹': 'СЋ', 'РЎРЏ': 'СЏ',
+  'Р Рѓ': 'РЃ', 'РЎвЂ': 'С‘', 'Р вЂћ': 'Р„', 'РЎвЂќ': 'С”', 'Р вЂ ': 'Р†', 'РЎвЂ“': 'С–', 'Р вЂЎ': 'Р‡', 'РЎвЂ”': 'С—',
+  'РўС’': 'Тђ', 'РўвЂ': 'Т‘', 'РІР‚в„ў': 'вЂ™', 'РІР‚Сљ': 'вЂњ', 'РІР‚Сњ': 'вЂќ', 'РІР‚вЂњ': 'вЂ“', 'РІР‚вЂќ': 'вЂ”', 'РІвЂћвЂ“': 'в„–',
 };
 
 const decodeLiteralUnicodeEscapes = (value: string) => {
@@ -91,7 +91,7 @@ const repairMojibakePairs = (value: string) => {
 
 const stripMarkdownStars = (value: string) => {
   return value
-    .replace(/(^|\n)\s*\*\s+/g, '$1• ')
+    .replace(/(^|\n)\s*\*\s+/g, '$1вЂў ')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*\n]+)\*/g, '$1')
     .replace(/\*{2,}/g, '')
@@ -111,8 +111,8 @@ const repairTextEncoding = (value?: unknown): string => {
 const isManagerContactMessage = (value?: unknown) => {
   const text = repairTextEncoding(value).toLowerCase();
   return (
-    text.includes('зв’язатися з менеджером можна так') ||
-    text.includes("зв'язатися з менеджером можна так") ||
+    text.includes('Р·РІвЂ™СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј РјРѕР¶РЅР° С‚Р°Рє') ||
+    text.includes("Р·РІ'СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј РјРѕР¶РЅР° С‚Р°Рє") ||
     text.includes('viber://chat?number=') ||
     text.includes('https://t.me/dikorosua') ||
     text.includes('email: dikorosua@gmail.com')
@@ -156,22 +156,22 @@ const openViberChat = async () => {
 const SUPPORT_CONTACTS = [
   {
     icon: 'call' as const,
-    title: 'Роздрібні продажі',
+    title: 'Р РѕР·РґСЂС–Р±РЅС– РїСЂРѕРґР°Р¶С–',
     value: '063-252-68-24',
-    subtitle: 'Подзвонити менеджеру',
+    subtitle: 'РџРѕРґР·РІРѕРЅРёС‚Рё РјРµРЅРµРґР¶РµСЂСѓ',
     action: 'tel:+380632526824',
   },
   {
     icon: 'briefcase' as const,
-    title: 'Оптові закупівлі',
+    title: 'РћРїС‚РѕРІС– Р·Р°РєСѓРїС–РІР»С–',
     value: '066-365-97-77',
-    subtitle: 'Співробітництво та опт',
+    subtitle: 'РЎРїС–РІСЂРѕР±С–С‚РЅРёС†С‚РІРѕ С‚Р° РѕРїС‚',
     action: 'tel:+380663659777',
   },
   {
     icon: 'chatbox-ellipses' as const,
     title: 'Viber',
-    value: 'Написати у Viber',
+    value: 'РќР°РїРёСЃР°С‚Рё Сѓ Viber',
     subtitle: '+380 63 252 68 24',
     action: 'viber',
   },
@@ -179,14 +179,14 @@ const SUPPORT_CONTACTS = [
     icon: 'paper-plane' as const,
     title: 'Telegram',
     value: '@Dikorosua',
-    subtitle: 'Написати менеджеру',
+    subtitle: 'РќР°РїРёСЃР°С‚Рё РјРµРЅРµРґР¶РµСЂСѓ',
     action: 'https://t.me/Dikorosua',
   },
   {
     icon: 'mail' as const,
     title: 'Email',
     value: 'dikorosua@gmail.com',
-    subtitle: 'Написати на пошту',
+    subtitle: 'РќР°РїРёСЃР°С‚Рё РЅР° РїРѕС€С‚Сѓ',
     action: 'mailto:dikorosua@gmail.com',
   },
 ];
@@ -194,7 +194,7 @@ const SUPPORT_CONTACTS = [
 
 const formatPrice = (price?: number) => {
   const safePrice = price || 0;
-  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₴`;
+  return `${safePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} в‚ґ`;
 };
 
 const normalizeProducts = (items: any[] = []): Product[] => {
@@ -205,7 +205,7 @@ const normalizeProducts = (items: any[] = []): Product[] => {
     title: repairTextEncoding(item.title || item.name || ''),
     image: item.image || item.image_url || item.picture,
     price: Number(item.price || 0),
-    currency: repairTextEncoding(item.currency || 'грн'),
+    currency: repairTextEncoding(item.currency || 'РіСЂРЅ'),
     badges: Array.isArray(item.badges) ? item.badges.map(repairTextEncoding).filter(Boolean) : [],
   }));
 };
@@ -340,7 +340,7 @@ export default function ChatScreen() {
 
       const botMsg: Message = {
         id: `b_${Date.now()}`,
-        text: repairTextEncoding(data.reply || data.text || data.response || 'На жаль, я не зрозумів запит.'),
+        text: repairTextEncoding(data.reply || data.text || data.response || 'РќР° Р¶Р°Р»СЊ, СЏ РЅРµ Р·СЂРѕР·СѓРјС–РІ Р·Р°РїРёС‚.'),
         sender: 'bot',
         products,
         quickReplies: nextQuickReplies,
@@ -355,9 +355,9 @@ export default function ChatScreen() {
       console.error(error);
       const errorMsg: Message = {
         id: `e_${Date.now()}`,
-        text: 'Помилка з’єднання. Спробуйте ще раз або напишіть менеджеру.',
+        text: 'РџРѕРјРёР»РєР° Р·вЂ™С”РґРЅР°РЅРЅСЏ. РЎРїСЂРѕР±СѓР№С‚Рµ С‰Рµ СЂР°Р· Р°Р±Рѕ РЅР°РїРёС€С–С‚СЊ РјРµРЅРµРґР¶РµСЂСѓ.',
         sender: 'bot',
-        quickReplies: ['Зв’язатися з менеджером', 'Каталог'],
+        quickReplies: ['Р—РІвЂ™СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј', 'РљР°С‚Р°Р»РѕРі'],
       };
       const nextMessages = [...messagesWithUser, errorMsg];
       setMessages(nextMessages);
@@ -370,7 +370,7 @@ export default function ChatScreen() {
 
   const handleQuickReply = (reply: string) => {
     const safeReply = repairTextEncoding(reply);
-    if (safeReply === 'Зв’язатися з менеджером' || safeReply === "Зв'язатися з менеджером") {
+    if (safeReply === 'Р—РІвЂ™СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј' || safeReply === "Р—РІ'СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј") {
       setInputText(safeReply);
     }
     sendMessage(safeReply);
@@ -378,7 +378,7 @@ export default function ChatScreen() {
 
   const renderProductCard = (prod: Product) => {
     const productId = String(prod.id || '');
-    const title = repairTextEncoding(prod.name || prod.title || 'Товар');
+    const title = repairTextEncoding(prod.name || prod.title || 'РўРѕРІР°СЂ');
     const image = prod.image || prod.image_url || prod.picture;
 
     return (
@@ -456,8 +456,8 @@ export default function ChatScreen() {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.contactTitle}>Зв’язатися з менеджером</Text>
-          <Text style={styles.contactSubtitle}>Оберіть зручний спосіб зв’язку</Text>
+          <Text style={styles.contactTitle}>Р—РІвЂ™СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј</Text>
+          <Text style={styles.contactSubtitle}>РћР±РµСЂС–С‚СЊ Р·СЂСѓС‡РЅРёР№ СЃРїРѕСЃС–Р± Р·РІвЂ™СЏР·РєСѓ</Text>
         </View>
       </View>
 
@@ -473,9 +473,9 @@ export default function ChatScreen() {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.supportHeroTitle}>Підтримка DikorosUA</Text>
+          <Text style={styles.supportHeroTitle}>РџС–РґС‚СЂРёРјРєР° DikorosUA</Text>
           <Text style={styles.supportHeroText}>
-            Тут можна швидко зв’язатися з менеджером або поставити питання AI-консультанту нижче.
+            РўСѓС‚ РјРѕР¶РЅР° С€РІРёРґРєРѕ Р·РІвЂ™СЏР·Р°С‚РёСЃСЏ Р· РјРµРЅРµРґР¶РµСЂРѕРј Р°Р±Рѕ РїРѕСЃС‚Р°РІРёС‚Рё РїРёС‚Р°РЅРЅСЏ AI-РєРѕРЅСЃСѓР»СЊС‚Р°РЅС‚Сѓ РЅРёР¶С‡Рµ.
           </Text>
         </View>
       </View>
@@ -483,18 +483,18 @@ export default function ChatScreen() {
       <View style={styles.scheduleCard}>
         <Ionicons name="time-outline" size={22} color="#2E7D32" />
         <View style={{ flex: 1 }}>
-          <Text style={styles.scheduleTitle}>Графік роботи</Text>
-          <Text style={styles.scheduleText}>Будні: 9:00–19:00</Text>
-          <Text style={styles.scheduleText}>Субота та неділя: 9:00–18:00</Text>
+          <Text style={styles.scheduleTitle}>Р“СЂР°С„С–Рє СЂРѕР±РѕС‚Рё</Text>
+          <Text style={styles.scheduleText}>Р‘СѓРґРЅС–: 9:00вЂ“19:00</Text>
+          <Text style={styles.scheduleText}>РЎСѓР±РѕС‚Р° С‚Р° РЅРµРґС–Р»СЏ: 9:00вЂ“18:00</Text>
         </View>
       </View>
 
       {renderManagerContactsCard()}
 
       <View style={styles.chatIntroCard}>
-        <Text style={styles.chatIntroTitle}>AI-консультант</Text>
+        <Text style={styles.chatIntroTitle}>AI-РєРѕРЅСЃСѓР»СЊС‚Р°РЅС‚</Text>
         <Text style={styles.chatIntroText}>
-          Напишіть питання про товари, доставку, оплату або підбір продукції.
+          РќР°РїРёС€С–С‚СЊ РїРёС‚Р°РЅРЅСЏ РїСЂРѕ С‚РѕРІР°СЂРё, РґРѕСЃС‚Р°РІРєСѓ, РѕРїР»Р°С‚Сѓ Р°Р±Рѕ РїС–РґР±С–СЂ РїСЂРѕРґСѓРєС†С–С—.
         </Text>
       </View>
     </View>
@@ -526,8 +526,8 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9f9' }}>
       <AppHeader
-        title="Підтримка"
-        subtitle="Контакти менеджера та AI-консультант"
+        title="РџС–РґС‚СЂРёРјРєР°"
+        subtitle="РљРѕРЅС‚Р°РєС‚Рё РјРµРЅРµРґР¶РµСЂР° С‚Р° AI-РєРѕРЅСЃСѓР»СЊС‚Р°РЅС‚"
         showBack
         backIcon="close"
         showSearch
@@ -559,7 +559,7 @@ export default function ChatScreen() {
             loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#999" style={{ marginRight: 10 }} />
-                <Text style={styles.loadingText}>Консультант друкує...</Text>
+                <Text style={styles.loadingText}>РљРѕРЅСЃСѓР»СЊС‚Р°РЅС‚ РґСЂСѓРєСѓС”...</Text>
               </View>
             ) : null
           }
@@ -590,7 +590,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Запитайте про товари або доставку..."
+            placeholder="Р—Р°РїРёС‚Р°Р№С‚Рµ РїСЂРѕ С‚РѕРІР°СЂРё Р°Р±Рѕ РґРѕСЃС‚Р°РІРєСѓ..."
             placeholderTextColor="#999"
             multiline
             maxLength={500}
