@@ -152,7 +152,7 @@ export default function ProfileNotificationsScreen() {
 
       if (!Device.isDevice) {
         setPushStatus('unavailable');
-        Alert.alert('Недоступно', 'Push-оповіщення працюють тільки на реальному телефоні.');
+        Alert.alert('Недоступно', 'Push-сповіщення працюють тільки на реальному телефоні.');
         return;
       }
 
@@ -177,7 +177,7 @@ export default function ProfileNotificationsScreen() {
         setPushStatus('denied');
         Alert.alert(
           'Дозвіл не надано',
-          'Щоб отримувати статуси замовлень, увімкніть оповіщення в налаштуваннях телефону.',
+          'Щоб отримувати статуси замовлень, увімкніть сповіщення в налаштуваннях телефону.',
           [
             { text: 'Пізніше', style: 'cancel' },
             { text: 'Налаштування', onPress: () => Linking.openSettings().catch(() => {}) },
@@ -192,7 +192,7 @@ export default function ProfileNotificationsScreen() {
 
       const accessToken = await AsyncStorage.getItem('accessToken');
       if (!accessToken) {
-        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб підписатися на оповіщення.');
+        Alert.alert('Потрібен вхід', 'Увійдіть у профіль, щоб підписатися на сповіщення.');
         return;
       }
 
@@ -210,10 +210,10 @@ export default function ProfileNotificationsScreen() {
       }
 
       setPushStatus('granted');
-      Alert.alert('Готово', 'Оповіщення увімкнено.');
+      Alert.alert('Готово', 'Сповіщення увімкнено.');
     } catch (error) {
       console.log(error);
-      Alert.alert('Помилка', 'Не вдалося увімкнути оповіщення. Спробуйте ще раз.');
+      Alert.alert('Помилка', 'Не вдалося увімкнути сповіщення. Спробуйте ще раз.');
     } finally {
       setSubscribing(false);
     }
@@ -298,12 +298,12 @@ export default function ProfileNotificationsScreen() {
           <Ionicons name={isDenied ? 'settings-outline' : 'notifications-outline'} size={24} color="#458B00" />
         </View>
         <View style={styles.subscribeTextBox}>
-          <Text style={styles.subscribeTitle}>Увімкніть push-оповіщення</Text>
+          <Text style={styles.subscribeTitle}>Увімкніть push-сповіщення</Text>
           <Text style={styles.subscribeText}>
             {isUnavailable
               ? 'Push працюють тільки на реальному телефоні.'
               : isDenied
-                ? 'Дозвіл вимкнено. Відкрийте налаштування телефону та дозвольте оповіщення.'
+                ? 'Дозвіл вимкнено. Відкрийте налаштування телефону та дозвольте сповіщення.'
                 : 'Отримуйте статуси замовлень, кешбек та важливі повідомлення одразу.'}
           </Text>
         </View>
@@ -350,7 +350,7 @@ export default function ProfileNotificationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Оповіщення</Text>
+        <Text style={styles.unifiedTitle} numberOfLines={1}>Сповіщення</Text>
         <TouchableOpacity onPress={markAllRead} style={styles.unifiedTitleButton} activeOpacity={0.75}>
           <Ionicons name="checkmark-done-outline" size={23} color={unreadCount > 0 ? '#458B00' : '#9CA3AF'} />
         </TouchableOpacity>
@@ -393,7 +393,7 @@ export default function ProfileNotificationsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Ionicons name="notifications-off-outline" size={62} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>Оповіщень поки немає</Text>
+              <Text style={styles.emptyTitle}>Сповіщень поки немає</Text>
               <Text style={styles.emptyText}>Тут будуть статуси замовлень, кешбек, акції та системні повідомлення.</Text>
             </View>
           }
