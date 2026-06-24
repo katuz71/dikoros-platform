@@ -344,17 +344,13 @@ export default function ProfileNotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.unifiedTitleButton} activeOpacity={0.75}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Сповіщення</Text>
-        <TouchableOpacity onPress={markAllRead} style={styles.unifiedTitleButton} activeOpacity={0.75}>
-          <Ionicons name="checkmark-done-outline" size={23} color={unreadCount > 0 ? '#458B00' : '#9CA3AF'} />
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title="Сповіщення"
+        showBack
+        showDone
+        onDone={markAllRead}
+        doneColor={unreadCount > 0 ? '#458B00' : '#9CA3AF'}
+      />
 
       {renderPushSubscriptionCard()}
 
@@ -405,27 +401,6 @@ export default function ProfileNotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
   filtersWrap: {
     backgroundColor: '#FFF',
     paddingTop: 10,
@@ -468,46 +443,30 @@ const styles = StyleSheet.create({
   subscribeTextBox: { flex: 1 },
   subscribeTitle: { fontSize: 15, fontWeight: '900', color: '#111827', marginBottom: 3 },
   subscribeText: { fontSize: 12, lineHeight: 17, color: '#4B5563' },
-  subscribeButton: {
-    minWidth: 92,
-    minHeight: 38,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#458B00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subscribeButtonDisabled: { opacity: 0.65 },
-  subscribeButtonText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
-  list: { padding: 14, paddingBottom: 130 },
+  subscribeButton: { height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: '#458B00', alignItems: 'center', justifyContent: 'center', minWidth: 88 },
+  subscribeButtonDisabled: { opacity: 0.7 },
+  subscribeButtonText: { color: '#FFF', fontSize: 13, fontWeight: '900' },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  list: { padding: 14, paddingBottom: 145 },
   card: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#EEE',
-  },
-  cardUnread: { borderColor: '#B7D7A8', backgroundColor: '#FBFFF8' },
-  iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEF7EA',
-    marginRight: 12,
   },
+  cardUnread: { borderColor: '#BBDDB2', backgroundColor: '#FBFFF9' },
+  iconBox: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EEF7EA', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   cardBody: { flex: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: '#111827' },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#458B00' },
-  cardText: { color: '#4B5563', fontSize: 13, lineHeight: 18, marginTop: 4 },
-  cardDate: { color: '#9CA3AF', fontSize: 12, marginTop: 6 },
-  emptyBox: { alignItems: 'center', paddingTop: 110, paddingHorizontal: 28 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginTop: 16 },
-  emptyText: { textAlign: 'center', color: '#6B7280', fontSize: 14, lineHeight: 20, marginTop: 8 },
+  cardTitle: { flex: 1, fontSize: 15, fontWeight: '900', color: '#111827' },
+  unreadDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#458B00' },
+  cardText: { marginTop: 5, fontSize: 13, color: '#4B5563', lineHeight: 18 },
+  cardDate: { marginTop: 7, fontSize: 11, color: '#9CA3AF', fontWeight: '700' },
+  emptyBox: { paddingTop: 80, alignItems: 'center', paddingHorizontal: 24 },
+  emptyTitle: { marginTop: 14, fontSize: 18, fontWeight: '900', color: '#111827' },
+  emptyText: { marginTop: 6, fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
 });
