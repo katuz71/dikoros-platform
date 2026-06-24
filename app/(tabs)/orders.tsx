@@ -12,25 +12,25 @@ const getOrderStatusLabel = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase();
 
   const labels: Record<string, string> = {
-    pending: '\u041e\u0447\u0456\u043a\u0443\u0454 \u043e\u0431\u0440\u043e\u0431\u043a\u0438',
-    new: '\u041d\u043e\u0432\u0438\u0439',
-    completed: '\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043e',
-    paid: '\u041e\u043f\u043b\u0430\u0447\u0435\u043d\u043e',
-    processing: '\u0412 \u043e\u0431\u0440\u043e\u0431\u0446\u0456',
-    shipped: '\u0412\u0456\u0434\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e',
-    delivered: '\u0414\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043e',
-    cancelled: '\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',
-    canceled: '\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',
-    failed: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430',
-    refunded: '\u041f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043e',
+    pending: 'Очікує обробки',
+    new: 'Новий',
+    completed: 'Виконано',
+    paid: 'Оплачено',
+    processing: 'В обробці',
+    shipped: 'Відправлено',
+    delivered: 'Доставлено',
+    cancelled: 'Скасовано',
+    canceled: 'Скасовано',
+    failed: 'Помилка',
+    refunded: 'Повернено',
   };
 
-  return labels[normalized] || status || '\u041d\u0435\u0432\u0456\u0434\u043e\u043c\u043e';
+  return labels[normalized] || status || 'Невідомо';
 };
 
 const isCompletedOrderStatus = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase();
-  return ['completed', 'paid', 'delivered', '\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e', '\u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043e', '\u0434\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043e'].includes(normalized);
+  return ['completed', 'paid', 'delivered', 'виконано', 'оплачено', 'доставлено'].includes(normalized);
 };
 
 const OrderItem = ({ order, onPress, formatPrice }: any) => (
@@ -46,7 +46,7 @@ const OrderItem = ({ order, onPress, formatPrice }: any) => (
         <Text style={styles.priceValue}>{formatPrice(order.totalPrice)}</Text>
       </View>
       <View style={[
-        styles.statusBadge, 
+        styles.statusBadge,
         { backgroundColor: isCompletedOrderStatus(order.status) ? '#E8F5E9' : '#FFF3E0' }
       ]}>
         <Text style={[
@@ -75,7 +75,7 @@ export default function OrdersScreen() {
       return;
     }
 
-    router.back();
+    router.replace('/(tabs)/profile' as any);
   };
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -99,7 +99,7 @@ export default function OrdersScreen() {
       const response = await fetch(`${API_URL}/api/client/orders/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
@@ -130,19 +130,7 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.unifiedTitleRow}>
-        <TouchableOpacity
-          onPress={closeOrders}
-          style={styles.unifiedTitleButton}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.unifiedTitle} numberOfLines={1}>Замовлення</Text>
-        <View style={styles.unifiedTitleButton} />
-      </View>
+      <AppHeader title="Замовлення" showBack onBack={closeOrders} />
 
       <FlatList
         data={orders}
@@ -150,9 +138,9 @@ export default function OrdersScreen() {
         scrollEventThrottle={16}
         keyExtractor={(item: any) => item.id.toString()}
         renderItem={({ item }) => (
-            <OrderItem 
-                order={item} 
-                onPress={() => {}} 
+            <OrderItem
+                order={item}
+                onPress={() => {}}
                 formatPrice={formatPrice}
             />
         )}
@@ -163,7 +151,7 @@ export default function OrdersScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="receipt-outline" size={64} color="#DDD" />
               <Text style={styles.emptyText}>У вас ще немає замовлень</Text>
-              <TouchableOpacity style={styles.shopBtn} onPress={() => router.push('/(tabs)')}>
+              <TouchableOpacity style={styles.shopBtn} onPress={() => router.replace('/(tabs)' as any)}>
                   <Text style={styles.shopBtnText}>Перейти до покупок</Text>
               </TouchableOpacity>
             </View>
@@ -176,34 +164,6 @@ export default function OrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
-  unifiedTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitleButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unifiedTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  header: {
-    backgroundColor: '#FFF', paddingHorizontal: 20, paddingBottom: 16, 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: '#EEE'
-  },
-  headerTitle: { fontSize: 18, fontWeight: 'bold' },
-  backBtn: { padding: 5 },
   list: { padding: 15, paddingBottom: 130 },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 15 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
@@ -216,27 +176,27 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   statusText: { fontWeight: 'bold', fontSize: 12 },
   itemsSummary: { marginTop: 10, color: '#666', fontSize: 13 },
-  emptyContainer: { 
+  emptyContainer: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 100 // Оставляем отступ сверху т.к. список
+    marginTop: 100
   },
-  emptyText: { 
-    color: '#888', 
-    fontSize: 16, 
-    marginTop: 15, 
-    marginBottom: 32, // Как везде (было 20)
+  emptyText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 15,
+    marginBottom: 32,
     textAlign: 'center',
     width: '80%',
     lineHeight: 20
   },
-  shopBtn: { 
-    backgroundColor: '#458B00', // Как везде
+  shopBtn: {
+    backgroundColor: '#458B00',
     paddingHorizontal: 40,
     paddingVertical: 15,
-    borderRadius: 12,     // 12
+    borderRadius: 12,
     shadowColor: '#458B00',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
