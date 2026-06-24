@@ -3,9 +3,10 @@ import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { WelcomeBonusModal } from '@/components/WelcomeBonusModal';
 import { API_URL } from '@/config/api';
-import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import { GlobalSearchProvider } from '@/context/GlobalSearchContext';
 import { AppFooterVisibilityProvider } from '@/context/AppFooterVisibilityContext';
+import { getNavigationFallbackRoute, isHomeNavigationPath } from '@/utils/navigation';
+import { logFirebaseScreen } from '@/utils/firebaseAnalytics';
 import { tryRestoreBiometricSession } from '@/utils/biometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
@@ -112,8 +113,6 @@ export default function Layout() {
   const segments = useSegments();
   const router = useRouter();
   const routeKey = segments.join('/');
-  const navigationHistoryRef = useRef<string[]>([]);
-  const isHistoryBackRef = useRef(false);
   const handledNotificationIdRef = useRef<string | null>(null);
   const [productFooterVisible, setProductFooterVisible] = useState(true);
   const showAppFooter = APP_FOOTER_ROUTES.has(routeKey) && productFooterVisible;
@@ -129,24 +128,6 @@ export default function Layout() {
 
   useEffect(() => {
     logFirebaseScreen(pathname || 'Root');
-  }, [pathname]);
-
-  // Track in-app pathname history for Android back.
-  useEffect(() => {
-    const currentPath = pathname || '/';
-
-    if (isHistoryBackRef.current) {
-      isHistoryBackRef.current = false;
-      return;
-    }
-
-    const history = navigationHistoryRef.current;
-    if (history[history.length - 1] !== currentPath) {
-      history.push(currentPath);
-      if (history.length > 25) {
-        history.splice(0, history.length - 25);
-      }
-    }
   }, [pathname]);
 
   useEffect(() => {
@@ -179,35 +160,29 @@ export default function Layout() {
     return () => subscription.remove();
   }, [handleNotificationResponse]);
 
-  // Android system back: go to previous app screen, or stay if there is no history.
+  // Android system back: close stack if possible, otherwise use the same fallback map as header back.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      const history = navigationHistoryRef.current;
       const currentPath = pathname || '/';
+      const canGoBack = typeof router.canGoBack === 'function' ? router.canGoBack() : false;
 
-      while (history.length > 0 && history[history.length - 1] === currentPath) {
-        history.pop();
-      }
-
-      const previousPath = history.pop();
-
-      if (previousPath) {
-        isHistoryBackRef.current = true;
-        router.replace(previousPath as any);
+      if (canGoBack) {
+        router.back();
         return true;
       }
 
-      if (history.length === 0) {
-        navigationHistoryRef.current = [currentPath];
+      if (!isHomeNavigationPath(currentPath)) {
+        router.replace(getNavigationFallbackRoute(currentPath) as any);
+        return true;
       }
 
-      return true;
+      return false;
     });
 
     return () => subscription.remove();
-  }, [pathname, router, routeKey]);
+  }, [pathname, router]);
 
   useEffect(() => {
     let mounted = true;
