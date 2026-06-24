@@ -1,7 +1,6 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -22,7 +20,6 @@ type NewsDetail = {
 };
 
 export default function NewsDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{
     heading?: string;
     body?: string;
@@ -89,23 +86,7 @@ export default function NewsDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader showLogo showSearch showFavorites />
-
-      <View style={styles.pageTitleRow}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.pageBackButton}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-
-        <Text style={styles.pageTitle} numberOfLines={1}>
-          Акція
-        </Text>
-
-        <View style={styles.pageBackButton} />
-      </View>
+      <AppHeader title="Акція" showBack />
 
       {loading ? (
         <View style={styles.center}>
@@ -143,27 +124,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAF8',
-  },
-  pageTitleRow: {
-    height: 58,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAF8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageBackButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
   },
   scroll: {
     flex: 1,
