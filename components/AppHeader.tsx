@@ -1,6 +1,6 @@
 import { useGlobalSearch } from '@/context/GlobalSearchContext';
 import { Ionicons } from '@expo/vector-icons';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ type AppHeaderProps = {
   showFilter?: boolean;
   onFilter?: () => void;
   showFavorites?: boolean;
+  showNotifications?: boolean;
   showCart?: boolean;
   showShare?: boolean;
   onShare?: () => void;
@@ -33,14 +34,15 @@ type AppHeaderProps = {
 export function AppHeader({
   title,
   subtitle,
-  showLogo = false,
+  showLogo,
   showBack = false,
   backIcon = 'arrow-back',
   onBack,
   showSearch = true,
   showFilter = false,
   onFilter,
-  showFavorites = false,
+  showFavorites = true,
+  showNotifications = true,
   showCart = false,
   showShare = false,
   onShare,
@@ -55,19 +57,35 @@ export function AppHeader({
   style,
 }: AppHeaderProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { openSearch } = useGlobalSearch();
 
-  const isProfileHeader = (pathname || '').includes('/profile');
+  const useLogoHeader = showLogo ?? (!title && !subtitle);
   const goBack = () => (onBack ? onBack() : router.back());
   const openFavorites = () => router.push('/(tabs)/favorites' as any);
   const openNotifications = () => router.push('/profile-notifications' as any);
-  const openHeaderSecondaryAction = () => (isProfileHeader ? openNotifications() : openFavorites());
-  const secondaryActionIcon = isProfileHeader ? 'notifications-outline' : 'heart-outline';
   const openCart = () => router.push('/(tabs)/cart' as any);
+  const openHome = () => router.replace('/(tabs)' as any);
 
-  if (showLogo) {
+  const renderSearchButton = () => (
+    <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
+      <Ionicons name="search" size={22} color="#111827" />
+    </TouchableOpacity>
+  );
+
+  const renderFavoritesButton = () => (
+    <TouchableOpacity onPress={openFavorites} style={styles.iconButton} activeOpacity={0.75}>
+      <Ionicons name="heart-outline" size={23} color="#111827" />
+    </TouchableOpacity>
+  );
+
+  const renderNotificationsButton = () => (
+    <TouchableOpacity onPress={openNotifications} style={styles.iconButton} activeOpacity={0.75}>
+      <Ionicons name="notifications-outline" size={23} color="#111827" />
+    </TouchableOpacity>
+  );
+
+  if (useLogoHeader) {
     return (
       <View style={[styles.header, { height: 48 + insets.top, paddingTop: insets.top }, style]}>
         <View style={styles.logoCenteredRow}>
@@ -78,23 +96,16 @@ export function AppHeader({
           )}
 
           <View style={[styles.logoActionSlot, styles.logoLeftActionSlot]}>
-            {showSearch ? (
-              <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name="search" size={22} color="#111827" />
-              </TouchableOpacity>
-            ) : <View style={styles.iconButtonPlaceholder} />}
+            {showSearch ? renderSearchButton() : <View style={styles.iconButtonPlaceholder} />}
           </View>
 
-          <TouchableOpacity activeOpacity={0.8} onPress={onLogoPress || (() => router.replace('/(tabs)' as any))} style={styles.logoButton}>
+          <TouchableOpacity activeOpacity={0.8} onPress={onLogoPress || openHome} style={styles.logoButton}>
             <Image source={require('../assets/images/dikoros-logo.webp')} style={styles.logo} resizeMode="contain" />
           </TouchableOpacity>
 
           <View style={[styles.logoActionSlot, styles.logoRightActionSlot]}>
-            {(showFavorites || showFavoriteToggle) ? (
-              <TouchableOpacity onPress={openHeaderSecondaryAction} style={styles.iconButton} activeOpacity={0.75}>
-                <Ionicons name={secondaryActionIcon as any} size={22} color="#111827" />
-              </TouchableOpacity>
-            ) : null}
+            {showFavorites && renderFavoritesButton()}
+            {showNotifications && renderNotificationsButton()}
             {showCart && (
               <TouchableOpacity onPress={openCart} style={styles.iconButton} activeOpacity={0.75}>
                 <Ionicons name="cart-outline" size={23} color="#111827" />
@@ -114,7 +125,7 @@ export function AppHeader({
             <TouchableOpacity onPress={goBack} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name={backIcon as any} size={24} color="#111827" />
             </TouchableOpacity>
-          ) : <View style={styles.iconButtonPlaceholder} />}
+          ) : showSearch ? renderSearchButton() : <View style={styles.iconButtonPlaceholder} />}
         </View>
 
         <View style={styles.centerArea}>
@@ -123,21 +134,13 @@ export function AppHeader({
         </View>
 
         <View style={styles.rightArea}>
-          {showSearch && (
-            <TouchableOpacity onPress={openSearch} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name="search" size={22} color="#111827" />
-            </TouchableOpacity>
-          )}
           {showFilter && (
             <TouchableOpacity onPress={onFilter} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name="options-outline" size={22} color="#111827" />
             </TouchableOpacity>
           )}
-          {showFavorites && (
-            <TouchableOpacity onPress={openHeaderSecondaryAction} style={styles.iconButton} activeOpacity={0.75}>
-              <Ionicons name={secondaryActionIcon as any} size={22} color="#111827" />
-            </TouchableOpacity>
-          )}
+          {showFavorites && renderFavoritesButton()}
+          {showNotifications && renderNotificationsButton()}
           {showCart && (
             <TouchableOpacity onPress={openCart} style={styles.iconButton} activeOpacity={0.75}>
               <Ionicons name="cart-outline" size={23} color="#111827" />
