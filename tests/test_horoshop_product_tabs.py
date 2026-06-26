@@ -96,6 +96,29 @@ class HoroshopProductTabsTests(unittest.TestCase):
         self.assertIn("Не перевищувати рекомендованих дозувань.", sections["product_note"])
         self.assertEqual(sections["product_note"].count(LEGAL_NOTE_SENTENCE), 2)
 
+    def test_deduplicates_repeated_product_note_block(self) -> None:
+        html = f"""
+        <div class="product__group product__group--tabs">
+          <div class="product-heading__title">Примітка</div>
+          <div class="product__section">
+            <div class="text">
+              {REAL_NOTE_WITH_EXTRA_LINES}
+            </div>
+          </div>
+        </div>
+        <div class="j-product-block__tab" data-content-id="note">
+          <p>Примітка:</p>
+          <p>Врожай 2025р.</p>
+          <p>{LEGAL_NOTE_SENTENCE} Не перевищувати рекомендованих дозувань.</p>
+        </div>
+        """
+
+        sections = extract_product_tab_sections_from_html(html)
+
+        self.assertEqual(sections["product_note"], REAL_NOTE_WITH_EXTRA_LINES)
+        self.assertEqual(sections["product_note"].count("Врожай 2025р."), 1)
+        self.assertEqual(sections["product_note"].count("Не перевищувати рекомендованих дозувань."), 1)
+
     def test_fetch_group_sections_keeps_checking_urls_until_product_note(self) -> None:
         first_url = "https://example.test/first/"
         second_url = "https://example.test/second/"

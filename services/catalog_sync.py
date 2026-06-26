@@ -436,7 +436,19 @@ def _normalize_product_note_text(value: object) -> str:
         return ""
 
     lines = [_clean_text_value(line) for line in text.splitlines()]
-    text = "\n".join(line for line in lines if line).strip()
+    lines = [line for line in lines if line]
+    while lines and len(lines) % 2 == 0 and lines[: len(lines) // 2] == lines[len(lines) // 2 :]:
+        lines = lines[: len(lines) // 2]
+
+    seen_lines: set[str] = set()
+    deduped_lines: list[str] = []
+    for line in lines:
+        if line in seen_lines:
+            continue
+        seen_lines.add(line)
+        deduped_lines.append(line)
+
+    text = "\n".join(deduped_lines).strip()
     if len(text) > 5000:
         return ""
 
