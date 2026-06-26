@@ -1,0 +1,176 @@
+name: Apply product note sync patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-product-note-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Patch product note sync and PDP
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'Missing pattern in {path}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # services/db_schema.py
+          replace_once(
+              'services/db_schema.py',
+              """            description TEXT,\n            usage TEXT,""",
+              """            description TEXT,\n            product_note TEXT,\n            usage TEXT,""",
+          )
+          replace_once(
+              'services/db_schema.py',
+              """    c.execute(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS return_info TEXT\")\n    c.execute(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS external_id TEXT\")""",
+              """    c.execute(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS return_info TEXT\")\n    c.execute(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS product_note TEXT\")\n    c.execute(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS external_id TEXT\")""",
+          )
+
+          # routers/products.py
+          replace_once(
+              'routers/products.py',
+              """    old_price, unit, description, usage, composition, delivery_info, return_info,""",
+              """    old_price, unit, description, product_note, usage, composition, delivery_info, return_info,""",
+          )
+
+          # models/schemas.py
+          replace_once(
+              'models/schemas.py',
+              """    description: Optional[str] = None\n    usage: Optional[str] = None""",
+              """    description: Optional[str] = None\n    product_note: Optional[str] = None\n    usage: Optional[str] = None""",
+          )
+          replace_once(
+              'models/schemas.py',
+              """    description: Optional[str] = None\n    usage: Optional[str] = None""",
+              """    description: Optional[str] = None\n    product_note: Optional[str] = None\n    usage: Optional[str] = None""",
+          )
+          replace_once(
+              'models/schemas.py',
+              """    description: Optional[str] = None\n    usage: Optional[str] = None""",
+              """    description: Optional[str] = None\n    product_note: Optional[str] = None\n    usage: Optional[str] = None""",
+          )
+
+          # services/catalog_sync.py helpers
+          replace_once(
+              'services/catalog_sync.py',
+              """def _sanitize_description(value: object) -> str:\n    text = _localized_value(value or {})\n    text = str(text or \"\").strip()\n\n    # Horoshop can sometimes return a whole product page/html dump instead of a clean tab.\n    # Do not persist page dumps into product descriptions.\n    if len(text) > 30000:\n        return \"\"\n\n    lower = text.casefold()\n    garbage_markers = (\n        \"catalogtabs\",\n        \"j-product-container\",\n        \"specialoffers\",\n        \"особистий кабінет\",\n        \"кошик\",\n        \"схожі товари\",\n        \"переглянуті товари\",\n    )\n    if sum(1 for marker in garbage_markers if marker in lower) >= 2:\n        return \"\"\n\n    return text\n""",
+              """def _sanitize_description(value: object) -> str:\n    text = _localized_value(value or {})\n    text = str(text or \"\").strip()\n\n    # Horoshop can sometimes return a whole product page/html dump instead of a clean tab.\n    # Do not persist page dumps into product descriptions.\n    if len(text) > 30000:\n        return \"\"\n\n    lower = text.casefold()\n    garbage_markers = (\n        \"catalogtabs\",\n        \"j-product-container\",\n        \"specialoffers\",\n        \"особистий кабінет\",\n        \"кошик\",\n        \"схожі товари\",\n        \"переглянуті товари\",\n    )\n    if sum(1 for marker in garbage_markers if marker in lower) >= 2:\n        return \"\"\n\n    return text\n\n\nPRODUCT_NOTE_KEY_TOKENS = (\n    \"product_note\",\n    \"note\",\n    \"notes\",\n    \"notice\",\n    \"remark\",\n    \"remarks\",\n    \"disclaimer\",\n    \"warning\",\n    \"prim\",\n    \"prym\",\n    \"прим\",\n)\nPRODUCT_NOTE_HEADINGS = {\"примітка\", \"примечание\", \"примітки\", \"примечания\", \"note\", \"notes\"}\nPRODUCT_NOTE_STOP_HEADINGS = {\n    \"опис\",\n    \"огляд\",\n    \"детальніше\",\n    \"характеристики\",\n    \"спосіб застосування\",\n    \"спосіб застосування та протипоказання\",\n    \"протипоказання\",\n    \"застереження\",\n    \"попередження\",\n    \"доставка\",\n    \"оплата\",\n    \"повернення\",\n    \"відгуки\",\n}\n\n\ndef _plain_text_from_html(value: object) -> str:\n    text = _localized_value(value or {}) if isinstance(value, dict) else str(value or \"\")\n    text = unescape(str(text or \"\"))\n    text = re.sub(r\"(?is)<script\\b.*?</script>\", \" \", text)\n    text = re.sub(r\"(?is)<style\\b.*?</style>\", \" \", text)\n    text = re.sub(r\"(?i)<br\\s*/?>\", \"\\n\", text)\n    text = re.sub(r\"(?i)</(?:p|div|li|h[1-6]|tr)>\", \"\\n\", text)\n    text = re.sub(r\"<[^>]+>\", \" \", text)\n    text = unescape(text)\n    text = re.sub(r\"[ \\t]+\", \" \", text)\n    text = re.sub(r\"\\n\\s+\", \"\\n\", text)\n    text = re.sub(r\"\\n{3,}\", \"\\n\\n\", text)\n    return text.strip()\n\n\ndef _normalized_heading(value: object) -> str:\n    return re.sub(r\"\\s+\", \" \", str(value or \"\").strip().casefold()).strip(\" .:：\")\n\n\ndef _extract_labeled_product_note(value: object) -> str:\n    text = _plain_text_from_html(value)\n    if not text:\n        return \"\"\n\n    active = False\n    lines: list[str] = []\n    for raw_line in text.splitlines():\n        line = raw_line.strip()\n        heading = _normalized_heading(line)\n        if heading in PRODUCT_NOTE_HEADINGS:\n            active = True\n            continue\n        if active and heading in PRODUCT_NOTE_STOP_HEADINGS:\n            break\n        if active:\n            lines.append(line)\n\n    while lines and not lines[0]:\n        lines.pop(0)\n    while lines and not lines[-1]:\n        lines.pop()\n\n    return re.sub(r\"\\n{3,}\", \"\\n\\n\", \"\\n\".join(lines)).strip()\n\n\ndef _extract_product_note(item: dict, description: str = \"\") -> str:\n    for key, value in item.items():\n        lowered = str(key or \"\").casefold()\n        if not any(token in lowered for token in PRODUCT_NOTE_KEY_TOKENS):\n            continue\n        text = _plain_text_from_html(value)\n        if text:\n            return _extract_labeled_product_note(text) or text\n\n    return _extract_labeled_product_note(description)\n""",
+          )
+
+          replace_once(
+              'services/catalog_sync.py',
+              """                description = _sanitize_description(item.get(\"description\") or {})\n                site_url = primary_product_url(item, domain)""",
+              """                description = _sanitize_description(item.get(\"description\") or {})\n                product_note = _extract_product_note(item, description)\n                site_url = primary_product_url(item, domain)""",
+          )
+          replace_once(
+              'services/catalog_sync.py',
+              """                            description = ?, image = ?, images = ?,\n                            parent_sku = ?, variant_name = ?, variant_options = ?,""",
+              """                            description = ?, product_note = ?, image = ?, images = ?,\n                            parent_sku = ?, variant_name = ?, variant_options = ?,""",
+          )
+          replace_once(
+              'services/catalog_sync.py',
+              """                             description,\n                             img,""".replace('                             ', '                            '),
+              """                            description,\n                            product_note,\n                            img,""",
+          )
+          replace_once(
+              'services/catalog_sync.py',
+              """                            sku, name, price, category, status, description,\n                            remains, image, images, parent_sku, variant_name, external_id,""",
+              """                            sku, name, price, category, status, description, product_note,\n                            remains, image, images, parent_sku, variant_name, external_id,""",
+          )
+          replace_once(
+              'services/catalog_sync.py',
+              """                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+              """                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+          )
+          replace_once(
+              'services/catalog_sync.py',
+              """                            description,\n                            remains,""",
+              """                            description,\n                            product_note,\n                            remains,""",
+          )
+
+          # components/ProductDetailsView.tsx
+          replace_once(
+              'components/ProductDetailsView.tsx',
+              """const splitHoroshopProductSections = (text: string): ProductTextSections => {\n  const sections = emptyProductTextSections();\n  const source = String(text || '').trim();\n  if (!source) return sections;\n\n  let activeKey: InfoModalKey = 'description';\n  let foundExplicitSection = false;\n\n  source.split(/\\r?\\n/).forEach((line) => {\n    const headingKey = productSectionKeyFromHeading(line);\n    if (headingKey) {\n      activeKey = headingKey;\n      foundExplicitSection = true;\n      return;\n    }\n\n    sections[activeKey] = `${sections[activeKey]}\\n${line}`.trim();\n  });\n\n  Object.keys(sections).forEach((key) => {\n    const typedKey = key as InfoModalKey;\n    sections[typedKey] = sections[typedKey]\n      .replace(/\\n{3,}/g, '\\n\\n')\n      .trim();\n  });\n\n  if (!foundExplicitSection && !sections.description) {\n    sections.description = source;\n  }\n\n  return sections;\n};\n""",
+              """const splitHoroshopProductSections = (text: string): ProductTextSections => {\n  const sections = emptyProductTextSections();\n  const source = String(text || '').trim();\n  if (!source) return sections;\n\n  let activeKey: InfoModalKey = 'description';\n  let foundExplicitSection = false;\n\n  source.split(/\\r?\\n/).forEach((line) => {\n    const headingKey = productSectionKeyFromHeading(line);\n    if (headingKey) {\n      activeKey = headingKey;\n      foundExplicitSection = true;\n      return;\n    }\n\n    sections[activeKey] = `${sections[activeKey]}\\n${line}`.trim();\n  });\n\n  Object.keys(sections).forEach((key) => {\n    const typedKey = key as InfoModalKey;\n    sections[typedKey] = sections[typedKey]\n      .replace(/\\n{3,}/g, '\\n\\n')\n      .trim();\n  });\n\n  if (!foundExplicitSection && !sections.description) {\n    sections.description = source;\n  }\n\n  return sections;\n};\n\nconst noteSectionHeadings = new Set(['примітка', 'примітки', 'примечание', 'примечания', 'note', 'notes']);\nconst noteStopSectionHeadings = new Set([\n  'опис',\n  'огляд',\n  'детальніше',\n  'характеристики',\n  'інструкція',\n  'інструкція із застосування',\n  'спосіб застосування',\n  'спосіб застосування та протипоказання',\n  'застосування',\n  'як приймати',\n  'протипоказання',\n  'застереження',\n  'попередження',\n  'доставка',\n  'оплата',\n  'повернення',\n]);\n\nconst normalizedSectionHeading = (line: string) => String(line || '')\n  .trim()\n  .toLowerCase()\n  .replace(/[.:：]+$/g, '')\n  .replace(/\\s+/g, ' ');\n\nconst extractProductNoteFromText = (text: string): string => {\n  const lines = String(text || '').split(/\\r?\\n/);\n  const out: string[] = [];\n  let active = false;\n\n  lines.forEach((line) => {\n    const trimmed = line.trim();\n    const heading = normalizedSectionHeading(trimmed);\n    if (noteSectionHeadings.has(heading)) {\n      active = true;\n      return;\n    }\n    if (active && noteStopSectionHeadings.has(heading)) {\n      active = false;\n      return;\n    }\n    if (active) out.push(trimmed);\n  });\n\n  while (out.length && !out[0]) out.shift();\n  while (out.length && !out[out.length - 1]) out.pop();\n\n  return out.join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim();\n};\n""",
+          )
+          replace_once(
+              'components/ProductDetailsView.tsx',
+              """  const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);\n""",
+              """""",
+          )
+          replace_once(
+              'components/ProductDetailsView.tsx',
+              """    setDescriptionExpanded(false);\n    setInfoModalKey(null);""",
+              """    setInfoModalKey(null);""",
+          )
+          replace_once(
+              'components/ProductDetailsView.tsx',
+              """  const productInfoDisplayText = productInfoText || 'Опис товару буде оновлено найближчим часом.';""",
+              """  const productNoteText = React.useMemo(() => {\n    const directNote = normalizeText(product?.product_note || product?.productNote || product?.note);\n    if (directNote) return directNote;\n    return extractProductNoteFromText(productInfoText);\n  }, [normalizeText, product?.productNote, product?.product_note, product?.note, productInfoText]);\n\n  const productInfoDisplayText = productNoteText;""",
+          )
+          replace_once(
+              'components/ProductDetailsView.tsx',
+              """  const renderProductInfo = (text: string) => {\n    const paragraphs = String(text || '')\n      .split(/\\n{2,}|\\r?\\n/)\n      .map((line) => line.trim())\n      .filter(Boolean);\n\n    const intro = paragraphs[0] || 'Опис товару буде оновлено найближчим часом.';\n    const details = paragraphs.slice(1);\n    const hasMore = details.length > 2;\n    const visibleDetails = descriptionExpanded ? details : details.slice(0, 2);\n\n    return (\n      <View style={styles.productInfoBlock}>\n        <Text style={styles.infoSectionTitle}>Інформація про продукт</Text>\n\n        <View style={styles.infoCard}>\n          <View style={styles.infoHeaderRow}>\n            <View style={styles.infoIconCircle}>\n              <Ionicons name=\"leaf-outline\" size={23} color=\"#FFFFFF\" />\n            </View>\n            <View style={styles.infoHeaderText}>\n              <Text style={styles.infoCardTitle}>Огляд продукту</Text>\n              <Text style={styles.infoCardNote}>Коротка інформація. Не є медичною рекомендацією.</Text>\n            </View>\n          </View>\n\n          <Text style={styles.infoHeading}>Коротко про товар</Text>\n          <Text style={styles.infoText}>{intro}</Text>\n\n          {visibleDetails.length > 0 && (\n            <>\n              <Text style={styles.infoHeading}>Детальніше</Text>\n              {visibleDetails.map((item, index) => (\n                <Text key={`detail-${index}`} style={styles.infoText}>{item}</Text>\n              ))}\n            </>\n          )}\n\n          {hasMore && !descriptionExpanded && <View style={styles.infoFade} pointerEvents=\"none\" />}\n\n          {hasMore && (\n            <TouchableOpacity\n              onPress={() => setDescriptionExpanded(value => !value)}\n              style={styles.expandButton}\n              activeOpacity={0.85}\n            >\n              <Text style={styles.expandButtonText}>{descriptionExpanded ? 'Згорнути' : 'Розгорнути'}</Text>\n              <Ionicons name={descriptionExpanded ? 'chevron-up' : 'chevron-down'} size={17} color=\"#374151\" />\n            </TouchableOpacity>\n          )}\n        </View>\n      </View>\n    );\n  };""",
+              """  const renderProductInfo = (text: string) => {\n    const noteLines = String(text || '')\n      .split(/\\n{2,}|\\r?\\n/)\n      .map((line) => line.trim())\n      .filter(Boolean);\n\n    return (\n      <View style={styles.productInfoBlock}>\n        <Text style={styles.infoSectionTitle}>Інформація про продукт</Text>\n\n        <View style={styles.infoCard}>\n          <View style={styles.infoHeaderRow}>\n            <View style={styles.infoIconCircle}>\n              <Ionicons name=\"leaf-outline\" size={23} color=\"#FFFFFF\" />\n            </View>\n            <View style={styles.infoHeaderText}>\n              <Text style={styles.infoCardTitle}>Огляд продукту</Text>\n              <Text style={styles.infoCardNote}>Коротка інформація. Не є медичною рекомендацією.</Text>\n            </View>\n          </View>\n\n          <Text style={styles.infoHeading}>Примітка</Text>\n          {noteLines.length > 0 ? (\n            noteLines.map((item, index) => (\n              <Text key={`note-${index}`} style={styles.infoText}>{item}</Text>\n            ))\n          ) : (\n            <Text style={styles.infoText}>Примітка буде оновлена найближчим часом.</Text>\n          )}\n        </View>\n      </View>\n    );\n  };""",
+          )
+
+          # docs/PRODUCT_CATALOG_SYNC_HANDOFF.md
+          replace_once(
+              'docs/PRODUCT_CATALOG_SYNC_HANDOFF.md',
+              """- `description`\n- `image`""",
+              """- `description`\n- `product_note`\n- `image`""",
+          )
+          replace_once(
+              'docs/PRODUCT_CATALOG_SYNC_HANDOFF.md',
+              """- `sku`\n- `status`""",
+              """- `sku`\n- `status`\n- `product_note`""",
+          )
+          with Path('docs/PRODUCT_CATALOG_SYNC_HANDOFF.md').open('a', encoding='utf-8') as f:
+              f.write("""
+
+## Product note sync: 2026-06-26
+
+Product detail `Огляд продукту` in the mobile app must show the website `Примітка` text instead of the product description blocks such as `Коротко про товар` / `Детальніше`.
+
+Current required behavior:
+
+- Horoshop / website remains the source of truth for the note text.
+- Sync stores the extracted note in `products.product_note`.
+- Product API responses include `product_note`.
+- The mobile PDP displays `Примітка` inside `Огляд продукту` and does not render the long description in that card.
+- The existing description/instruction modal rows may still use `description`, `usage`, `composition`, `delivery_info`, and `return_info`.
+""")
+
+          # Remove this temporary workflow after it has patched the repo.
+          Path('.github/workflows/apply-product-note-sync.yml').unlink(missing_ok=True)
+          PY
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile services/catalog_sync.py services/db_schema.py routers/products.py models/schemas.py
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add services/db_schema.py routers/products.py models/schemas.py services/catalog_sync.py components/ProductDetailsView.tsx docs/PRODUCT_CATALOG_SYNC_HANDOFF.md .github/workflows/apply-product-note-sync.yml
+          git commit -m "Sync and display product notes"
+          git push
