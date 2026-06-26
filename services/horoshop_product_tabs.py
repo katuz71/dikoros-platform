@@ -498,7 +498,7 @@ async def sync_horoshop_product_tabs() -> dict:
                     composition = COALESCE(NULLIF(?, ''), composition),
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
                     return_info = COALESCE(NULLIF(?, ''), return_info),
-                    product_note = ?,
+                    product_note = COALESCE(NULLIF(?, ''), product_note),
                     site_url = COALESCE(NULLIF(?, ''), site_url),
                     canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
                     source_url = COALESCE(NULLIF(?, ''), source_url)
