@@ -394,9 +394,14 @@ export default function ProductScreen() {
       setSelectedOptions({});
       setSelectedVariantRowId(null);
       
-      let url = `${API_URL}/products/${productId}`;
+      let url = `${API_URL}/products/${productId}?t=${Date.now()}`;
       try {
-        let res = await fetch(url);
+        let res = await fetch(url, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+        });
         
         // If 405 or 404, try alternative (some servers prefer query params or have prefix issues)
         if (res.status === 405 || res.status === 404) {
@@ -429,6 +434,8 @@ export default function ProductScreen() {
 
         if (res.ok) {
           const data = await res.json();
+          const detailProductNote = data.product_note || data.productNote || '';
+          console.log('PRODUCT DETAIL NOTE', productId, detailProductNote);
 
           const fromList = allProducts.find((p: any) => Number(p?.id) === Number(productId));
           const dataVariants = Array.isArray(data?.variants) ? data.variants : [];
@@ -439,8 +446,6 @@ export default function ProductScreen() {
                 ...data,
                 ...fromList,
                 description: data.description || fromList.description,
-                product_note: data.product_note || data.productNote || fromList.product_note || fromList.productNote,
-                productNote: data.productNote || data.product_note || fromList.productNote || fromList.product_note,
                 composition: data.composition || fromList.composition,
                 usage: data.usage || fromList.usage,
                 delivery_info: data.delivery_info || fromList.delivery_info,
@@ -449,8 +454,14 @@ export default function ProductScreen() {
                 discount: data.discount ?? fromList.discount,
                 variants: listVariants,
                 option_names: data.option_names || fromList.option_names,
+                product_note: detailProductNote,
+                productNote: detailProductNote,
               }
-            : data;
+            : {
+                ...data,
+                product_note: detailProductNote,
+                productNote: detailProductNote,
+              };
 
           setProduct(enrichedProduct);
 
