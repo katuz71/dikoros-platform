@@ -78,67 +78,45 @@ class FakeConnection:
         raise AssertionError(f"Unexpected SQL: {sql}")
 
 
-class FakeResponse:
-    def __init__(self, html):
-        self.html = html
-
-    def read(self):
-        return self.html.encode("utf-8")
-
-
 class HoroshopBannerResolverTests(unittest.TestCase):
-    def test_product_like_category_banner_urls_resolve_by_html_sku(self):
+    def test_category_banner_seo_urls_resolve_to_category_filters(self):
         site_url = "https://dikoros-ua.com/"
-        html_by_url = {
-            "https://dikoros-ua.com/hryb-chaha-u-mikrodozynhu/": (
-                '<script type="application/ld+json">'
-                '{"@type":"Product","sku":"SKU-CHAGA"}'
-                "</script>"
-            ),
-            "https://dikoros-ua.com/mikrodozynh-kordytseps-viiskovyi/": (
-                '<meta itemprop="sku" content="SKU-CORDYCEPS">'
-            ),
-            "https://dikoros-ua.com/mikrodozynh-mukhomor-chervonyi/": (
-                '<span itemprop="sku">SKU-MUHOMOR</span>'
-            ),
-            "https://dikoros-ua.com/mikrodozinh-yizhovyka-hrebinchastoho/": (
-                "<div>\u0410\u0440\u0442\u0438\u043a\u0443\u043b: SKU-YIZHOVYK</div>"
-            ),
+        expected_filters = {
+            "https://dikoros-ua.com/hryb-chaha-u-mikrodozynhu/": ["\u0427\u0430\u0433\u0430"],
+            "https://dikoros-ua.com/mikrodozynh-kordytseps-viiskovyi/": [
+                "\u041a\u043e\u0440\u0434\u0438\u0446\u0435\u043f\u0441 \u0432\u0456\u0439\u0441\u044c\u043a\u043e\u0432\u0438\u0439"
+            ],
+            "https://dikoros-ua.com/mikrodozynh-mukhomor-chervonyi/": [
+                "\u041c\u0443\u0445\u043e\u043c\u043e\u0440 \u0447\u0435\u0440\u0432\u043e\u043d\u0438\u0439"
+            ],
+            "https://dikoros-ua.com/mikrodozinh-yizhovyka-hrebinchastoho/": [
+                "\u0407\u0436\u043e\u0432\u0438\u043a \u0433\u0440\u0435\u0431\u0456\u043d\u0447\u0430\u0441\u0442\u0438\u0439"
+            ],
+            "https://dikoros-ua.com/mikrodozinh/filter/Sirovyna=25/": ["\u0427\u0430\u0433\u0430"],
         }
-        expected_ids = {
-            "https://dikoros-ua.com/hryb-chaha-u-mikrodozynhu/": "101",
-            "https://dikoros-ua.com/mikrodozynh-kordytseps-viiskovyi/": "102",
-            "https://dikoros-ua.com/mikrodozynh-mukhomor-chervonyi/": "103",
-            "https://dikoros-ua.com/mikrodozinh-yizhovyka-hrebinchastoho/": "104",
-        }
-        products = [
-            {"id": 101, "sku": "SKU-CHAGA", "parent_sku": "", "variants": ""},
-            {"id": 102, "sku": "SKU-CORDYCEPS-VARIANT", "parent_sku": "SKU-CORDYCEPS", "variants": ""},
-            {"id": 103, "sku": "SKU-MUHOMOR", "parent_sku": "", "variants": ""},
-            {
-                "id": 104,
-                "sku": "SKU-YIZHOVYK-PARENT",
-                "parent_sku": "",
-                "variants": json.dumps([{"sku": "SKU-YIZHOVYK"}]),
-            },
-        ]
-        conn = FakeConnection(products)
+        conn = FakeConnection([])
 
-        def fake_urlopen(request, timeout):
-            self.assertGreaterEqual(timeout, 10)
-            self.assertLessEqual(timeout, 15)
-            headers = {key.casefold(): value for key, value in request.header_items()}
-            self.assertEqual(headers.get("user-agent"), horoshop_banners.HOROSHOP_PAGE_HEADERS["User-Agent"])
-            return FakeResponse(html_by_url[request.full_url])
-
-        with mock.patch.object(horoshop_banners.urllib.request, "urlopen", fake_urlopen):
-            for url, expected_id in expected_ids.items():
+        with mock.patch.object(horoshop_banners.urllib.request, "urlopen") as urlopen:
+            for url, raw_materials in expected_filters.items():
                 with self.subTest(url=url):
                     destination = horoshop_banners.resolve_banner_destination(url, conn, site_url)
+                    payload = json.loads(destination["link_value"])
 
-                    self.assertEqual(destination["link_type"], "product")
-                    self.assertEqual(destination["link_value"], expected_id)
+                    self.assertEqual(destination["link_type"], "category_filter")
+                    self.assertEqual(payload["category"], "\u041c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0456\u043d\u0433")
+                    self.assertEqual(payload["raw_materials"], raw_materials)
                     self.assertEqual(destination["source_url"], url)
+            urlopen.assert_not_called()
+
+    def test_unknown_mikrodosing_filter_url_stays_none(self):
+        destination = horoshop_banners.resolve_banner_destination(
+            "https://dikoros-ua.com/mikrodozinh/filter/Sirovyna=999/",
+            FakeConnection([]),
+            "https://dikoros-ua.com/",
+        )
+
+        self.assertEqual(destination["link_type"], "none")
+        self.assertEqual(destination["link_value"], "")
 
 
 if __name__ == "__main__":

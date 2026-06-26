@@ -27,27 +27,29 @@ PRODUCT_ID_QUERY_KEYS = ("id", "product_id", "external_id", "product", "producti
 PRODUCT_ID_PATH_MARKERS = ("id", "product", "products", "tovar", "tovary", "goods", "item", "p")
 PRODUCT_SKU_QUERY_KEYS = ("sku", "article", "articul", "code", "vendor_code", "parent_sku")
 PRODUCT_URL_COLUMNS = ("site_url", "canonical_url", "source_url", "link_url", "product_url", "url", "href")
-PRODUCT_PAGE_FETCH_TIMEOUT = 12.0
-NON_PRODUCT_PAGE_PREFIXES = (
-    "/api",
-    "/assets",
-    "/blog",
-    "/cart",
-    "/checkout",
-    "/content",
-    "/images",
-    "/news",
-    "/static",
-    "/statti",
-    "/stattya",
-    "/uploads",
-)
-NON_PRODUCT_FILE_RE = re.compile(r"\.(?:avif|css|gif|ico|jpe?g|js|pdf|png|svg|webp|xml)$", re.IGNORECASE)
-HTML_SKU_LABEL_RE = re.compile(
-    "(?:\\bsku\\b|\\barticle\\b|\\barticul\\b|\\u0410\\u0440\\u0442\\u0438\\u043a\\u0443\\u043b)"
-    "\\s*[:#\\-]?\\s*([A-Za-z0-9_.\\-/\\u0400-\\u04FF]{2,80})",
-    re.IGNORECASE,
-)
+MIKRODOSING_CATEGORY = "\u041c\u0456\u043a\u0440\u043e\u0434\u043e\u0437\u0456\u043d\u0433"
+MIKRODOSING_PATH_ALIASES = {"mikrodozinh", "mikrodozynh"}
+SEO_FILTER_DESTINATIONS = {
+    "hryb-chaha-u-mikrodozynhu": {
+        "category": MIKRODOSING_CATEGORY,
+        "raw_materials": ["\u0427\u0430\u0433\u0430"],
+    },
+    "mikrodozynh-kordytseps-viiskovyi": {
+        "category": MIKRODOSING_CATEGORY,
+        "raw_materials": ["\u041a\u043e\u0440\u0434\u0438\u0446\u0435\u043f\u0441 \u0432\u0456\u0439\u0441\u044c\u043a\u043e\u0432\u0438\u0439"],
+    },
+    "mikrodozynh-mukhomor-chervonyi": {
+        "category": MIKRODOSING_CATEGORY,
+        "raw_materials": ["\u041c\u0443\u0445\u043e\u043c\u043e\u0440 \u0447\u0435\u0440\u0432\u043e\u043d\u0438\u0439"],
+    },
+    "mikrodozinh-yizhovyka-hrebinchastoho": {
+        "category": MIKRODOSING_CATEGORY,
+        "raw_materials": ["\u0407\u0436\u043e\u0432\u0438\u043a \u0433\u0440\u0435\u0431\u0456\u043d\u0447\u0430\u0441\u0442\u0438\u0439"],
+    },
+}
+HOROSHOP_SIROVYNA_FILTER_IDS = {
+    "25": "\u0427\u0430\u0433\u0430",
+}
 GENERIC_PRODUCT_URL_TOKENS = {
     "mix",
     "miks",
@@ -221,50 +223,6 @@ class SiteLinksParser(HTMLParser):
         self.current = None
 
 
-class SkuMetaParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.candidates: list[str] = []
-        self._capture_depth = 0
-        self._capture_parts: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
-        attrs = {key.lower(): value or "" for key, value in attrs_list}
-        is_sku_tag = any(
-            _clean_text(attrs.get(key)).casefold() == "sku"
-            for key in ("itemprop", "name", "property")
-        )
-        if self._capture_depth:
-            self._capture_depth += 1
-
-        if not is_sku_tag:
-            return
-
-        for key in ("content", "value", "data-value"):
-            value = _clean_sku_candidate(attrs.get(key))
-            if value:
-                self.candidates.append(value)
-
-        if tag not in {"input", "link", "meta"}:
-            self._capture_depth = 1
-            self._capture_parts = []
-
-    def handle_data(self, data: str) -> None:
-        if self._capture_depth:
-            self._capture_parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        if not self._capture_depth:
-            return
-        self._capture_depth -= 1
-        if self._capture_depth:
-            return
-        value = _clean_sku_candidate(" ".join(self._capture_parts))
-        if value:
-            self.candidates.append(value)
-        self._capture_parts = []
-
-
 def parse_first_banner_slider(html: str, page_url: str) -> list[BannerCandidate]:
     parser = FirstBannerSliderParser(page_url)
     parser.feed(html)
@@ -383,49 +341,58 @@ def _variant_sku_candidates(value: object) -> set[str]:
     return _normalized_sku_candidates(_json_sku_values(parsed))
 
 
-def _json_ld_sku_candidates(html: str) -> list[str]:
-    result: list[str] = []
-    script_re = re.compile(
-        r"<script\b(?=[^>]*application/ld\+json)[^>]*>(.*?)</script>",
-        re.IGNORECASE | re.DOTALL,
+def _category_filter_link_value(payload: dict[str, object]) -> str:
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _category_filter_destination(payload: dict[str, object], source_url: str) -> dict[str, str]:
+    return {
+        "link_type": "category_filter",
+        "link_value": _category_filter_link_value(payload),
+        "source_url": source_url,
+    }
+
+
+def _is_mikrodosing_filter_path(segments: list[str]) -> bool:
+    return (
+        len(segments) >= 3
+        and _slugify(segments[0]) in MIKRODOSING_PATH_ALIASES
+        and _slugify(segments[1]) == "filter"
     )
-    for match in script_re.finditer(html):
-        script_text = unescape(match.group(1)).strip()
-        if not script_text:
-            continue
-        try:
-            parsed = json.loads(script_text)
-        except (TypeError, ValueError):
-            continue
-        result.extend(_json_sku_values(parsed))
-    return result
 
 
-def _meta_sku_candidates(html: str) -> list[str]:
-    parser = SkuMetaParser()
-    try:
-        parser.feed(html)
-        parser.close()
-    except Exception:
-        return parser.candidates
-    return parser.candidates
+def _category_filter_payload_from_url(parsed) -> tuple[bool, dict[str, object] | None]:
+    segments = _url_segments(parsed.path or "")
+    slug_segments = [_slugify(segment) for segment in segments]
 
+    if len(slug_segments) == 1 and slug_segments[0] in SEO_FILTER_DESTINATIONS:
+        return True, SEO_FILTER_DESTINATIONS[slug_segments[0]]
 
-def _html_text_sku_candidates(html: str) -> list[str]:
-    text = re.sub(r"(?is)<script\b.*?</script>", " ", html)
-    text = re.sub(r"(?is)<style\b.*?</style>", " ", text)
-    text = re.sub(r"(?s)<[^>]+>", " ", text)
-    text = _clean_text(text)
-    return [_clean_sku_candidate(match.group(1)) for match in HTML_SKU_LABEL_RE.finditer(text)]
+    if not _is_mikrodosing_filter_path(segments):
+        return False, None
 
+    raw_materials: list[str] = []
+    for segment in segments[2:]:
+        for part in re.split(r"[;&]", segment):
+            if "=" not in part:
+                continue
+            key, raw_value = part.split("=", 1)
+            if _slugify(key) != "sirovyna":
+                return True, None
+            for option_id in re.split(r"[,|]", raw_value):
+                option_name = HOROSHOP_SIROVYNA_FILTER_IDS.get(option_id.strip())
+                if not option_name:
+                    return True, None
+                if option_name not in raw_materials:
+                    raw_materials.append(option_name)
 
-def _html_sku_candidates(html: str) -> set[str]:
-    values = (
-        _json_ld_sku_candidates(html)
-        + _meta_sku_candidates(html)
-        + _html_text_sku_candidates(html)
-    )
-    return _normalized_sku_candidates([value for value in values if value])
+    if not raw_materials:
+        return True, None
+
+    return True, {
+        "category": MIKRODOSING_CATEGORY,
+        "raw_materials": raw_materials,
+    }
 
 
 def _product_id_sort_key(value: str) -> tuple[int, object]:
@@ -433,35 +400,6 @@ def _product_id_sort_key(value: str) -> tuple[int, object]:
         return (0, int(value))
     except (TypeError, ValueError):
         return (1, value)
-
-
-def _is_product_like_source_url(absolute_url: str, site_url: str) -> bool:
-    if not _same_host(absolute_url, site_url):
-        return False
-
-    parsed = urlparse(absolute_url)
-    path = re.sub(r"/+", "/", parsed.path or "/").rstrip("/").casefold()
-    if not path or path == "/":
-        return False
-    if any(path == prefix or path.startswith(f"{prefix}/") for prefix in NON_PRODUCT_PAGE_PREFIXES):
-        return False
-    if any(marker in path for marker in PROMOTION_PATH_MARKERS):
-        return False
-    if NON_PRODUCT_FILE_RE.search(path):
-        return False
-    return True
-
-
-def _fetch_product_page_html(absolute_url: str) -> str:
-    request = urllib.request.Request(absolute_url, headers=HOROSHOP_PAGE_HEADERS)
-    try:
-        return urllib.request.urlopen(request, timeout=PRODUCT_PAGE_FETCH_TIMEOUT).read().decode(
-            "utf-8",
-            "replace",
-        )
-    except Exception as exc:
-        logger.warning("Horoshop product page fetch failed for %s: %s", absolute_url, exc)
-    return ""
 
 
 def _path_code_candidates(segments: list[str]) -> set[str]:
@@ -634,14 +572,7 @@ def _find_product_destination(conn, absolute_url: str, site_url: str) -> str:
     if product_id:
         return product_id
 
-    if not _is_product_like_source_url(absolute_url, site_url):
-        return ""
-
-    html = _fetch_product_page_html(absolute_url)
-    if not html:
-        return ""
-
-    return _find_product_by_sku(conn, _html_sku_candidates(html))
+    return ""
 
 
 def resolve_banner_destination(
@@ -661,6 +592,12 @@ def resolve_banner_destination(
     path = re.sub(r"/+", "/", parsed.path or "/").casefold()
     if any(marker in path for marker in PROMOTION_PATH_MARKERS):
         return {"link_type": "promotions", "link_value": "", "source_url": absolute_url}
+
+    is_filter_url, filter_payload = _category_filter_payload_from_url(parsed)
+    if filter_payload:
+        return _category_filter_destination(filter_payload, absolute_url)
+    if is_filter_url:
+        return {"link_type": "none", "link_value": "", "source_url": absolute_url}
 
     product_id = _find_product_destination(conn, absolute_url, site_url)
     if product_id:

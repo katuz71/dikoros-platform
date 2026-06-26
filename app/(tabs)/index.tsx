@@ -890,6 +890,38 @@ const isDikorosBlogPath = (path: string) => (
   || DIKOROS_BLOG_PATH_MARKERS.some(marker => path.includes(marker))
 );
 
+const parseBannerFilterArray = (value: any) => (
+  Array.isArray(value)
+    ? value.map(item => String(item ?? '').trim()).filter(Boolean)
+    : []
+);
+
+const parseBannerCategoryFilterPayload = (value: any) => {
+  if (!value) return null;
+
+  let parsed = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+
+  const category = String((parsed as any).category ?? '').trim();
+  if (!category) return null;
+
+  return {
+    category,
+    rawMaterials: parseBannerFilterArray((parsed as any).raw_materials),
+    packageForms: parseBannerFilterArray((parsed as any).package_forms),
+  };
+};
+
+const isJsonLikeBannerValue = (value: any) => /^[{\[]/.test(String(value ?? '').trim());
+
 const isBannerPressable = (banner: any) => {
   const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
   if (linkType === 'external') {
@@ -972,6 +1004,7 @@ export default function Index() {
   const [homePromotions, setHomePromotions] = useState<Product[]>([]);
   const [homeNewProducts, setHomeNewProducts] = useState<Product[]>([]);
   const [catalogHomeLoaded, setCatalogHomeLoaded] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const handleBannerPress = useCallback((banner: any) => {
     const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
@@ -995,6 +1028,30 @@ export default function Index() {
           categoryOpen: String(Date.now()),
         },
       } as any);
+      return true;
+    };
+
+    const openCategoryFilter = (value: any) => {
+      const payload = parseBannerCategoryFilterPayload(value);
+      if (!payload) return false;
+
+      setSelectedCategory(payload.category);
+      setSearchQuery('');
+      setIsSearchVisible(false);
+      setFilterModalVisible(false);
+      setExpandedFilterSection('sort');
+      setOnlyAvailable(false);
+      setOnlyPromo(false);
+      setSelectedRawMaterials(payload.rawMaterials);
+      setSelectedPackageForms(payload.packageForms);
+      setPriceFrom('');
+      setPriceTo('');
+      setSortType('popular');
+      setCategoryViewOpen(true);
+
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      });
       return true;
     };
 
@@ -1042,6 +1099,13 @@ export default function Index() {
 
     if (linkType === 'category') {
       if (openCategory(linkValue)) return;
+      openDikorosSource(sourceValue);
+      return;
+    }
+
+    if (linkType === 'category_filter') {
+      if (openCategoryFilter(linkValue)) return;
+      if (!isJsonLikeBannerValue(linkValue) && openCategory(linkValue)) return;
       openDikorosSource(sourceValue);
       return;
     }
@@ -1728,7 +1792,6 @@ export default function Index() {
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
   const flatListRef = useRef<FlatList>(null);
   const chatFlatListRef = useRef<FlatList>(null);
   const bannerRef = useRef<ScrollView>(null);
