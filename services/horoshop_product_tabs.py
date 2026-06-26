@@ -34,9 +34,17 @@ SECTION_ALIASES = {
         "інструкція із застосування",
         "інструкція до застосування",
         "спосіб застосування",
+        "спосіб застосування та протипоказання",
+        "спосіб застосування і протипоказання",
         "застосування",
+        "застосування та протипоказання",
+        "застосування і протипоказання",
         "як приймати",
+        "інструкція та протипоказання",
+        "інструкція і протипоказання",
         "рекомендації щодо застосування",
+        "способ применения и противопоказания",
+        "применение и противопоказания",
     },
     "composition": {
         "протипоказання",
@@ -122,6 +130,11 @@ def _section_key_from_tab_id(tab_id: str) -> str | None:
 
     if "opis" in normalized:
         return "description"
+    has_usage_marker = "instruk" in normalized or "sposib" in normalized or "zastos" in normalized or "primen" in normalized
+    has_contra_marker = "protipokaz" in normalized or "protypokaz" in normalized or "protivopokaz" in normalized or "contraind" in normalized
+
+    if has_usage_marker and has_contra_marker:
+        return "usage"
     if "instruk" in normalized:
         return "usage"
     if "protipokaz" in normalized:
