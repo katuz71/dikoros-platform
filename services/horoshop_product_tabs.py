@@ -342,6 +342,7 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
 
     for key in SECTION_KEYS:
         sections[key] = _clean_text(sections[key])
+    sections["product_note"] = _normalize_product_note_text(sections["product_note"])
 
     return sections
 
