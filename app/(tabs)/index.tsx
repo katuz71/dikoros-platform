@@ -353,7 +353,15 @@ const normalizeComparable = (value: any) => String(value ?? '').toLowerCase().tr
 
 const normalizeFilterLabel = (value: any) => {
   return String(value ?? '')
-    .replace(/[«»"']/g, '')
+    .replace(/[«»“”"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const normalizeFilterComparableValue = (value: any) => {
+  return normalizeFilterLabel(value)
+    .toLocaleLowerCase('uk-UA')
+    .replace(/[^0-9a-zа-яіїєґ]+/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -411,14 +419,58 @@ const RAW_MATERIAL_STOP_WORDS = [
   'капсули', 'капсул', 'порошок', 'порошку', 'екстракт', 'настоянка', 'настойка',
   'сушені', 'сушений', 'сушена', 'сушене', 'цілі', 'цілий', 'мелені', 'мелений',
   'трава', 'трави', 'гриб', 'гриби', 'мазь', 'крем', 'чай', 'набір', 'набор',
-  'мікродозинг', 'мікродозінг', 'шляпках', 'шапках', 'на', 'із', 'з', 'для'
+  'мікродозинг', 'мікродозінг', 'шляпках', 'шапках', 'на', 'в', 'у', 'по', 'та', 'і', 'із', 'з', 'для'
 ];
+
+const CANONICAL_RAW_MATERIAL_PATTERNS: { label: string; patterns: RegExp[] }[] = [
+  { label: 'Чага', patterns: [/чаг/i] },
+  { label: 'Кордицепс військовий', patterns: [/кордицепс/i] },
+  {
+    label: 'Мухомор червоний',
+    patterns: [
+      /мухомор\w*\s+червон/i,
+      /червон\w*\s+мухомор/i,
+    ],
+  },
+  {
+    label: 'Їжовик гребінчастий',
+    patterns: [
+      /[їі]жовик\w*\s+греб/i,
+      /греб\w*\s+[їі]жовик/i,
+      /гериц/i,
+    ],
+  },
+];
+
+const addCanonicalRawMaterialOptions = (target: Set<string>, product: any) => {
+  const searchableText = [
+    product?.name,
+    product?.category,
+    product?.variant_name,
+    parseMaybeJsonArray(product?.variants)
+      .map((variant: any) => [
+        variant?.name,
+        variant?.size,
+        variant?.label,
+        variant?.title,
+        variant?.raw?.name,
+        variant?.raw?.title,
+      ].filter(Boolean).join(' '))
+      .join(' '),
+  ].filter(Boolean).join(' ');
+
+  CANONICAL_RAW_MATERIAL_PATTERNS.forEach(({ label, patterns }) => {
+    if (patterns.some(pattern => pattern.test(searchableText))) {
+      addFilterOption(target, label);
+    }
+  });
+};
 
 const cleanupRawMaterialCandidate = (value: any) => {
   let text = normalizeFilterLabel(value)
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\b\d+(?:[.,]\d+)?\s*(?:г|гр|kg|кг|мг|ml|мл|л|шт|капсул|капсули)\b/gi, ' ')
-    .replace(/\b\d{2,4}\b/g, ' ')
+    .replace(/\b\d+(?:[.,]\d+)?\b/g, ' ')
     .replace(/[|,:;\/]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -445,6 +497,7 @@ const getCatalogRawMaterials = (product: any) => {
   const name = String(product?.name ?? '');
   const nameLead = name.split(/[,:;()]/)[0];
   addFilterOption(values, cleanupRawMaterialCandidate(nameLead));
+  addCanonicalRawMaterialOptions(values, product);
 
   return sortFilterOptions(values);
 };
@@ -487,8 +540,12 @@ const productMatchesSelectedFilters = (
   extractor: (product: any) => string[]
 ) => {
   if (!selectedValues.length) return true;
-  const available = extractor(product).map(normalizeComparable);
-  return selectedValues.some(value => available.includes(normalizeComparable(value)));
+  const available = extractor(product).map(normalizeFilterComparableValue).filter(Boolean);
+  return selectedValues.some(value => {
+    const selected = normalizeFilterComparableValue(value);
+    if (!selected) return false;
+    return available.some(option => option === selected || (selected.length >= 4 && option.includes(selected)));
+  });
 };
 
 const selectedFilterLabel = (title: string, values: string[]) => {
