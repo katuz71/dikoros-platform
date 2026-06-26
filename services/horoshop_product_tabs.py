@@ -155,6 +155,47 @@ def _find_balanced_element_html(html: str, start_pos: int, tag_name: str) -> str
     return html[start_pos:]
 
 
+def _classed_div_pattern(class_name: str) -> re.Pattern:
+    escaped = re.escape(class_name)
+    return re.compile(
+        rf"<div\b[^>]*class\s*=\s*(['\"])(?=[^'\"]*\b{escaped}\b)[^'\"]*\1[^>]*>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+
+def _first_classed_div_html(html: str, class_name: str) -> str:
+    match = _classed_div_pattern(class_name).search(html)
+    if not match:
+        return ""
+    return _find_balanced_element_html(html, match.start(), "div")
+
+
+def _product_group_note_text(group_html: str) -> str:
+    title_html = _first_classed_div_html(group_html, "product-heading__title")
+    if _heading_key(_html_to_text(title_html)) != "product_note":
+        return ""
+
+    for section_match in _classed_div_pattern("product__section").finditer(group_html):
+        section_html = _find_balanced_element_html(group_html, section_match.start(), "div")
+        text_html = _first_classed_div_html(section_html, "text")
+        text = _clean_tab_text(_html_to_text(text_html))
+        if text:
+            return text
+
+    return ""
+
+
+def _extract_product_group_note_from_html(html: str) -> str:
+    notes: list[str] = []
+    for group_match in _classed_div_pattern("product__group").finditer(html):
+        group_html = _find_balanced_element_html(html, group_match.start(), "div")
+        note_text = _product_group_note_text(group_html)
+        if note_text:
+            notes.append(note_text)
+
+    return _clean_text("\n\n".join(notes))
+
+
 def _split_long_text_line(line: str) -> list[str]:
     text = _clean_text(line)
     if len(text) <= 800:
@@ -254,6 +295,10 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
     source = re.sub(r"<script[\s\S]*?</script>", " ", source, flags=re.IGNORECASE)
     source = re.sub(r"<style[\s\S]*?</style>", " ", source, flags=re.IGNORECASE)
     source = re.sub(r"<svg[\s\S]*?</svg>", " ", source, flags=re.IGNORECASE)
+
+    page_group_note = _extract_product_group_note_from_html(source)
+    if page_group_note:
+        sections["product_note"] = page_group_note
 
     tab_pattern = re.compile(
         r"<div\b(?=[^>]*\bj-product-block__tab\b)(?=[^>]*\bdata-content-id\s*=\s*(['\"])(?P<tab_id>.*?)\1)[^>]*>",
