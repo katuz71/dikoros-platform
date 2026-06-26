@@ -337,19 +337,6 @@ def _sanitize_description(value: object) -> str:
     return text
 
 
-PRODUCT_NOTE_FIELD_KEYS = (
-    "product_note",
-    "productNote",
-    "note",
-    "notes",
-    "annotation",
-    "annotations",
-    "short_description",
-    "shortDescription",
-    "preview_text",
-    "previewText",
-)
-
 PRODUCT_NOTE_CONTAINER_KEYS = (
     "tabs",
     "product_tabs",
@@ -372,6 +359,22 @@ PRODUCT_NOTE_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
 PRODUCT_NOTE_CONTENT_KEYS = ("value", "text", "content", "html", "description", "body")
 PRODUCT_NOTE_VALUE_KEYS = (*PRODUCT_NOTE_CONTENT_KEYS, *PRODUCT_NOTE_LOCALE_KEYS)
 PRODUCT_NOTE_LABELS = {"примітка", "примечание", "note", "notes"}
+PRODUCT_NOTE_STOP_LABELS = {
+    "опис",
+    "огляд",
+    "інструкція",
+    "інструкція із застосування",
+    "спосіб застосування",
+    "застосування",
+    "протипоказання",
+    "застереження",
+    "попередження",
+    "склад",
+    "доставка",
+    "оплата",
+    "повернення",
+    "відгуки",
+}
 
 
 def _product_note_text_candidate(value: object) -> str:
@@ -406,6 +409,62 @@ def _is_product_note_label(value: object) -> bool:
     return _normalize_product_note_label(value) in PRODUCT_NOTE_LABELS
 
 
+def _is_product_note_stop_label(value: object) -> bool:
+    normalized = _normalize_product_note_label(value)
+    return normalized in PRODUCT_NOTE_STOP_LABELS or normalized in PRODUCT_NOTE_LABELS
+
+
+def _text_from_html_like(value: object) -> str:
+    text = unescape(str(value or ""))
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"<script[\s\S]*?</script>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</(?:p|div|li|tr|section|article|h[1-6])>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li[^>]*>", "\n- ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<h[1-6][^>]*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n[ \t]+", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _extract_product_note_from_text(value: object) -> str:
+    text = _text_from_html_like(value)
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+    captured: list[str] = []
+    capturing = False
+
+    for raw_line in lines:
+        line = _clean_text_value(raw_line)
+        if not line:
+            if capturing and captured:
+                break
+            continue
+
+        label_match = re.match(r"^(примітка|примечание|note|notes)\s*(?:[:：.]\s*(.*))?$", line, re.IGNORECASE)
+        if label_match:
+            capturing = True
+            remainder = _clean_text_value(label_match.group(2) or "")
+            if remainder:
+                captured.append(remainder)
+            continue
+
+        if not capturing:
+            continue
+
+        if _is_product_note_stop_label(line):
+            break
+
+        captured.append(line)
+
+    return _sanitize_description("\n".join(captured).strip())
+
+
 def _sanitize_product_note(value: object) -> str:
     text = _product_note_text_candidate(value)
     if not text:
@@ -413,13 +472,13 @@ def _sanitize_product_note(value: object) -> str:
     return _sanitize_description(text)
 
 
-def _extract_labeled_product_note(value: object, depth: int = 0) -> str:
+def _extract_labeled_product_note(value: object, depth: int = 0, allow_key_label: bool = False) -> str:
     if depth > 5 or value is None:
         return ""
 
     if isinstance(value, list):
         for item in value:
-            text = _extract_labeled_product_note(item, depth + 1)
+            text = _extract_labeled_product_note(item, depth + 1, allow_key_label)
             if text:
                 return text
         return ""
@@ -427,54 +486,65 @@ def _extract_labeled_product_note(value: object, depth: int = 0) -> str:
     if not isinstance(value, dict):
         return ""
 
-    for key, child in value.items():
-        if _is_product_note_label(key):
-            text = _sanitize_product_note(child)
-            if text:
-                return text
-
     if any(_is_product_note_label(value.get(key)) for key in PRODUCT_NOTE_LABEL_KEYS):
         for key in PRODUCT_NOTE_VALUE_KEYS:
             if key in value and key not in PRODUCT_NOTE_LABEL_KEYS:
-                text = _sanitize_product_note(value.get(key))
+                text = _extract_product_note_from_text(value.get(key)) or _sanitize_product_note(value.get(key))
                 if text:
                     return text
 
+    if allow_key_label:
         for key, child in value.items():
-            if key in PRODUCT_NOTE_LABEL_KEYS:
-                continue
-            text = _sanitize_product_note(child)
-            if text:
-                return text
+            if _is_product_note_label(key):
+                text = _extract_product_note_from_text(child) or _sanitize_product_note(child)
+                if text:
+                    return text
 
     for key in PRODUCT_NOTE_CONTAINER_KEYS:
         if key in value:
-            text = _extract_labeled_product_note(value.get(key), depth + 1)
+            text = _extract_labeled_product_note(value.get(key), depth + 1, True)
             if text:
                 return text
 
     for child in value.values():
-        text = _extract_labeled_product_note(child, depth + 1)
+        text = _extract_labeled_product_note(child, depth + 1, False)
         if text:
             return text
 
     return ""
 
 
-def _extract_product_note_from_item(item: dict) -> str:
-    for key in PRODUCT_NOTE_FIELD_KEYS:
-        if key not in item:
-            continue
-        value = item.get(key)
-        if isinstance(value, (dict, list)):
-            text = _extract_labeled_product_note(value)
+def _extract_explicit_product_note_text(value: object, depth: int = 0) -> str:
+    if depth > 5 or value is None:
+        return ""
+
+    if isinstance(value, list):
+        for item in value:
+            text = _extract_explicit_product_note_text(item, depth + 1)
             if text:
                 return text
-        text = _sanitize_product_note(item.get(key))
-        if text:
-            return text
+        return ""
 
-    return _extract_labeled_product_note(item)
+    if isinstance(value, dict):
+        for key in PRODUCT_NOTE_VALUE_KEYS:
+            if key in value:
+                text = _extract_product_note_from_text(value.get(key))
+                if text:
+                    return text
+
+        for key in PRODUCT_NOTE_CONTAINER_KEYS:
+            if key in value:
+                text = _extract_explicit_product_note_text(value.get(key), depth + 1)
+                if text:
+                    return text
+
+        return ""
+
+    return _extract_product_note_from_text(value)
+
+
+def _extract_product_note_from_item(item: dict) -> str:
+    return _extract_labeled_product_note(item) or _extract_explicit_product_note_text(item)
 
 
 def _parse_float(value: object, default: float = 0.0) -> float:
@@ -967,7 +1037,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             remains = ?,
-                            description = ?, product_note = COALESCE(NULLIF(?, ''), product_note), image = ?, images = ?,
+                            description = ?, product_note = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?,
