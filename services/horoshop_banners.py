@@ -9,7 +9,7 @@ from html.parser import HTMLParser
 import logging
 import os
 import re
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse, urlunparse
 import urllib.request
 
 import httpx
@@ -22,6 +22,23 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_HOROSHOP_DOMAIN = "dikoros-ua.com"
 PROMOTION_PATH_MARKERS = ("/aktsii", "/akcii", "/sale", "/promotions")
+PRODUCT_ID_QUERY_KEYS = ("id", "product_id", "external_id", "product", "productid")
+PRODUCT_ID_PATH_MARKERS = ("id", "product", "products", "tovar", "tovary", "goods", "item", "p")
+PRODUCT_SKU_QUERY_KEYS = ("sku", "article", "articul", "code", "vendor_code", "parent_sku")
+PRODUCT_URL_COLUMNS = ("link_url", "source_url", "canonical_url", "product_url", "url", "href")
+GENERIC_PRODUCT_URL_TOKENS = {
+    "mix",
+    "miks",
+    "mikrodozinh",
+    "mikrodozing",
+    "microdosing",
+    "kapsul",
+    "kapsuly",
+    "capsule",
+    "capsules",
+    "60",
+    "05",
+}
 
 
 @dataclass
@@ -234,48 +251,158 @@ def _find_category_destination(conn, path: str) -> str:
     return ""
 
 
-def _find_product_destination(conn, path: str) -> str:
-    segments = [segment for segment in path.split("/") if segment]
-    numeric_segments = [segment for segment in segments if segment.isdigit()]
-    for external_id in reversed(numeric_segments):
+def _url_segments(value: str) -> list[str]:
+    return [unquote(segment).strip() for segment in value.split("/") if segment.strip()]
+
+
+def _normalize_product_code(value: object) -> str:
+    return "".join(char for char in _clean_text(value).casefold() if char.isalnum())
+
+
+def _path_code_candidates(segments: list[str]) -> set[str]:
+    candidates: set[str] = set()
+    for segment in segments:
+        normalized = _normalize_product_code(segment)
+        if (
+            len(normalized) >= 4
+            and normalized not in GENERIC_PRODUCT_URL_TOKENS
+            and any(char.isalpha() for char in normalized)
+        ):
+            candidates.add(normalized)
+    return candidates
+
+
+def _query_values(parsed) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    for key, values in parse_qs(parsed.query, keep_blank_values=False).items():
+        normalized_key = str(key or "").strip().lower()
+        if not normalized_key:
+            continue
+        result.setdefault(normalized_key, []).extend(
+            unquote(item).strip() for item in values if str(item or "").strip()
+        )
+    return result
+
+
+def _explicit_product_id_candidates(parsed) -> list[str]:
+    query = _query_values(parsed)
+    candidates: list[str] = []
+    for key in PRODUCT_ID_QUERY_KEYS:
+        candidates.extend(query.get(key, []))
+
+    segments = _url_segments(parsed.path or "")
+    for index, segment in enumerate(segments[:-1]):
+        marker = _slugify(segment)
+        next_segment = segments[index + 1].strip()
+        if marker in PRODUCT_ID_PATH_MARKERS and re.fullmatch(r"[A-Za-z0-9_-]{2,}", next_segment):
+            candidates.append(next_segment)
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for candidate in candidates:
+        value = str(candidate or "").strip()
+        if value and value not in seen:
+            result.append(value)
+            seen.add(value)
+    return result
+
+
+def _explicit_product_sku_candidates(parsed) -> set[str]:
+    query = _query_values(parsed)
+    candidates: set[str] = set()
+    for key in PRODUCT_SKU_QUERY_KEYS:
+        for value in query.get(key, []):
+            normalized = _normalize_product_code(value)
+            if normalized:
+                candidates.add(normalized)
+    candidates.update(_path_code_candidates(_url_segments(parsed.path or "")))
+    return candidates
+
+
+def _find_product_by_external_id(conn, candidates: list[str]) -> str:
+    for external_id in candidates:
         row = conn.execute(
             "SELECT id FROM products WHERE external_id = ? ORDER BY id ASC LIMIT 1",
             (external_id,),
         ).fetchone()
         if row:
             return str(row.get("id"))
+    return ""
 
-    path_slug = _slugify("-".join(segment for segment in segments if not segment.isdigit()))
-    path_tokens = _slug_tokens(path_slug)
-    if not path_slug:
+
+def _find_product_by_sku(conn, candidates: set[str]) -> str:
+    if not candidates:
         return ""
 
-    products = conn.execute(
-        "SELECT id, name, sku FROM products WHERE name IS NOT NULL ORDER BY id ASC"
+    rows = conn.execute(
+        """
+        SELECT id, sku, parent_sku
+        FROM products
+        WHERE (sku IS NOT NULL AND TRIM(sku) != '')
+           OR (parent_sku IS NOT NULL AND TRIM(parent_sku) != '')
+        ORDER BY id ASC
+        """
     ).fetchall()
-    best_id = ""
-    best_score = 0
-    for product in products:
-        sku = _slugify(product.get("sku"))
-        if sku and sku in path_slug:
-            return str(product.get("id"))
+    for row in rows:
+        product_codes = {
+            _normalize_product_code(row.get("sku")),
+            _normalize_product_code(row.get("parent_sku")),
+        }
+        if candidates & {code for code in product_codes if code}:
+            return str(row.get("id"))
+    return ""
 
-        name_slug = _slugify(product.get("name"))
-        name_tokens = _slug_tokens(name_slug)
-        if not name_slug or not name_tokens:
-            continue
-        if name_slug == path_slug:
-            return str(product.get("id"))
 
-        overlap = len(name_tokens & path_tokens)
-        score = overlap * 10
-        if name_slug in path_slug or path_slug in name_slug:
-            score += 25
-        if overlap >= 2 and score > best_score:
-            best_id = str(product.get("id"))
-            best_score = score
+def _existing_product_url_columns(conn) -> list[str]:
+    placeholders = ",".join(["?"] * len(PRODUCT_URL_COLUMNS))
+    rows = conn.execute(
+        f"""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'products'
+          AND column_name IN ({placeholders})
+        """,
+        PRODUCT_URL_COLUMNS,
+    ).fetchall()
+    return [str(row.get("column_name") or "").strip() for row in rows if row.get("column_name")]
 
-    return best_id if best_score >= 20 else ""
+
+def _find_product_by_source_url(conn, absolute_url: str, site_url: str) -> str:
+    columns = _existing_product_url_columns(conn)
+    if not columns:
+        return ""
+
+    target_key = _url_key(absolute_url)
+    select_columns = ", ".join(columns)
+    where_sql = " OR ".join(f"({column} IS NOT NULL AND TRIM({column}) != '')" for column in columns)
+    rows = conn.execute(
+        f"""
+        SELECT id, {select_columns}
+        FROM products
+        WHERE {where_sql}
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    for row in rows:
+        for column in columns:
+            product_url = _canonical_url(str(row.get(column) or ""), site_url)
+            if product_url and _url_key(product_url) == target_key:
+                return str(row.get("id"))
+    return ""
+
+
+def _find_product_destination(conn, absolute_url: str, site_url: str) -> str:
+    parsed = urlparse(absolute_url)
+
+    product_id = _find_product_by_external_id(conn, _explicit_product_id_candidates(parsed))
+    if product_id:
+        return product_id
+
+    product_id = _find_product_by_sku(conn, _explicit_product_sku_candidates(parsed))
+    if product_id:
+        return product_id
+
+    return _find_product_by_source_url(conn, absolute_url, site_url)
 
 
 def resolve_banner_destination(
@@ -296,7 +423,7 @@ def resolve_banner_destination(
     if any(marker in path for marker in PROMOTION_PATH_MARKERS):
         return {"link_type": "promotions", "link_value": "", "source_url": absolute_url}
 
-    product_id = _find_product_destination(conn, path)
+    product_id = _find_product_destination(conn, absolute_url, site_url)
     if product_id:
         return {"link_type": "product", "link_value": product_id, "source_url": absolute_url}
 

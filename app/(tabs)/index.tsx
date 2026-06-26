@@ -783,12 +783,6 @@ const slugifyBannerValue = (value: any) => {
     .replace(/^-+|-+$/g, '');
 };
 
-const getBannerSlugTokens = (value: any) => {
-  return slugifyBannerValue(value)
-    .split('-')
-    .filter(token => token.length > 1);
-};
-
 const getMeaningfulBannerSlugs = (url: URL) => {
   return getDikorosBannerSegments(url)
     .map(segment => slugifyBannerValue(segment))
@@ -841,63 +835,25 @@ const findBannerProductIdByValues = (values: any[], productGroups: any[][]) => {
 };
 
 const getBannerUrlIdCandidates = (url: URL) => {
-  const candidates = getDikorosBannerSegments(url).filter(segment => /^\d+$/.test(segment));
-  ['id', 'product', 'product_id', 'external_id'].forEach(key => {
+  const candidates: string[] = [];
+  const queryKeys = ['id', 'product', 'product_id', 'external_id', 'sku', 'article', 'articul', 'code', 'parent_sku'];
+  const pathMarkers = new Set(['id', 'product', 'products', 'sku', 'article', 'articul', 'code', 'parent-sku']);
+
+  queryKeys.forEach(key => {
     const value = url.searchParams.get(key);
     if (value) candidates.push(value);
   });
+
+  const segments = getDikorosBannerSegments(url);
+  segments.forEach((segment, index) => {
+    const marker = slugifyBannerValue(segment);
+    const nextSegment = segments[index + 1];
+    if (pathMarkers.has(marker) && nextSegment) {
+      candidates.push(nextSegment);
+    }
+  });
+
   return candidates;
-};
-
-const findBannerProductIdByUrlSlug = (url: URL, productGroups: any[][]) => {
-  const meaningfulSlugs = getMeaningfulBannerSlugs(url);
-  const lastSlug = meaningfulSlugs[meaningfulSlugs.length - 1] || '';
-  if (!lastSlug) return '';
-
-  const lastTokens = new Set(getBannerSlugTokens(lastSlug));
-  let bestId = '';
-  let bestScore = 0;
-
-  for (const product of getBannerProductPool(...productGroups)) {
-    const productId = String(product?.id ?? '').trim();
-    if (!productId) continue;
-
-    const exactSlugs = [
-      product?.slug,
-      product?.alias,
-      product?.url_slug,
-      product?.external_id,
-      product?.sku,
-    ].map(slugifyBannerValue).filter(Boolean);
-
-    if (exactSlugs.some(slug => slug === lastSlug)) {
-      return productId;
-    }
-
-    const nameSlug = slugifyBannerValue(product?.name);
-    const nameTokens = new Set(getBannerSlugTokens(product?.name));
-    if (!nameSlug || nameTokens.size === 0) continue;
-
-    let score = 0;
-    if (nameSlug === lastSlug) {
-      score += 100;
-    } else if (lastSlug.length >= 8 && (lastSlug.includes(nameSlug) || nameSlug.includes(lastSlug))) {
-      score += 25;
-    }
-
-    let overlap = 0;
-    nameTokens.forEach(token => {
-      if (lastTokens.has(token)) overlap += 1;
-    });
-    score += overlap * 10;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestId = productId;
-    }
-  }
-
-  return bestScore >= 30 ? bestId : '';
 };
 
 const findBannerCategoryByUrl = (url: URL, categories: any[]) => {
@@ -1067,12 +1023,6 @@ export default function Index() {
 
       const category = findBannerCategoryByUrl(parsed, homeCategories);
       if (category && openCategory(category)) {
-        return true;
-      }
-
-      const productIdBySlug = findBannerProductIdByUrlSlug(parsed, productGroups);
-      if (productIdBySlug) {
-        router.push(`/product/${productIdBySlug}` as any);
         return true;
       }
 
