@@ -847,6 +847,38 @@ const getMeaningfulBannerSlugs = (url: URL) => {
     .filter(slug => slug && !DIKOROS_PATH_STOP_WORDS.has(slug));
 };
 
+const DIKOROS_SEO_CATEGORY_FILTERS: Record<string, { category: string; raw_materials: string[]; package_forms?: string[] }> = {
+  'hryb-chaha-u-mikrodozynhu': {
+    category: 'Мікродозінг',
+    raw_materials: ['Чага'],
+  },
+  'mikrodozynh-kordytseps-viiskovyi': {
+    category: 'Мікродозінг',
+    raw_materials: ['Кордицепс військовий'],
+  },
+  'mikrodozynh-mukhomor-chervonyi': {
+    category: 'Мікродозінг',
+    raw_materials: ['Мухомор червоний'],
+  },
+  'mikrodozinh-yizhovyka-hrebinchastoho': {
+    category: 'Мікродозінг',
+    raw_materials: ['Їжовик гребінчастий'],
+  },
+  'uvaha-zapuskaiemo-aktsiiu-hryb-misiatsia': {
+    category: 'Мікродозінг',
+    raw_materials: ['Лисичка'],
+  },
+};
+
+const findDikorosSeoCategoryFilterPayload = (url: URL) => {
+  const slugs = getDikorosBannerSegments(url).map(segment => slugifyBannerValue(segment)).filter(Boolean);
+  for (const slug of slugs) {
+    const payload = DIKOROS_SEO_CATEGORY_FILTERS[slug];
+    if (payload) return payload;
+  }
+  return null;
+};
+
 const getBannerProductPool = (...groups: any[][]) => {
   const byKey = new Map<string, any>();
 
@@ -1119,6 +1151,11 @@ export default function Index() {
 
       const path = getDikorosBannerPath(parsed);
       const sourceUrl = parsed.toString();
+
+      const seoFilterPayload = findDikorosSeoCategoryFilterPayload(parsed);
+      if (seoFilterPayload && openCategoryFilter(seoFilterPayload)) {
+        return true;
+      }
 
       if (isDikorosPromotionPath(path)) {
         router.push('/news' as any);
