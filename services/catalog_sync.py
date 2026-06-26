@@ -337,6 +337,146 @@ def _sanitize_description(value: object) -> str:
     return text
 
 
+PRODUCT_NOTE_FIELD_KEYS = (
+    "product_note",
+    "productNote",
+    "note",
+    "notes",
+    "annotation",
+    "annotations",
+    "short_description",
+    "shortDescription",
+    "preview_text",
+    "previewText",
+)
+
+PRODUCT_NOTE_CONTAINER_KEYS = (
+    "tabs",
+    "product_tabs",
+    "sections",
+    "blocks",
+    "attributes",
+    "properties",
+    "features",
+    "params",
+    "parameters",
+    "characteristics",
+    "characts",
+    "chars",
+    "additional_fields",
+    "extra_fields",
+)
+
+PRODUCT_NOTE_LABEL_KEYS = ("title", "name", "label", "caption", "key", "code")
+PRODUCT_NOTE_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
+PRODUCT_NOTE_CONTENT_KEYS = ("value", "text", "content", "html", "description", "body")
+PRODUCT_NOTE_VALUE_KEYS = (*PRODUCT_NOTE_CONTENT_KEYS, *PRODUCT_NOTE_LOCALE_KEYS)
+PRODUCT_NOTE_LABELS = {"примітка", "примечание", "note", "notes"}
+
+
+def _product_note_text_candidate(value: object) -> str:
+    if value is None or isinstance(value, (bool, int, float)):
+        return ""
+    if isinstance(value, dict):
+        for key in PRODUCT_NOTE_LOCALE_KEYS:
+            if key in value:
+                text = _product_note_text_candidate(value.get(key))
+                if text:
+                    return text
+        for key in PRODUCT_NOTE_CONTENT_KEYS:
+            if key in value:
+                text = _product_note_text_candidate(value.get(key))
+                if text:
+                    return text
+        return ""
+    if isinstance(value, list):
+        texts = [_product_note_text_candidate(item) for item in value]
+        return "\n".join(text for text in texts if text).strip()
+    return _clean_text_value(value)
+
+
+def _normalize_product_note_label(value: object) -> str:
+    text = _product_note_text_candidate(value) if isinstance(value, dict) else str(value or "")
+    text = _clean_text_value(text).casefold()
+    text = re.sub(r"[\s:：.]+$", "", text)
+    return re.sub(r"\s+", " ", text)
+
+
+def _is_product_note_label(value: object) -> bool:
+    return _normalize_product_note_label(value) in PRODUCT_NOTE_LABELS
+
+
+def _sanitize_product_note(value: object) -> str:
+    text = _product_note_text_candidate(value)
+    if not text:
+        return ""
+    return _sanitize_description(text)
+
+
+def _extract_labeled_product_note(value: object, depth: int = 0) -> str:
+    if depth > 5 or value is None:
+        return ""
+
+    if isinstance(value, list):
+        for item in value:
+            text = _extract_labeled_product_note(item, depth + 1)
+            if text:
+                return text
+        return ""
+
+    if not isinstance(value, dict):
+        return ""
+
+    for key, child in value.items():
+        if _is_product_note_label(key):
+            text = _sanitize_product_note(child)
+            if text:
+                return text
+
+    if any(_is_product_note_label(value.get(key)) for key in PRODUCT_NOTE_LABEL_KEYS):
+        for key in PRODUCT_NOTE_VALUE_KEYS:
+            if key in value and key not in PRODUCT_NOTE_LABEL_KEYS:
+                text = _sanitize_product_note(value.get(key))
+                if text:
+                    return text
+
+        for key, child in value.items():
+            if key in PRODUCT_NOTE_LABEL_KEYS:
+                continue
+            text = _sanitize_product_note(child)
+            if text:
+                return text
+
+    for key in PRODUCT_NOTE_CONTAINER_KEYS:
+        if key in value:
+            text = _extract_labeled_product_note(value.get(key), depth + 1)
+            if text:
+                return text
+
+    for child in value.values():
+        text = _extract_labeled_product_note(child, depth + 1)
+        if text:
+            return text
+
+    return ""
+
+
+def _extract_product_note_from_item(item: dict) -> str:
+    for key in PRODUCT_NOTE_FIELD_KEYS:
+        if key not in item:
+            continue
+        value = item.get(key)
+        if isinstance(value, (dict, list)):
+            text = _extract_labeled_product_note(value)
+            if text:
+                return text
+        text = _sanitize_product_note(item.get(key))
+        if text:
+            return text
+
+    return _extract_labeled_product_note(item)
+
+
 def _parse_float(value: object, default: float = 0.0) -> float:
     try:
         return float(value or default)
@@ -772,6 +912,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 variant_name = _localized_value(item.get("mod_title") or {})
                 title = _safe_product_title(item)
                 description = _sanitize_description(item.get("description") or {})
+                product_note = _extract_product_note_from_item(item)
                 site_url = primary_product_url(item, domain)
 
                 parent_obj = item.get("parent") or {}
@@ -826,7 +967,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             remains = ?,
-                            description = ?, image = ?, images = ?,
+                            description = ?, product_note = COALESCE(NULLIF(?, ''), product_note), image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?,
@@ -842,6 +983,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             status,
                             remains,
                             description,
+                            product_note,
                             img,
                             images_str,
                             parent_sku,
@@ -864,12 +1006,12 @@ async def sync_catalog_from_horoshop() -> dict:
                     cur.execute(
                         """
                         INSERT INTO products (
-                            sku, name, price, category, status, description,
+                            sku, name, price, category, status, description, product_note,
                             remains, image, images, parent_sku, variant_name, external_id,
                             variant_options, is_hit, is_promotion, is_new,
                             old_price, discount, sort_order, site_url, canonical_url, source_url
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -878,6 +1020,7 @@ async def sync_catalog_from_horoshop() -> dict:
                             category,
                             status,
                             description,
+                            product_note,
                             remains,
                             img,
                             images_str,

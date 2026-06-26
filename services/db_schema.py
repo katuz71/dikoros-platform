@@ -26,6 +26,7 @@ def fix_db_schema():
             old_price DOUBLE PRECISION,
             unit TEXT DEFAULT 'шт',
             description TEXT,
+            product_note TEXT,
             usage TEXT,
             composition TEXT,
             delivery_info TEXT,
@@ -227,6 +228,7 @@ def fix_db_schema():
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS cashback_percent INTEGER DEFAULT 5")
     c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_manually_edited BOOLEAN DEFAULT FALSE")
+    c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS product_note TEXT")
     
     try:
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT")

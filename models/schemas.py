@@ -19,6 +19,7 @@ class ProductCreate(BaseModel):
     image: Optional[str] = None
     images: Optional[str] = None
     description: Optional[str] = None
+    product_note: Optional[str] = None
     usage: Optional[str] = None
     composition: Optional[str] = None
     old_price: Optional[float] = None
@@ -44,6 +45,7 @@ class ProductUpdate(BaseModel):
     image: Optional[str] = None
     images: Optional[str] = None
     description: Optional[str] = None
+    product_note: Optional[str] = None
     usage: Optional[str] = None
     composition: Optional[str] = None
     old_price: Optional[float] = None
@@ -76,6 +78,7 @@ class ProductResponse(BaseModel):
     cashback_percent: int = 5
     unit: Optional[str] = "шт"
     description: Optional[str] = None
+    product_note: Optional[str] = None
     usage: Optional[str] = None
     composition: Optional[str] = None
     pack_sizes: Optional[Any] = None

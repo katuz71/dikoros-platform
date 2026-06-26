@@ -149,7 +149,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [localAddedToCart, setLocalAddedToCart] = React.useState(false);
   const [selectedQuantity, setSelectedQuantity] = React.useState(1);
   const [quantityMenuOpen, setQuantityMenuOpen] = React.useState(false);
-  const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
   const [infoModalKey, setInfoModalKey] = React.useState<InfoModalKey | null>(null);
   const insets = useSafeAreaInsets();
   const { footerVisible: productFooterVisible, handleFooterScroll: handlePageScroll } = useAppFooterAutoHide();
@@ -169,7 +168,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   }, [selectedSignature]);
 
   React.useEffect(() => {
-    setDescriptionExpanded(false);
     setInfoModalKey(null);
   }, [product?.id]);
 
@@ -337,7 +335,11 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     return horoshopDescriptionSections.description || normalizeText(product?.description);
   }, [horoshopDescriptionSections.description, normalizeText, product?.description]);
 
-  const productInfoDisplayText = productInfoText || 'Опис товару буде оновлено найближчим часом.';
+  const productNoteText = React.useMemo(() => {
+    return normalizeText(product?.product_note ?? product?.productNote);
+  }, [normalizeText, product?.product_note, product?.productNote]);
+
+  const productNoteDisplayText = productNoteText || 'Примітка буде оновлена найближчим часом.';
 
   const modalText = React.useMemo(() => {
     const instruction = normalizeText(product?.usage || product?.instruction || product?.instructions) || horoshopDescriptionSections.instruction;
@@ -381,16 +383,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   );
 
   const renderProductInfo = (text: string) => {
-    const paragraphs = String(text || '')
-      .split(/\n{2,}|\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const intro = paragraphs[0] || 'Опис товару буде оновлено найближчим часом.';
-    const details = paragraphs.slice(1);
-    const hasMore = details.length > 2;
-    const visibleDetails = descriptionExpanded ? details : details.slice(0, 2);
-
     return (
       <View style={styles.productInfoBlock}>
         <Text style={styles.infoSectionTitle}>Інформація про продукт</Text>
@@ -406,30 +398,8 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             </View>
           </View>
 
-          <Text style={styles.infoHeading}>Коротко про товар</Text>
-          <Text style={styles.infoText}>{intro}</Text>
-
-          {visibleDetails.length > 0 && (
-            <>
-              <Text style={styles.infoHeading}>Детальніше</Text>
-              {visibleDetails.map((item, index) => (
-                <Text key={`detail-${index}`} style={styles.infoText}>{item}</Text>
-              ))}
-            </>
-          )}
-
-          {hasMore && !descriptionExpanded && <View style={styles.infoFade} pointerEvents="none" />}
-
-          {hasMore && (
-            <TouchableOpacity
-              onPress={() => setDescriptionExpanded(value => !value)}
-              style={styles.expandButton}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.expandButtonText}>{descriptionExpanded ? 'Згорнути' : 'Розгорнути'}</Text>
-              <Ionicons name={descriptionExpanded ? 'chevron-up' : 'chevron-down'} size={17} color="#374151" />
-            </TouchableOpacity>
-          )}
+          <Text style={styles.infoHeading}>Примітка</Text>
+          <Text style={styles.infoText}>{text}</Text>
         </View>
       </View>
     );
@@ -544,7 +514,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             </View>
           )}
 
-          {renderProductInfo(productInfoDisplayText)}
+          {renderProductInfo(productNoteDisplayText)}
 
           <View style={styles.infoModalRows}>
             {!!modalText.description && renderInfoRow('description', 'Опис')}
@@ -713,9 +683,6 @@ const styles = StyleSheet.create({
   infoCardNote: { fontSize: 13.5, lineHeight: 18, color: '#6B7280' },
   infoHeading: { fontSize: 17, fontWeight: '900', color: '#111827', marginTop: 10, marginBottom: 8 },
   infoText: { fontSize: 16, lineHeight: 24, color: '#2F343B', marginBottom: 10 },
-  infoFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, backgroundColor: 'rgba(255,255,255,0.88)' },
-  expandButton: { position: 'absolute', alignSelf: 'center', bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 18, height: 38, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 },
-  expandButtonText: { fontSize: 15, fontWeight: '700', color: '#111827' },
   infoModalRows: { backgroundColor: '#F7F8F6', borderRadius: 16, paddingVertical: 6, marginBottom: 30 },
   infoModalRow: { minHeight: 58, backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 18, marginHorizontal: 0, marginVertical: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#EEF0F2' },
   infoModalRowText: { flex: 1, color: '#111827', fontSize: 17, fontWeight: '900', paddingRight: 12 },

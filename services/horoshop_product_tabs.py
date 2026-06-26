@@ -12,7 +12,7 @@ import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
-from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _localized_value
+from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _extract_product_note_from_item, _localized_value
 from services.horoshop_product_urls import product_url_candidates
 
 
@@ -60,6 +60,12 @@ SECTION_ALIASES = {
         "обмін і повернення",
         "обмін та повернення",
         "гарантія",
+    },
+    "product_note": {
+        "примітка",
+        "примечание",
+        "note",
+        "notes",
     },
 }
 
@@ -124,6 +130,8 @@ def _section_key_from_tab_id(tab_id: str) -> str | None:
         return "delivery_info"
     if "povern" in normalized or "obmin" in normalized:
         return "return_info"
+    if "prymit" in normalized or "primit" in normalized or "primechan" in normalized or "note" in normalized:
+        return "product_note"
 
     return None
 
@@ -254,14 +262,24 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
 
     for match in tab_pattern.finditer(source):
         tab_id = unescape(match.group("tab_id")).strip()
-        key = _section_key_from_tab_id(tab_id)
-        if not key:
-            continue
-
         block_html = _find_balanced_element_html(source, match.start(), "div")
         text = _clean_tab_text(_html_to_text(block_html))
         if not text:
             continue
+
+        key = _section_key_from_tab_id(tab_id)
+        if not key:
+            first_line = next((line for line in text.splitlines() if _clean_text(line)), "")
+            key = _heading_key(first_line)
+        if not key:
+            continue
+
+        if key == "product_note":
+            lines = [line for line in text.splitlines() if _clean_text(line)]
+            if lines and _heading_key(lines[0]) == "product_note":
+                text = _clean_text("\n".join(lines[1:]))
+                if not text:
+                    continue
 
         max_len = 60000 if key == "description" else 25000
         if len(text) > max_len:
@@ -298,6 +316,12 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
     fallback_composition = ""
     fallback_delivery = ""
     fallback_return = ""
+    fallback_product_note = ""
+
+    for item in items:
+        fallback_product_note = _extract_product_note_from_item(item)
+        if fallback_product_note:
+            break
 
     best_sections = {key: "" for key in SECTION_KEYS}
     used_url = None
@@ -327,6 +351,7 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
             "composition": best_sections.get("composition") or fallback_composition,
             "delivery_info": best_sections.get("delivery_info") or fallback_delivery,
             "return_info": best_sections.get("return_info") or fallback_return,
+            "product_note": best_sections.get("product_note") or fallback_product_note,
         },
     }
 
@@ -386,7 +411,7 @@ async def sync_horoshop_product_tabs() -> dict:
                 continue
 
             site_url = _clean_text(result.get("url") or result.get("site_url"))
-            has_content = any(_clean_text(sections.get(key)) for key in ("description", "usage", "composition", "delivery_info", "return_info"))
+            has_content = any(_clean_text(sections.get(key)) for key in ("description", "usage", "composition", "delivery_info", "return_info", "product_note"))
             if not has_content and not site_url:
                 continue
 
@@ -404,6 +429,7 @@ async def sync_horoshop_product_tabs() -> dict:
                     composition = COALESCE(NULLIF(?, ''), composition),
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
                     return_info = COALESCE(NULLIF(?, ''), return_info),
+                    product_note = COALESCE(NULLIF(?, ''), product_note),
                     site_url = COALESCE(NULLIF(?, ''), site_url),
                     canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
                     source_url = COALESCE(NULLIF(?, ''), source_url)
@@ -415,6 +441,7 @@ async def sync_horoshop_product_tabs() -> dict:
                     _clean_text(sections.get("composition")),
                     _clean_text(sections.get("delivery_info")),
                     _clean_text(sections.get("return_info")),
+                    _clean_text(sections.get("product_note")),
                     site_url,
                     site_url,
                     site_url,

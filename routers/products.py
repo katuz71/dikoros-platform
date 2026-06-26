@@ -20,7 +20,7 @@ router = APIRouter()
 PRODUCT_SELECT_FIELDS = """
     id, sku, name, price, discount, COALESCE(cashback_percent, 5) AS cashback_percent,
     image, images, category, pack_sizes,
-    old_price, unit, description, usage, composition, delivery_info, return_info,
+    old_price, unit, description, product_note, usage, composition, delivery_info, return_info,
     variants, option_names, variant_options, external_id, is_bestseller, is_promotion, is_new,
     is_hit, status, remains, parent_sku, variant_name, sort_order,
     home_hit_order, home_new_order, home_promotion_order
@@ -473,6 +473,7 @@ def _parse_product_form(form, default_cashback_percent=5) -> tuple:
     category = _str("category")
     images = _str("images")
     description = _str("description")
+    product_note = _str("product_note")
     usage = _str("usage")
     composition = _str("composition")
     old_price = _float("old_price")
@@ -506,7 +507,7 @@ def _parse_product_form(form, default_cashback_percent=5) -> tuple:
             variants_json = None
     else:
         variants_json = None
-    return (name, price, category, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new)
+    return (name, price, category, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new)
 
 
 @router.post("/products")
@@ -522,7 +523,7 @@ async def create_product(request: Request):
             image_path = item.image
             name, price, category = item.name, item.price, item.category
             images = item.images
-            description, usage, composition = item.description, item.usage, item.composition
+            description, product_note, usage, composition = item.description, item.product_note, item.usage, item.composition
             old_price, unit = item.old_price, item.unit
             discount = int(getattr(item, "discount", 0) or 0)
             cashback_percent = normalize_cashback_percent(item.cashback_percent, 5)
@@ -542,7 +543,7 @@ async def create_product(request: Request):
                 if isinstance(image_path, str) and not image_path:
                     image_path = None
 
-            name, price, category, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new = _parse_product_form(form)
+            name, price, category, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new = _parse_product_form(form)
             discount = int(form.get("discount", 0) or 0)
 
         if not str(name or "").strip():
@@ -551,9 +552,9 @@ async def create_product(request: Request):
             raise HTTPException(status_code=400, detail="Product price must be greater than zero")
 
         conn.execute("""
-            INSERT INTO products (name, price, category, image, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, price, category, image_path, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new))
+            INSERT INTO products (name, price, category, image, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, price, category, image_path, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new))
         conn.commit()
         return {"status": "ok"}
     finally:
@@ -565,7 +566,7 @@ async def update_product(id: int, request: Request):
     conn = get_db_connection()
     try:
         row = conn.execute(
-            "SELECT id, name, price, category, image, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new FROM products WHERE id=?",
+            "SELECT id, name, price, category, image, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new FROM products WHERE id=?",
             (id,),
         ).fetchone()
 
@@ -602,6 +603,7 @@ async def update_product(id: int, request: Request):
                 images = row.get("images")
 
             description = _get("description")
+            product_note = _get("product_note")
             usage = _get("usage")
             composition = _get("composition")
             old_price = _get("old_price")
@@ -629,7 +631,7 @@ async def update_product(id: int, request: Request):
                 if isinstance(image_path, str) and not image_path:
                     image_path = None
 
-            name, price, category, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new = _parse_product_form(
+            name, price, category, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new = _parse_product_form(
                 form,
                 row.get("cashback_percent") if row.get("cashback_percent") is not None else 5,
             )
@@ -646,9 +648,9 @@ async def update_product(id: int, request: Request):
             raise HTTPException(status_code=400, detail="Product price must be greater than zero")
 
         cur = conn.execute("""
-            UPDATE products SET name=?, price=?, category=?, image=?, images=?, description=?, usage=?, composition=?, old_price=?, discount=?, cashback_percent=?, unit=?, variants=?, option_names=?, delivery_info=?, return_info=?, is_bestseller=?, is_promotion=?, is_new=?, is_manually_edited=?
+            UPDATE products SET name=?, price=?, category=?, image=?, images=?, description=?, product_note=?, usage=?, composition=?, old_price=?, discount=?, cashback_percent=?, unit=?, variants=?, option_names=?, delivery_info=?, return_info=?, is_bestseller=?, is_promotion=?, is_new=?, is_manually_edited=?
             WHERE id=?
-        """, (name, price, category, image_path, images, description, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new, True, id))
+        """, (name, price, category, image_path, images, description, product_note, usage, composition, old_price, discount, cashback_percent, unit, variants_json, option_names, delivery_info, return_info, is_bestseller, is_promotion, is_new, True, id))
         conn.commit()
 
         updated_count = getattr(cur, "rowcount", 0)

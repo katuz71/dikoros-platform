@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > Every new chat working on `dikoros-platform` must begin by reading this document in full. This is mandatory before any product, catalog, sync, product API, frontend variant, price, stock, category, image, or Horoshop work. Do not work from memory or from an older chat summary.
 
-Last updated: 2026-06-20
+Last updated: 2026-06-26
 
 This document is the source of truth for product/catalog behavior in the DikorosUA app. Future chats must read this file before changing product sync, catalog endpoints, product cards, categories, homepage sections, variants, images, prices, discounts, stock status, or Horoshop integration.
 
@@ -50,7 +50,7 @@ Project data flow:
 The mobile app catalog must be a live clone of the website catalog as much as possible:
 
 1. Horoshop / website catalog is the source of truth.
-2. Product names, prices, old prices, discounts, descriptions, images, stock status, categories, SKU/article, variants, hits, new products, and promotions must come from Horoshop.
+2. Product names, prices, old prices, discounts, descriptions, product notes, images, stock status, categories, SKU/article, variants, hits, new products, and promotions must come from Horoshop.
 3. The app must not require manual product edits after normal website updates.
 4. If the website catalog changes, the app catalog should update automatically through the backend sync.
 5. Manual sync is available for immediate refresh.
@@ -180,6 +180,7 @@ Synced fields include:
 - `category`
 - `status`
 - `description`
+- `product_note`
 - `image`
 - `images`
 - `parent_sku`
@@ -192,6 +193,17 @@ Synced fields include:
 - `old_price`
 - `discount`
 - `sort_order`
+
+## Product note / mobile overview
+
+The mobile product detail card `Огляд продукту` must show only the website/Horoshop `Примітка` text stored in `products.product_note`.
+
+Rules:
+
+- `products.description` remains available for the existing product information modal rows and long tab content.
+- `products.product_note` is synced separately from explicit Horoshop note fields and product page tabs/sections labeled `Примітка`.
+- If `product_note` is empty, the mobile fallback text is `Примітка буде оновлена найближчим часом.`
+- Do not rebuild the overview card from generated descriptions or from the old `Коротко про товар` / `Детальніше` split.
 
 ## Product status / stock rules
 
