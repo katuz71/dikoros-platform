@@ -424,6 +424,7 @@ const RAW_MATERIAL_STOP_WORDS = [
 
 const CANONICAL_RAW_MATERIAL_PATTERNS: { label: string; patterns: RegExp[] }[] = [
   { label: 'Чага', patterns: [/чаг/i] },
+  { label: 'Лисичка', patterns: [/лисич/i, /cantharell/i] },
   { label: 'Кордицепс військовий', patterns: [/кордицепс/i] },
   {
     label: 'Мухомор червоний',

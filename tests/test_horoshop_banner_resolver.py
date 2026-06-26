@@ -92,6 +92,9 @@ class HoroshopBannerResolverTests(unittest.TestCase):
             "https://dikoros-ua.com/mikrodozinh-yizhovyka-hrebinchastoho/": [
                 "\u0407\u0436\u043e\u0432\u0438\u043a \u0433\u0440\u0435\u0431\u0456\u043d\u0447\u0430\u0441\u0442\u0438\u0439"
             ],
+            "https://dikoros-ua.com/uvaha-zapuskaiemo-aktsiiu-hryb-misiatsia/": [
+                "\u041b\u0438\u0441\u0438\u0447\u043a\u0430"
+            ],
             "https://dikoros-ua.com/mikrodozinh/filter/Sirovyna=25/": ["\u0427\u0430\u0433\u0430"],
         }
         conn = FakeConnection([])
