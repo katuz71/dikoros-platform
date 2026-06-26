@@ -25,7 +25,7 @@ PROMOTION_PATH_MARKERS = ("/aktsii", "/akcii", "/sale", "/promotions")
 PRODUCT_ID_QUERY_KEYS = ("id", "product_id", "external_id", "product", "productid")
 PRODUCT_ID_PATH_MARKERS = ("id", "product", "products", "tovar", "tovary", "goods", "item", "p")
 PRODUCT_SKU_QUERY_KEYS = ("sku", "article", "articul", "code", "vendor_code", "parent_sku")
-PRODUCT_URL_COLUMNS = ("link_url", "source_url", "canonical_url", "product_url", "url", "href")
+PRODUCT_URL_COLUMNS = ("site_url", "canonical_url", "source_url", "link_url", "product_url", "url", "href")
 GENERIC_PRODUCT_URL_TOKENS = {
     "mix",
     "miks",

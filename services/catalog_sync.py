@@ -18,6 +18,7 @@ import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
+from services.horoshop_product_urls import primary_product_url
 from services.variant_options import build_variant_options
 
 
@@ -771,6 +772,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 variant_name = _localized_value(item.get("mod_title") or {})
                 title = _safe_product_title(item)
                 description = _sanitize_description(item.get("description") or {})
+                site_url = primary_product_url(item, domain)
 
                 parent_obj = item.get("parent") or {}
                 category = parent_obj.get("value") or "Загальне"
@@ -827,7 +829,10 @@ async def sync_catalog_from_horoshop() -> dict:
                             description = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
-                            old_price = ?, discount = ?, sort_order = ?, external_id = ?
+                            old_price = ?, discount = ?, sort_order = ?, external_id = ?,
+                            site_url = COALESCE(NULLIF(?, ''), site_url),
+                            canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
+                            source_url = COALESCE(NULLIF(?, ''), source_url)
                         WHERE id = ?
                         """,
                         (
@@ -849,6 +854,9 @@ async def sync_catalog_from_horoshop() -> dict:
                             discount_percent,
                             sort_order,
                             external_id,
+                            site_url,
+                            site_url,
+                            site_url,
                             product_id,
                         ),
                     )
@@ -859,9 +867,9 @@ async def sync_catalog_from_horoshop() -> dict:
                             sku, name, price, category, status, description,
                             remains, image, images, parent_sku, variant_name, external_id,
                             variant_options, is_hit, is_promotion, is_new,
-                            old_price, discount, sort_order
+                            old_price, discount, sort_order, site_url, canonical_url, source_url
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -883,6 +891,9 @@ async def sync_catalog_from_horoshop() -> dict:
                             old_price,
                             discount_percent,
                             sort_order,
+                            site_url,
+                            site_url,
+                            site_url,
                         ),
                     )
                 count += 1

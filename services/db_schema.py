@@ -46,7 +46,10 @@ def fix_db_schema():
             sort_order INTEGER,
             home_hit_order INTEGER,
             home_new_order INTEGER,
-            home_promotion_order INTEGER
+            home_promotion_order INTEGER,
+            site_url TEXT,
+            canonical_url TEXT,
+            source_url TEXT
         )
     ''')
 
@@ -235,6 +238,9 @@ def fix_db_schema():
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_hit_order INTEGER")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_new_order INTEGER")
         c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS home_promotion_order INTEGER")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS site_url TEXT")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS canonical_url TEXT")
+        c.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS source_url TEXT")
     except Exception:
         pass
     try:

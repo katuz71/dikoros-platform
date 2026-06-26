@@ -7,37 +7,19 @@ import logging
 import os
 import re
 from html import unescape
-from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
 from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _localized_value
+from services.horoshop_product_urls import product_url_candidates
 
 
 logger = logging.getLogger(__name__)
 
 PRODUCT_TAB_CONCURRENCY = int(os.getenv("HOROSHOP_PRODUCT_TAB_CONCURRENCY", "8") or "8")
 PRODUCT_TAB_MAX_GROUPS = int(os.getenv("HOROSHOP_PRODUCT_TAB_MAX_GROUPS", "0") or "0")
-
-URL_FIELD_NAMES = {
-    "url",
-    "href",
-    "link",
-    "canonical",
-    "product_url",
-    "site_url",
-    "web_url",
-    "url_ua",
-    "url_uk",
-    "url_ru",
-    "slug",
-    "alias",
-    "path",
-}
-
-IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".avif")
 
 SECTION_ALIASES = {
     "description": {
@@ -296,84 +278,6 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
 
     return sections
 
-def _is_product_page_url(candidate: str, domain: str) -> bool:
-    value = str(candidate or "").strip()
-    if not value:
-        return False
-    if value.startswith("#") or value.startswith("javascript:") or value.startswith("mailto:") or value.startswith("tel:"):
-        return False
-
-    parsed = urlparse(value)
-    path = parsed.path or value
-    if path.lower().endswith(IMAGE_EXTENSIONS):
-        return False
-    if any(part in path.lower() for part in ("/assets/", "/static/", "/uploads/", "/content/images/", "/api/")):
-        return False
-
-    if parsed.netloc and domain.replace("www.", "") not in parsed.netloc.replace("www.", ""):
-        return False
-
-    return True
-
-
-def _normalize_product_url(candidate: str, domain: str) -> str | None:
-    value = str(candidate or "").strip()
-    if not _is_product_page_url(value, domain):
-        return None
-
-    if value.startswith(("http://", "https://")):
-        url = value
-    else:
-        url = urljoin(f"https://{domain}/", value.lstrip("/"))
-
-    return url.split("#", 1)[0]
-
-
-def _walk_url_candidates(value: object, domain: str, out: list[str], parent_key: str = "") -> None:
-    if isinstance(value, dict):
-        for key, nested in value.items():
-            lowered = str(key or "").casefold()
-            if lowered in URL_FIELD_NAMES or any(token in lowered for token in ("url", "href", "link", "slug", "alias")):
-                if isinstance(nested, (str, int, float)):
-                    url = _normalize_product_url(str(nested), domain)
-                    if url:
-                        out.append(url)
-                else:
-                    _walk_url_candidates(nested, domain, out, lowered)
-            elif isinstance(nested, (dict, list, tuple)):
-                _walk_url_candidates(nested, domain, out, lowered)
-        return
-
-    if isinstance(value, (list, tuple)):
-        for nested in value:
-            _walk_url_candidates(nested, domain, out, parent_key)
-
-
-def product_url_candidates(item: dict, domain: str) -> list[str]:
-    candidates: list[str] = []
-
-    for key in URL_FIELD_NAMES:
-        raw = item.get(key)
-        if raw is None:
-            continue
-        if isinstance(raw, dict):
-            raw = _localized_value(raw)
-        url = _normalize_product_url(str(raw), domain)
-        if url:
-            candidates.append(url)
-
-    _walk_url_candidates(item, domain, candidates)
-
-    seen = set()
-    result = []
-    for url in candidates:
-        if url in seen:
-            continue
-        seen.add(url)
-        result.append(url)
-    return result
-
-
 def _api_text(item: dict, *keys: str) -> str:
     for key in keys:
         value = item.get(key)
@@ -388,6 +292,7 @@ def _api_text(item: dict, *keys: str) -> str:
 
 async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_key: str, items: list[dict]) -> dict:
     first_item = items[0]
+    url_candidates = product_url_candidates(first_item, domain)
     fallback_description = ""
     fallback_usage = ""
     fallback_composition = ""
@@ -397,7 +302,7 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
     best_sections = {key: "" for key in SECTION_KEYS}
     used_url = None
 
-    for url in product_url_candidates(first_item, domain):
+    for url in url_candidates:
         try:
             response = await client.get(url, headers=HOROSHOP_PAGE_HEADERS, follow_redirects=True)
             if response.status_code >= 400:
@@ -414,6 +319,7 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
     return {
         "group_key": group_key,
         "skus": [str(item.get("article") or item.get("parent_article") or "").strip() for item in items],
+        "site_url": url_candidates[0] if url_candidates else "",
         "url": used_url,
         "sections": {
             "description": best_sections.get("description") or fallback_description,
@@ -479,13 +385,15 @@ async def sync_horoshop_product_tabs() -> dict:
             if not skus:
                 continue
 
+            site_url = _clean_text(result.get("url") or result.get("site_url"))
             has_content = any(_clean_text(sections.get(key)) for key in ("description", "usage", "composition", "delivery_info", "return_info"))
-            if not has_content:
+            if not has_content and not site_url:
                 continue
 
-            if result.get("url"):
+            if site_url:
                 groups_with_site_url += 1
-            groups_with_content += 1
+            if has_content:
+                groups_with_content += 1
 
             placeholders = ",".join(["?"] * len(skus))
             cur.execute(
@@ -495,7 +403,10 @@ async def sync_horoshop_product_tabs() -> dict:
                     usage = COALESCE(NULLIF(?, ''), usage),
                     composition = COALESCE(NULLIF(?, ''), composition),
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
-                    return_info = COALESCE(NULLIF(?, ''), return_info)
+                    return_info = COALESCE(NULLIF(?, ''), return_info),
+                    site_url = COALESCE(NULLIF(?, ''), site_url),
+                    canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
+                    source_url = COALESCE(NULLIF(?, ''), source_url)
                 WHERE sku IN ({placeholders})
                 """,
                 (
@@ -504,6 +415,9 @@ async def sync_horoshop_product_tabs() -> dict:
                     _clean_text(sections.get("composition")),
                     _clean_text(sections.get("delivery_info")),
                     _clean_text(sections.get("return_info")),
+                    site_url,
+                    site_url,
+                    site_url,
                     *skus,
                 ),
             )

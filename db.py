@@ -126,7 +126,10 @@ def init_db_schema() -> None:
             sort_order INTEGER,
             home_hit_order INTEGER,
             home_new_order INTEGER,
-            home_promotion_order INTEGER
+            home_promotion_order INTEGER,
+            site_url TEXT,
+            canonical_url TEXT,
+            source_url TEXT
         )
     ''')
 
@@ -265,6 +268,9 @@ def init_db_schema() -> None:
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS home_hit_order INTEGER",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS home_new_order INTEGER",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS home_promotion_order INTEGER",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS site_url TEXT",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS canonical_url TEXT",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS source_url TEXT",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS banner_url VARCHAR(255)",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS external_id TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_ukrposhta TEXT",
