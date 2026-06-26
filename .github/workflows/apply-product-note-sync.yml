@@ -1,11 +1,6 @@
 name: Apply product note sync patch
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/apply-product-note-sync.yml
   workflow_dispatch:
 
 permissions:
@@ -16,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Apply repository patch
         run: python scripts/apply_product_note_patch.py
+      - name: Restore temporary patch files
+        run: git checkout -- .github/workflows/apply-product-note-sync.yml scripts/apply_product_note_patch.py
       - name: Validate Python syntax
         run: python -m py_compile services/catalog_sync.py services/db_schema.py routers/products.py models/schemas.py
       - name: Commit patch
