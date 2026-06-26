@@ -1056,7 +1056,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             remains = ?,
-                            description = ?, product_note = ?, image = ?, images = ?,
+                            description = ?, product_note = COALESCE(NULLIF(?, ''), product_note), image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?,

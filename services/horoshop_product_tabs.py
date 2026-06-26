@@ -353,6 +353,12 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
         else:
             sections[key] = text
 
+    if not sections["product_note"]:
+        page_text = _html_to_text(source)
+        page_note = _extract_product_note_from_text(page_text)
+        if page_note:
+            sections["product_note"] = page_note
+
     for key in SECTION_KEYS:
         sections[key] = _clean_text(sections[key])
     sections["product_note"] = _normalize_product_note_text(sections["product_note"])
