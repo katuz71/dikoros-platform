@@ -1646,7 +1646,7 @@ export default function Index() {
   }, []);
 
   const loadBanners = useCallback(async () => {
-    const CACHE_KEY = 'cached_banners_v2'; // Новый ключ кэша
+    const CACHE_KEY = 'cached_banners_v3'; // Новый ключ кэша
     
     try {
       // STEP 1: Сначала загружаем из кэша (если есть) и показываем сразу
@@ -1728,15 +1728,10 @@ export default function Index() {
   }, [API_URL]);
 
   const applyCatalogHomeData = useCallback((data: any) => {
-    const nextBanners = Array.isArray(data?.banners) ? data.banners : [];
     const nextCategories = Array.isArray(data?.categories) ? data.categories : [];
     const nextHits = Array.isArray(data?.hits) ? data.hits : [];
     const nextPromotions = Array.isArray(data?.promotions) ? data.promotions : [];
     const nextNewProducts = Array.isArray(data?.new_products) ? data.new_products : [];
-
-    if (nextBanners.length > 0) {
-      setBanners(nextBanners);
-    }
 
     setHomeCategories(nextCategories);
     setHomeHits(nextHits);
@@ -1746,7 +1741,7 @@ export default function Index() {
   }, []);
 
   const loadCatalogHome = useCallback(async () => {
-    const CACHE_KEY = 'cached_catalog_home_v5';
+    const CACHE_KEY = 'cached_catalog_home_v6';
 
     try {
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);
@@ -1791,44 +1786,18 @@ export default function Index() {
     }
   }, [API_URL, applyCatalogHomeData]);
 
+  useEffect(() => {
+    AsyncStorage.multiRemove(['cached_banners_v2', 'cached_catalog_home_v5']).catch(error => {
+      console.error('Error clearing stale catalog cache keys:', error);
+    });
+  }, []);
+
   // Load banners on mount
   useEffect(() => {
     console.log('Component mounted - loading dynamic catalog home');
     loadBanners();
     loadCatalogHome();
   }, [loadBanners, loadCatalogHome]);
-
-  // Загрузка баннеров из кэша при монтировании (для быстрого старта)
-  useEffect(() => {
-    const loadCachedBanners = async () => {
-      const CACHE_KEY = 'cached_banners_v2';
-      try {
-        const cachedData = await AsyncStorage.getItem(CACHE_KEY);
-        if (cachedData) {
-          try {
-            const cachedBanners = JSON.parse(cachedData);
-            if (Array.isArray(cachedBanners) && cachedBanners.length > 0) {
-              // Используем оптимизированные данные из кэша как есть
-              setBanners(cachedBanners); // Показываем кэшированные баннеры сразу при старте
-            }
-          } catch (parseError) {
-            console.error('Error parsing cached banners on mount:', parseError);
-            // Очищаем поврежденный кэш
-            await AsyncStorage.removeItem(CACHE_KEY);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading cached banners on mount:', error);
-        // Очищаем поврежденный кэш
-        try {
-          await AsyncStorage.removeItem('cached_banners_v2');
-        } catch (clearError) {
-          console.error('Error clearing corrupted cache on mount:', clearError);
-        }
-      }
-    };
-    loadCachedBanners();
-  }, []);
 
   // Обработка параметра для открытия профиля после заказа
   useEffect(() => {
