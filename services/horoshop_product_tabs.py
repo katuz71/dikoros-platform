@@ -386,9 +386,15 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
 
         sections = extract_product_tab_sections_from_html(response.text)
         if any(sections.values()):
-            best_sections = sections
-            used_url = str(response.url)
-            break
+            if not any(best_sections.values()):
+                best_sections = sections
+                used_url = str(response.url)
+            elif sections.get("product_note") and not best_sections.get("product_note"):
+                best_sections["product_note"] = sections["product_note"]
+                used_url = str(response.url)
+
+            if best_sections.get("product_note"):
+                break
 
     return {
         "group_key": group_key,
