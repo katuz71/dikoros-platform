@@ -12,7 +12,7 @@ import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
-from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _extract_product_note_from_item, _extract_product_note_from_text, _localized_value
+from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _extract_product_note_from_item, _extract_product_note_from_text, _localized_value, _normalize_product_note_text
 from services.horoshop_product_urls import product_url_candidates
 
 
@@ -179,8 +179,9 @@ def _product_group_note_text(group_html: str) -> str:
         section_html = _find_balanced_element_html(group_html, section_match.start(), "div")
         text_html = _first_classed_div_html(section_html, "text")
         text = _clean_tab_text(_html_to_text(text_html))
-        if text:
-            return text
+        normalized_note = _normalize_product_note_text(text)
+        if normalized_note:
+            return normalized_note
 
     return ""
 

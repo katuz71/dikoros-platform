@@ -16,6 +16,7 @@ fastapi_stub = types.ModuleType("fastapi")
 fastapi_stub.HTTPException = Exception
 sys.modules["fastapi"] = fastapi_stub
 
+from services.catalog_sync import LEGAL_PRODUCT_NOTE_TEXT
 from services.horoshop_product_tabs import extract_product_tab_sections_from_html
 
 
@@ -26,8 +27,8 @@ class HoroshopProductTabsTests(unittest.TestCase):
           <div class="product-heading__title">Примітка</div>
           <div class="product__section">
             <div class="text">
-              Не є лікарським засобом.
-              Перед застосуванням проконсультуйтеся зі спеціалістом.
+              Врожай 2025р.
+              Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України. Не перевищувати рекомендованих дозувань.
             </div>
           </div>
         </div>
@@ -41,8 +42,9 @@ class HoroshopProductTabsTests(unittest.TestCase):
 
         sections = extract_product_tab_sections_from_html(html)
 
-        self.assertIn("Не є лікарським засобом.", sections["product_note"])
-        self.assertIn("Перед застосуванням проконсультуйтеся зі спеціалістом.", sections["product_note"])
+        self.assertEqual(sections["product_note"], LEGAL_PRODUCT_NOTE_TEXT)
+        self.assertNotIn("Врожай", sections["product_note"])
+        self.assertNotIn("Не перевищувати", sections["product_note"])
         self.assertNotIn("Звичайний опис", sections["product_note"])
 
 

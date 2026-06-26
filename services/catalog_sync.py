@@ -359,6 +359,13 @@ PRODUCT_NOTE_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
 PRODUCT_NOTE_CONTENT_KEYS = ("value", "text", "content", "html", "description", "body")
 PRODUCT_NOTE_VALUE_KEYS = (*PRODUCT_NOTE_CONTENT_KEYS, *PRODUCT_NOTE_LOCALE_KEYS)
 PRODUCT_NOTE_LABELS = {"примітка", "примечание", "note", "notes"}
+LEGAL_PRODUCT_NOTE_TEXT = "Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України."
+LEGAL_PRODUCT_NOTE_MARKERS = (
+    "даний товар",
+    "не є лікарським засобом",
+    "не містить заборонених",
+    "є легальним на території україни",
+)
 PRODUCT_NOTE_STOP_LABELS = {
     "опис",
     "огляд",
@@ -430,6 +437,18 @@ def _text_from_html_like(value: object) -> str:
     return text.strip()
 
 
+def _normalize_product_note_text(value: object) -> str:
+    text = _text_from_html_like(value)
+    if not text:
+        return ""
+
+    normalized = re.sub(r"\s+", " ", text).casefold()
+    if any(marker in normalized for marker in LEGAL_PRODUCT_NOTE_MARKERS):
+        return LEGAL_PRODUCT_NOTE_TEXT
+
+    return ""
+
+
 def _extract_product_note_from_text(value: object) -> str:
     text = _text_from_html_like(value)
     if not text:
@@ -462,14 +481,14 @@ def _extract_product_note_from_text(value: object) -> str:
 
         captured.append(line)
 
-    return _sanitize_description("\n".join(captured).strip())
+    return _normalize_product_note_text("\n".join(captured).strip())
 
 
 def _sanitize_product_note(value: object) -> str:
     text = _product_note_text_candidate(value)
     if not text:
         return ""
-    return _sanitize_description(text)
+    return _normalize_product_note_text(text)
 
 
 def _extract_labeled_product_note(value: object, depth: int = 0, allow_key_label: bool = False) -> str:
