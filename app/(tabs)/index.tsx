@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, BackHandler, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, BackHandler, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from "react-native";
 import HomeProductCarousel from '../../components/HomeProductCarousel';
 import { AppHeader } from '@/components/AppHeader';
 import ProductCard from '../../components/ProductCard';
@@ -666,6 +666,283 @@ const SITE_CATEGORY_ORDER = [
   'Консервація та мед',
 ];
 
+const DIKOROS_HOST = 'dikoros-ua.com';
+const DIKOROS_PROMOTION_PATH_MARKERS = ['/aktsii', '/akcii', '/sale', '/promotions'];
+const DIKOROS_BLOG_PATH_MARKERS = ['/blog/', '/statti/', '/stattya/'];
+const DIKOROS_PATH_STOP_WORDS = new Set([
+  'catalog',
+  'category',
+  'katalog',
+  'product',
+  'products',
+  'shop',
+  'tovar',
+  'tovary',
+  'ua',
+  'uk',
+]);
+
+const BANNER_TRANSLIT: Record<string, string> = {
+  '\u0430': 'a',
+  '\u0431': 'b',
+  '\u0432': 'v',
+  '\u0433': 'h',
+  '\u0491': 'g',
+  '\u0434': 'd',
+  '\u0435': 'e',
+  '\u0454': 'ye',
+  '\u0436': 'zh',
+  '\u0437': 'z',
+  '\u0438': 'y',
+  '\u0456': 'i',
+  '\u0457': 'yi',
+  '\u0439': 'i',
+  '\u043a': 'k',
+  '\u043b': 'l',
+  '\u043c': 'm',
+  '\u043d': 'n',
+  '\u043e': 'o',
+  '\u043f': 'p',
+  '\u0440': 'r',
+  '\u0441': 's',
+  '\u0442': 't',
+  '\u0443': 'u',
+  '\u0444': 'f',
+  '\u0445': 'kh',
+  '\u0446': 'ts',
+  '\u0447': 'ch',
+  '\u0448': 'sh',
+  '\u0449': 'shch',
+  '\u044c': '',
+  '\u044e': 'yu',
+  '\u044f': 'ya',
+  '\u0451': 'yo',
+  '\u044b': 'y',
+  '\u044d': 'e',
+  '\u044a': '',
+};
+
+const safeDecodeBannerPart = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const normalizeBannerHost = (value: string) => value.trim().toLowerCase().replace(/^www\./, '');
+
+const parseDikorosBannerUrl = (value: any): URL | null => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  let candidate = raw;
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`;
+  } else if (candidate.startsWith('/')) {
+    candidate = `https://${DIKOROS_HOST}${candidate}`;
+  } else if (!/^https?:\/\//i.test(candidate)) {
+    const hostCandidate = normalizeBannerHost(candidate.split('/')[0] || '');
+    if (hostCandidate !== DIKOROS_HOST) return null;
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    return normalizeBannerHost(parsed.hostname) === DIKOROS_HOST ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const getDikorosBannerPath = (url: URL) => {
+  const decoded = safeDecodeBannerPart(url.pathname || '/');
+  const normalized = decoded.replace(/\/+/g, '/').toLowerCase();
+  return normalized !== '/' ? normalized.replace(/\/+$/, '') : normalized;
+};
+
+const getDikorosBannerSegments = (url: URL) => {
+  return getDikorosBannerPath(url)
+    .split('/')
+    .map(segment => safeDecodeBannerPart(segment).trim())
+    .filter(Boolean);
+};
+
+const slugifyBannerValue = (value: any) => {
+  const input = String(value ?? '').trim().toLowerCase();
+  if (!input) return '';
+
+  const normalized = input.normalize('NFKD');
+  const transliterated = Array.from(normalized)
+    .map(char => BANNER_TRANSLIT[char] ?? char)
+    .join('');
+
+  return transliterated
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+const getBannerSlugTokens = (value: any) => {
+  return slugifyBannerValue(value)
+    .split('-')
+    .filter(token => token.length > 1);
+};
+
+const getMeaningfulBannerSlugs = (url: URL) => {
+  return getDikorosBannerSegments(url)
+    .map(segment => slugifyBannerValue(segment))
+    .filter(slug => slug && !DIKOROS_PATH_STOP_WORDS.has(slug));
+};
+
+const getBannerProductPool = (...groups: any[][]) => {
+  const byKey = new Map<string, any>();
+
+  groups.forEach(group => {
+    asArray(group).forEach((product: any) => {
+      const key = String(product?.id ?? product?.external_id ?? product?.sku ?? product?.name ?? '').trim();
+      if (!key || byKey.has(key)) return;
+      byKey.set(key, product);
+    });
+  });
+
+  return Array.from(byKey.values());
+};
+
+const findBannerProductIdByValues = (values: any[], productGroups: any[][]) => {
+  const candidates = new Set(
+    values
+      .map(value => String(value ?? '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (candidates.size === 0) return '';
+
+  for (const product of getBannerProductPool(...productGroups)) {
+    const productValues = [
+      product?.id,
+      product?.external_id,
+      product?.sku,
+      product?.parent_sku,
+    ];
+
+    if (productValues.some(value => candidates.has(String(value ?? '').trim().toLowerCase()))) {
+      return String(product?.id ?? '').trim();
+    }
+
+    for (const variant of parseMaybeJsonArray(product?.variants)) {
+      const variantValues = [variant?.id, variant?.external_id, variant?.sku, variant?.article];
+      if (variantValues.some(value => candidates.has(String(value ?? '').trim().toLowerCase()))) {
+        return String(variant?.id ?? product?.id ?? '').trim();
+      }
+    }
+  }
+
+  return '';
+};
+
+const getBannerUrlIdCandidates = (url: URL) => {
+  const candidates = getDikorosBannerSegments(url).filter(segment => /^\d+$/.test(segment));
+  ['id', 'product', 'product_id', 'external_id'].forEach(key => {
+    const value = url.searchParams.get(key);
+    if (value) candidates.push(value);
+  });
+  return candidates;
+};
+
+const findBannerProductIdByUrlSlug = (url: URL, productGroups: any[][]) => {
+  const meaningfulSlugs = getMeaningfulBannerSlugs(url);
+  const lastSlug = meaningfulSlugs[meaningfulSlugs.length - 1] || '';
+  if (!lastSlug) return '';
+
+  const lastTokens = new Set(getBannerSlugTokens(lastSlug));
+  let bestId = '';
+  let bestScore = 0;
+
+  for (const product of getBannerProductPool(...productGroups)) {
+    const productId = String(product?.id ?? '').trim();
+    if (!productId) continue;
+
+    const exactSlugs = [
+      product?.slug,
+      product?.alias,
+      product?.url_slug,
+      product?.external_id,
+      product?.sku,
+    ].map(slugifyBannerValue).filter(Boolean);
+
+    if (exactSlugs.some(slug => slug === lastSlug)) {
+      return productId;
+    }
+
+    const nameSlug = slugifyBannerValue(product?.name);
+    const nameTokens = new Set(getBannerSlugTokens(product?.name));
+    if (!nameSlug || nameTokens.size === 0) continue;
+
+    let score = 0;
+    if (nameSlug === lastSlug) {
+      score += 100;
+    } else if (lastSlug.length >= 8 && (lastSlug.includes(nameSlug) || nameSlug.includes(lastSlug))) {
+      score += 25;
+    }
+
+    let overlap = 0;
+    nameTokens.forEach(token => {
+      if (lastTokens.has(token)) overlap += 1;
+    });
+    score += overlap * 10;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = productId;
+    }
+  }
+
+  return bestScore >= 30 ? bestId : '';
+};
+
+const findBannerCategoryByUrl = (url: URL, categories: any[]) => {
+  const meaningfulSlugs = getMeaningfulBannerSlugs(url);
+  if (meaningfulSlugs.length !== 1) return '';
+
+  const targetSlug = meaningfulSlugs[0];
+  for (const category of asArray(categories)) {
+    const categoryName = categoryNameFromHome(category);
+    const rootCategory = getRootCategoryName(categoryName);
+    const categorySlugs = [
+      category?.id,
+      category?.external_id,
+      category?.slug,
+      category?.alias,
+      categoryName,
+      rootCategory,
+    ].map(slugifyBannerValue).filter(Boolean);
+
+    if (categorySlugs.includes(targetSlug)) {
+      return rootCategory || categoryName;
+    }
+  }
+
+  return '';
+};
+
+const isDikorosPromotionPath = (path: string) => (
+  DIKOROS_PROMOTION_PATH_MARKERS.some(marker => path === marker || path.startsWith(`${marker}/`))
+);
+
+const isDikorosBlogPath = (path: string) => (
+  path === '/blog'
+  || DIKOROS_BLOG_PATH_MARKERS.some(marker => path.includes(marker))
+);
+
+const isBannerPressable = (banner: any) => {
+  const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
+  if (linkType === 'external') {
+    return Boolean(parseDikorosBannerUrl(banner?.source_url || banner?.link_value));
+  }
+  if (linkType && linkType !== 'none') return true;
+  return Boolean(parseDikorosBannerUrl(banner?.source_url || banner?.link_value));
+};
+
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -743,19 +1020,17 @@ export default function Index() {
   const handleBannerPress = useCallback((banner: any) => {
     const linkType = String(banner?.link_type || 'none').trim().toLowerCase();
     const linkValue = String(banner?.link_value || '').trim();
+    const sourceValue = banner?.source_url || linkValue;
+    const productGroups = [asArray(products), homeHits, homePromotions, homeNewProducts];
 
-    if (linkType === 'product') {
-      if (!/^\d+$/.test(linkValue)) return;
-      router.push(`/product/${linkValue}` as any);
-      return;
-    }
+    const openCategory = (value: string) => {
+      const normalizedValue = String(value || '').trim();
+      if (!normalizedValue) return false;
 
-    if (linkType === 'category') {
-      if (!linkValue) return;
-      const categoryById = homeCategories.find(category => String(category?.id ?? '') === linkValue);
-      const category = categoryById ? categoryNameFromHome(categoryById) : linkValue;
-      if (/^\d+$/.test(linkValue) && !categoryById) return;
-      if (!category) return;
+      const categoryById = homeCategories.find(category => String(category?.id ?? '') === normalizedValue);
+      const category = categoryById ? categoryNameFromHome(categoryById) : normalizedValue;
+      if (/^\d+$/.test(normalizedValue) && !categoryById) return false;
+      if (!category) return false;
 
       router.replace({
         pathname: '/(tabs)',
@@ -764,6 +1039,60 @@ export default function Index() {
           categoryOpen: String(Date.now()),
         },
       } as any);
+      return true;
+    };
+
+    const openDikorosSource = (value: any) => {
+      const parsed = parseDikorosBannerUrl(value);
+      if (!parsed) return false;
+
+      const path = getDikorosBannerPath(parsed);
+      const sourceUrl = parsed.toString();
+
+      if (isDikorosPromotionPath(path)) {
+        router.push('/news' as any);
+        return true;
+      }
+
+      if (isDikorosBlogPath(path)) {
+        router.push({ pathname: '/blog-detail', params: { source_url: sourceUrl } } as any);
+        return true;
+      }
+
+      const productIdByValue = findBannerProductIdByValues(getBannerUrlIdCandidates(parsed), productGroups);
+      if (productIdByValue) {
+        router.push(`/product/${productIdByValue}` as any);
+        return true;
+      }
+
+      const category = findBannerCategoryByUrl(parsed, homeCategories);
+      if (category && openCategory(category)) {
+        return true;
+      }
+
+      const productIdBySlug = findBannerProductIdByUrlSlug(parsed, productGroups);
+      if (productIdBySlug) {
+        router.push(`/product/${productIdBySlug}` as any);
+        return true;
+      }
+
+      return false;
+    };
+
+    if (linkType === 'product') {
+      const resolvedProductId = findBannerProductIdByValues([linkValue], productGroups)
+        || (/^\d+$/.test(linkValue) ? linkValue : '');
+      if (resolvedProductId) {
+        router.push(`/product/${resolvedProductId}` as any);
+        return;
+      }
+      openDikorosSource(sourceValue);
+      return;
+    }
+
+    if (linkType === 'category') {
+      if (openCategory(linkValue)) return;
+      openDikorosSource(sourceValue);
       return;
     }
 
@@ -777,19 +1106,19 @@ export default function Index() {
         router.push({ pathname: '/blog-detail', params: { post_id: linkValue } } as any);
         return;
       }
-      if (/^https?:\/\/[^\s]+$/i.test(linkValue)) {
-        router.push({ pathname: '/blog-detail', params: { source_url: linkValue } } as any);
+
+      const postUrl = parseDikorosBannerUrl(linkValue);
+      if (postUrl) {
+        router.push({ pathname: '/blog-detail', params: { source_url: postUrl.toString() } } as any);
+        return;
       }
+
+      openDikorosSource(sourceValue);
       return;
     }
 
-    if (linkType === 'external') {
-      if (!linkValue) return;
-      const normalizedUrl = /^https?:\/\//i.test(linkValue) ? linkValue : `https://${linkValue}`;
-      if (!/^https?:\/\/[^\s]+$/i.test(normalizedUrl)) return;
-      Linking.openURL(normalizedUrl).catch(() => {});
-    }
-  }, [homeCategories, router]);
+    openDikorosSource(sourceValue);
+  }, [homeCategories, homeHits, homeNewProducts, homePromotions, products, router]);
 
   const selectedCategoryBanners = useMemo(() => {
     const selectedRoot = normalizeCategory(selectedCategory).split('/', 1)[0].toLocaleLowerCase('uk-UA');
@@ -1299,6 +1628,7 @@ export default function Index() {
               id: banner.id,
               image_url: banner.image_url || banner.image || banner.picture,
               title: banner.title || '',
+              source_url: banner.source_url || '',
               link_type: banner.link_type || 'none',
               link_value: banner.link_value || ''
             }));
@@ -2170,6 +2500,7 @@ export default function Index() {
                     quality: 80,
                     format: 'jpg'
                   });
+                  const pressable = isBannerPressable(b);
 
                   return (
                     <View
@@ -2180,8 +2511,8 @@ export default function Index() {
                       }}
                     >
                       <TouchableOpacity
-                        activeOpacity={b?.link_type && b.link_type !== 'none' ? 0.88 : 1}
-                        disabled={!b?.link_type || b.link_type === 'none'}
+                        activeOpacity={pressable ? 0.88 : 1}
+                        disabled={!pressable}
                         onPress={() => handleBannerPress(b)}
                       >
                         <BannerImage
@@ -2307,6 +2638,7 @@ export default function Index() {
                 quality: 80,
                 format: 'jpg'
               });
+              const pressable = isBannerPressable(b);
 
               return (
                 <View
@@ -2317,8 +2649,8 @@ export default function Index() {
                   }}
                 >
                   <TouchableOpacity
-                    activeOpacity={b?.link_type && b.link_type !== 'none' ? 0.88 : 1}
-                    disabled={!b?.link_type || b.link_type === 'none'}
+                    activeOpacity={pressable ? 0.88 : 1}
+                    disabled={!pressable}
                     onPress={() => handleBannerPress(b)}
                   >
                     <BannerImage

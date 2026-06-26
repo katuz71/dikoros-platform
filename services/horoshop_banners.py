@@ -310,7 +310,7 @@ def resolve_banner_destination(
     if "/blog/" in path or "/statti/" in path or "/stattya/" in path:
         return {"link_type": "post", "link_value": absolute_url, "source_url": absolute_url}
 
-    return {"link_type": "external", "link_value": absolute_url, "source_url": absolute_url}
+    return {"link_type": "none", "link_value": "", "source_url": absolute_url}
 
 
 def _find_category_page_url(category: dict, links: list[SiteLink], site_url: str) -> str:
