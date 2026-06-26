@@ -11,7 +11,7 @@ The card must show only:
 ```text
 Примітка
 
-Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України.
+<фактичний текст блока/вкладки "Примітка" з Horoshop для конкретного товару>
 ```
 
 Removed from this card:
@@ -19,9 +19,8 @@ Removed from this card:
 - `Коротко про товар`
 - `Детальніше`
 - long product description text
-- `Врожай 2025р.`
-- `Не перевищувати рекомендованих дозувань.`
-- duplicated legal note text
+
+Do not remove product-specific note lines such as `Врожай 2025р.` or `Не перевищувати рекомендованих дозувань.` when they are actually present in the Horoshop `Примітка` block.
 
 ## Backend / database changes
 
@@ -40,14 +39,10 @@ Updated sync logic so `product_note` is not derived from generic descriptions.
 Current behavior:
 
 - `product_note` is extracted only from explicit note content.
-- Horoshop/page text is normalized to the single canonical legal sentence:
-
-```text
-Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України.
-```
-
-- If no legal note markers are found, `product_note` is saved as empty.
-- Sync overwrites old/bad `product_note` values instead of preserving them.
+- Horoshop/page text is cleaned as text, but it is not normalized to one canonical legal sentence.
+- Different products may have different `product_note` values.
+- Product-specific lines from the Horoshop `Примітка` block, including harvest notes and dosage warnings, must be preserved.
+- If no explicit `Примітка` block/label is found, sync must not generate a note from product description text.
 - The parser handles page-level HTML blocks like:
 
 ```html
@@ -59,8 +54,8 @@ Current behavior:
 </div>
 ```
 
-- The parser also continues checking URL candidates until a `product_note` is found, instead of stopping on the first URL that only has description sections.
-- Final combined note text is normalized again to prevent duplicate legal note output.
+- The parser checks exact URL candidates across the product group and fills missing sections from later candidates instead of relying only on the first variant URL.
+- Final note text is cleaned for whitespace and oversized full-page captures are rejected as invalid.
 
 ## Frontend changes
 
@@ -107,26 +102,24 @@ Verified API output for product `id=3`:
 curl -s http://127.0.0.1:8000/products/3 | grep -o '"product_note":"[^"]*"'
 ```
 
-Expected/current result:
+Expected result:
 
 ```json
-"product_note":"Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України."
+"product_note":"<фактична Примітка з Horoshop для цього товару>"
 ```
 
 Database verification:
 
 ```sql
-SELECT COUNT(*) FILTER (
-  WHERE product_note = 'Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України.'
-) AS clean_notes
-FROM products;
+SELECT product_note, COUNT(*)
+FROM products
+WHERE NULLIF(product_note, '') IS NOT NULL
+GROUP BY product_note
+ORDER BY COUNT(*) DESC
+LIMIT 20;
 ```
 
-Observed production result:
-
-```text
-clean_notes = 381
-```
+Do not expect all products to share the same note. A single identical legal sentence for every product indicates a broken normalizer.
 
 Mobile app verification completed: `Примітка` is visible in the product detail overview card.
 

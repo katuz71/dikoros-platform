@@ -377,9 +377,22 @@ def _api_text(item: dict, *keys: str) -> str:
     return ""
 
 
+def _group_url_candidates(items: list[dict], domain: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    for item in items:
+        for url in product_url_candidates(item, domain):
+            if url in seen:
+                continue
+            seen.add(url)
+            candidates.append(url)
+
+    return candidates
+
+
 async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_key: str, items: list[dict]) -> dict:
-    first_item = items[0]
-    url_candidates = product_url_candidates(first_item, domain)
+    url_candidates = _group_url_candidates(items, domain)
     fallback_description = ""
     fallback_usage = ""
     fallback_composition = ""
@@ -406,13 +419,14 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
         sections = extract_product_tab_sections_from_html(response.text)
         if any(sections.values()):
             if not any(best_sections.values()):
-                best_sections = sections
-                used_url = str(response.url)
-            elif sections.get("product_note") and not best_sections.get("product_note"):
-                best_sections["product_note"] = sections["product_note"]
                 used_url = str(response.url)
 
-            if best_sections.get("product_note"):
+            for key in SECTION_KEYS:
+                if sections.get(key) and not best_sections.get(key):
+                    best_sections[key] = sections[key]
+                    used_url = str(response.url)
+
+            if all(best_sections.get(key) for key in SECTION_KEYS):
                 break
 
     return {
@@ -504,7 +518,7 @@ async def sync_horoshop_product_tabs() -> dict:
                     composition = COALESCE(NULLIF(?, ''), composition),
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
                     return_info = COALESCE(NULLIF(?, ''), return_info),
-                    product_note = COALESCE(NULLIF(?, ''), product_note),
+                    product_note = ?,
                     site_url = COALESCE(NULLIF(?, ''), site_url),
                     canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
                     source_url = COALESCE(NULLIF(?, ''), source_url)

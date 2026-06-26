@@ -359,13 +359,6 @@ PRODUCT_NOTE_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
 PRODUCT_NOTE_CONTENT_KEYS = ("value", "text", "content", "html", "description", "body")
 PRODUCT_NOTE_VALUE_KEYS = (*PRODUCT_NOTE_CONTENT_KEYS, *PRODUCT_NOTE_LOCALE_KEYS)
 PRODUCT_NOTE_LABELS = {"примітка", "примечание", "note", "notes"}
-LEGAL_PRODUCT_NOTE_TEXT = "Даний товар не є лікарським засобом, не містить заборонених наркотичних та психотропних речовин та є легальним на території України."
-LEGAL_PRODUCT_NOTE_MARKERS = (
-    "даний товар",
-    "не є лікарським засобом",
-    "не містить заборонених",
-    "є легальним на території україни",
-)
 PRODUCT_NOTE_STOP_LABELS = {
     "опис",
     "огляд",
@@ -442,11 +435,12 @@ def _normalize_product_note_text(value: object) -> str:
     if not text:
         return ""
 
-    normalized = re.sub(r"\s+", " ", text).casefold()
-    if any(marker in normalized for marker in LEGAL_PRODUCT_NOTE_MARKERS):
-        return LEGAL_PRODUCT_NOTE_TEXT
+    lines = [_clean_text_value(line) for line in text.splitlines()]
+    text = "\n".join(line for line in lines if line).strip()
+    if len(text) > 5000:
+        return ""
 
-    return ""
+    return text
 
 
 def _extract_product_note_from_text(value: object) -> str:
@@ -1056,7 +1050,7 @@ async def sync_catalog_from_horoshop() -> dict:
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             remains = ?,
-                            description = ?, product_note = COALESCE(NULLIF(?, ''), product_note), image = ?, images = ?,
+                            description = ?, product_note = ?, image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?,

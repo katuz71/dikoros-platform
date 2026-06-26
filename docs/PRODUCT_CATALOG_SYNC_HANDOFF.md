@@ -202,6 +202,8 @@ Rules:
 
 - `products.description` remains available for the existing product information modal rows and long tab content.
 - `products.product_note` is synced separately from explicit Horoshop note fields and product page tabs/sections labeled `Примітка`.
+- `products.product_note` stores the factual Horoshop note text per product; it must not be normalized to one shared legal sentence.
+- Product-specific note lines such as harvest year or dosage warnings should be preserved when they are part of the Horoshop `Примітка` block.
 - If `product_note` is empty, the mobile fallback text is `Примітка буде оновлена найближчим часом.`
 - Do not rebuild the overview card from generated descriptions or from the old `Коротко про товар` / `Детальніше` split.
 
