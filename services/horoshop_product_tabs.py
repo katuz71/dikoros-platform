@@ -12,7 +12,7 @@ import httpx
 from fastapi import HTTPException
 
 from db import get_db_connection
-from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _extract_product_note_from_item, _extract_product_note_from_text, _localized_value, _normalize_product_note_text
+from services.catalog_sync import HOROSHOP_PAGE_HEADERS, _export_catalog_products, _extract_product_note_from_item, _extract_product_note_from_text, _normalize_product_note_text
 from services.horoshop_product_urls import product_url_candidates
 
 
@@ -133,11 +133,9 @@ def _section_key_from_tab_id(tab_id: str) -> str | None:
     has_usage_marker = "instruk" in normalized or "sposib" in normalized or "zastos" in normalized or "primen" in normalized
     has_contra_marker = "protipokaz" in normalized or "protypokaz" in normalized or "protivopokaz" in normalized or "contraind" in normalized
 
-    if has_usage_marker and has_contra_marker:
+    if has_usage_marker:
         return "usage"
-    if "instruk" in normalized:
-        return "usage"
-    if "protipokaz" in normalized:
+    if has_contra_marker:
         return "composition"
     if "dostav" in normalized or "oplat" in normalized:
         return "delivery_info"
@@ -183,31 +181,58 @@ def _first_classed_div_html(html: str, class_name: str) -> str:
     return _find_balanced_element_html(html, match.start(), "div")
 
 
-def _product_group_note_text(group_html: str) -> str:
+def _product_group_section(group_html: str) -> tuple[str | None, str]:
     title_html = _first_classed_div_html(group_html, "product-heading__title")
-    if _heading_key(_html_to_text(title_html)) != "product_note":
-        return ""
+    key = _heading_key(_html_to_text(title_html))
+    if not key:
+        return None, ""
+
+    content_html = _first_classed_div_html(group_html, "j-product-description")
+    if not content_html:
+        content_html = _first_classed_div_html(group_html, "product-description")
+    if content_html:
+        return key, _clean_tab_text(_html_to_text(content_html))
 
     for section_match in _classed_div_pattern("product__section").finditer(group_html):
         section_html = _find_balanced_element_html(group_html, section_match.start(), "div")
         text_html = _first_classed_div_html(section_html, "text")
         text = _clean_tab_text(_html_to_text(text_html))
-        normalized_note = _normalize_product_note_text(text)
-        if normalized_note:
-            return normalized_note
+        if text:
+            return key, text
 
-    return ""
+    return key, ""
 
 
-def _extract_product_group_note_from_html(html: str) -> str:
-    notes: list[str] = []
+def _append_section_text(sections: dict[str, str], key: str, text: str) -> None:
+    cleaned = _clean_text(text)
+    if not cleaned:
+        return
+
+    existing_parts = [_clean_text(part) for part in sections.get(key, "").split("\n\n")]
+    if cleaned in existing_parts:
+        return
+
+    sections[key] = _clean_text(f"{sections.get(key, '')}\n\n{cleaned}")
+
+
+def _extract_product_group_sections_from_html(html: str) -> dict[str, str]:
+    sections = {key: "" for key in SECTION_KEYS}
     for group_match in _classed_div_pattern("product__group").finditer(html):
         group_html = _find_balanced_element_html(html, group_match.start(), "div")
-        note_text = _product_group_note_text(group_html)
-        if note_text:
-            notes.append(note_text)
+        key, text = _product_group_section(group_html)
+        if not key or not text:
+            continue
 
-    return _clean_text("\n\n".join(notes))
+        if key == "product_note":
+            text = _normalize_product_note_text(text)
+        max_len = 60000 if key == "description" else 25000
+        if len(text) > max_len:
+            logger.warning("Skip oversized Horoshop product group %s: %s chars", key, len(text))
+            continue
+
+        _append_section_text(sections, key, text)
+
+    return sections
 
 
 def _split_long_text_line(line: str) -> list[str]:
@@ -302,7 +327,7 @@ def _clean_tab_text(text: str) -> str:
     return cleaned
 
 def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
-    """Extract only real Horoshop tab blocks: div.j-product-block__tab[data-content-id]."""
+    """Extract real Horoshop product groups and tab blocks by their headings."""
     sections = {key: "" for key in SECTION_KEYS}
 
     source = str(html or "")
@@ -310,9 +335,9 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
     source = re.sub(r"<style[\s\S]*?</style>", " ", source, flags=re.IGNORECASE)
     source = re.sub(r"<svg[\s\S]*?</svg>", " ", source, flags=re.IGNORECASE)
 
-    page_group_note = _extract_product_group_note_from_html(source)
-    if page_group_note:
-        sections["product_note"] = page_group_note
+    page_group_sections = _extract_product_group_sections_from_html(source)
+    for key, text in page_group_sections.items():
+        _append_section_text(sections, key, text)
 
     tab_pattern = re.compile(
         r"<div\b(?=[^>]*\bj-product-block__tab\b)(?=[^>]*\bdata-content-id\s*=\s*(['\"])(?P<tab_id>.*?)\1)[^>]*>",
@@ -328,10 +353,7 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
 
         product_note_text = _extract_product_note_from_text(text)
         if product_note_text:
-            if sections["product_note"]:
-                sections["product_note"] = f"{sections['product_note']}\n\n{product_note_text}".strip()
-            else:
-                sections["product_note"] = product_note_text
+            _append_section_text(sections, "product_note", product_note_text)
 
         key = _section_key_from_tab_id(tab_id)
         if not key:
@@ -348,10 +370,7 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
             logger.warning("Skip oversized Horoshop tab %s: %s chars", tab_id, len(text))
             continue
 
-        if sections[key]:
-            sections[key] = f"{sections[key]}\n\n{text}".strip()
-        else:
-            sections[key] = text
+        _append_section_text(sections, key, text)
 
     if not sections["product_note"]:
         page_text = _html_to_text(source)
@@ -364,18 +383,6 @@ def extract_product_tab_sections_from_html(html: str) -> dict[str, str]:
     sections["product_note"] = _normalize_product_note_text(sections["product_note"])
 
     return sections
-
-def _api_text(item: dict, *keys: str) -> str:
-    for key in keys:
-        value = item.get(key)
-        if value is None:
-            continue
-        text = _localized_value(value) if isinstance(value, dict) else str(value or "")
-        text = _clean_text(text)
-        if text:
-            return text
-    return ""
-
 
 def _group_url_candidates(items: list[dict], domain: str) -> list[str]:
     candidates: list[str] = []
@@ -393,11 +400,6 @@ def _group_url_candidates(items: list[dict], domain: str) -> list[str]:
 
 async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_key: str, items: list[dict]) -> dict:
     url_candidates = _group_url_candidates(items, domain)
-    fallback_description = ""
-    fallback_usage = ""
-    fallback_composition = ""
-    fallback_delivery = ""
-    fallback_return = ""
     fallback_product_note = ""
 
     for item in items:
@@ -435,11 +437,11 @@ async def _fetch_group_sections(client: httpx.AsyncClient, domain: str, group_ke
         "site_url": url_candidates[0] if url_candidates else "",
         "url": used_url,
         "sections": {
-            "description": best_sections.get("description") or fallback_description,
-            "usage": best_sections.get("usage") or fallback_usage,
-            "composition": best_sections.get("composition") or fallback_composition,
-            "delivery_info": best_sections.get("delivery_info") or fallback_delivery,
-            "return_info": best_sections.get("return_info") or fallback_return,
+            "description": best_sections.get("description") or "",
+            "usage": best_sections.get("usage") or "",
+            "composition": best_sections.get("composition") or "",
+            "delivery_info": best_sections.get("delivery_info") or "",
+            "return_info": best_sections.get("return_info") or "",
             "product_note": best_sections.get("product_note") or fallback_product_note,
         },
     }
@@ -500,6 +502,7 @@ async def sync_horoshop_product_tabs() -> dict:
                 continue
 
             site_url = _clean_text(result.get("url") or result.get("site_url"))
+            parsed_page = bool(result.get("url"))
             has_content = any(_clean_text(sections.get(key)) for key in ("description", "usage", "composition", "delivery_info", "return_info", "product_note"))
             if not has_content and not site_url:
                 continue
@@ -514,8 +517,8 @@ async def sync_horoshop_product_tabs() -> dict:
                 f"""
                 UPDATE products
                 SET description = COALESCE(NULLIF(?, ''), description),
-                    usage = COALESCE(NULLIF(?, ''), usage),
-                    composition = COALESCE(NULLIF(?, ''), composition),
+                    usage = CASE WHEN ? THEN ? ELSE usage END,
+                    composition = CASE WHEN ? THEN ? ELSE composition END,
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
                     return_info = COALESCE(NULLIF(?, ''), return_info),
                     product_note = ?,
@@ -526,7 +529,9 @@ async def sync_horoshop_product_tabs() -> dict:
                 """,
                 (
                     _clean_text(sections.get("description")),
+                    parsed_page,
                     _clean_text(sections.get("usage")),
+                    parsed_page,
                     _clean_text(sections.get("composition")),
                     _clean_text(sections.get("delivery_info")),
                     _clean_text(sections.get("return_info")),

@@ -44,6 +44,40 @@ class FakeClient:
 
 
 class HoroshopProductTabsTests(unittest.TestCase):
+    def test_extracts_description_from_product_group(self) -> None:
+        html = """
+        <div class="product__group product__group--tabs">
+          <div class="product-heading__title">Опис</div>
+          <div class="product__section">
+            <div class="product-description j-product-description">
+              Фактичний опис товару з Horoshop.
+            </div>
+          </div>
+        </div>
+        """
+
+        sections = extract_product_tab_sections_from_html(html)
+
+        self.assertEqual(sections["description"], "Фактичний опис товару з Horoshop.")
+        self.assertEqual(sections["usage"], "")
+        self.assertEqual(sections["composition"], "")
+
+    def test_description_group_does_not_fill_usage_or_composition(self) -> None:
+        html = """
+        <div class="product__group">
+          <div class="product-heading__title">Опис</div>
+          <div class="product__section">
+            <div class="text">Опис без інструкції та протипоказань.</div>
+          </div>
+        </div>
+        """
+
+        sections = extract_product_tab_sections_from_html(html)
+
+        self.assertEqual(sections["description"], "Опис без інструкції та протипоказань.")
+        self.assertEqual(sections["usage"], "")
+        self.assertEqual(sections["composition"], "")
+
     def test_extracts_page_level_product_note_group(self) -> None:
         html = """
         <div class="product__group product__group--tabs">

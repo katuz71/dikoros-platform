@@ -3,6 +3,7 @@ import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { trackEvent } from '@/utils/analytics';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
+import { getProductDetailSections } from '@/utils/productDetailSections';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -46,10 +47,6 @@ interface ProductDetailsViewProps {
 
 type InfoModalKey = 'description' | 'usageContraindications' | 'delivery';
 
-type ProductTextSectionKey = InfoModalKey | 'instruction' | 'contraindications';
-
-type ProductTextSections = Record<ProductTextSectionKey, string>;
-
 const screenWidth = Dimensions.get('window').width;
 
 const DELIVERY_PAYMENT_RETURN_TEXT = `Доставка
@@ -60,87 +57,6 @@ const DELIVERY_PAYMENT_RETURN_TEXT = `Доставка
 
 Повернення
 Повернення або обмін можливі відповідно до умов магазину. Перед відправленням товару на обмін або повернення потрібно звʼязатися зі службою підтримки DikorosUA.`;
-
-const emptyProductTextSections = (): ProductTextSections => ({
-  description: '',
-  usageContraindications: '',
-  instruction: '',
-  contraindications: '',
-  delivery: '',
-});
-
-const productSectionKeyFromHeading = (line: string): ProductTextSectionKey | null => {
-  const normalized = String(line || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[.:：]+$/g, '')
-    .replace(/\s+/g, ' ');
-
-  if (!normalized) return null;
-  if (['опис', 'огляд'].includes(normalized)) return 'description';
-  if ([
-    'спосіб застосування та протипоказання',
-    'спосіб застосування і протипоказання',
-    'застосування та протипоказання',
-    'застосування і протипоказання',
-    'інструкція та протипоказання',
-    'інструкція і протипоказання',
-    'способ применения и противопоказания',
-    'применение и противопоказания',
-  ].includes(normalized)) return 'usageContraindications';
-  if (['інструкція', 'інструкція із застосування', 'спосіб застосування', 'застосування', 'як приймати'].includes(normalized)) return 'instruction';
-  if (['протипоказання', 'застереження', 'попередження'].includes(normalized)) return 'contraindications';
-  if (['доставка', 'оплата', 'повернення', 'доставка і оплата', 'доставка, оплата і повернення', 'доставка, оплата та повернення'].includes(normalized)) return 'delivery';
-
-  return null;
-};
-
-const splitHoroshopProductSections = (text: string): ProductTextSections => {
-  const sections = emptyProductTextSections();
-  const source = String(text || '').trim();
-  if (!source) return sections;
-
-  let activeKey: ProductTextSectionKey = 'description';
-  let foundExplicitSection = false;
-
-  source.split(/\r?\n/).forEach((line) => {
-    const headingKey = productSectionKeyFromHeading(line);
-    if (headingKey) {
-      activeKey = headingKey;
-      foundExplicitSection = true;
-      return;
-    }
-
-    sections[activeKey] = `${sections[activeKey]}\n${line}`.trim();
-  });
-
-  Object.keys(sections).forEach((key) => {
-    const typedKey = key as ProductTextSectionKey;
-    sections[typedKey] = sections[typedKey]
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  });
-
-  if (!foundExplicitSection && !sections.description) {
-    sections.description = source;
-  }
-
-  return sections;
-};
-
-const combineProductInfoText = (...values: string[]) => {
-  const seen = new Set<string>();
-  return values
-    .map((value) => String(value || '').trim())
-    .filter(Boolean)
-    .filter((value) => {
-      const key = value.replace(/\s+/g, ' ').toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .join('\n\n');
-};
 
 export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   product,
@@ -354,13 +270,18 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     setActiveImageIndex(Math.max(0, Math.min(nextIndex, images.length - 1)));
   };
 
-  const horoshopDescriptionSections = React.useMemo(() => {
-    return splitHoroshopProductSections(normalizeText(product?.description));
-  }, [normalizeText, product?.description]);
+  const productDetailSections = React.useMemo(() => getProductDetailSections(product, normalizeText), [
+    normalizeText,
+    product?.description,
+    product?.usage_contraindications,
+    product?.usageContraindications,
+    product?.combined_usage,
+    product?.combinedUsage,
+    product?.usage,
+    product?.composition,
+  ]);
 
-  const productInfoText = React.useMemo(() => {
-    return horoshopDescriptionSections.description || normalizeText(product?.description);
-  }, [horoshopDescriptionSections.description, normalizeText, product?.description]);
+  const productInfoText = productDetailSections.description;
 
   const productNoteText = React.useMemo(() => {
     return normalizeText(product?.product_note) || normalizeText(product?.productNote);
@@ -369,23 +290,16 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const productNoteDisplayText = productNoteText || 'Примітка буде оновлена найближчим часом.';
 
   const modalText = React.useMemo(() => {
-    const instruction = normalizeText(product?.usage || product?.instruction || product?.instructions) || horoshopDescriptionSections.instruction;
-    const contraindications = normalizeText(product?.contraindications || product?.contraindication || product?.composition) || horoshopDescriptionSections.contraindications;
-    const usageContraindications = combineProductInfoText(
-      horoshopDescriptionSections.usageContraindications,
-      instruction,
-      contraindications,
-    );
     const deliveryInfo = normalizeText(product?.delivery_info || product?.deliveryInfo);
     const returnInfo = normalizeText(product?.return_info || product?.returnInfo);
-    const delivery = [deliveryInfo, returnInfo].filter(Boolean).join('\n\n') || horoshopDescriptionSections.delivery || DELIVERY_PAYMENT_RETURN_TEXT;
+    const delivery = [deliveryInfo, returnInfo].filter(Boolean).join('\n\n') || DELIVERY_PAYMENT_RETURN_TEXT;
 
     return {
       description: productInfoText,
-      usageContraindications,
+      usageContraindications: productDetailSections.usageContraindications,
       delivery,
     } satisfies Record<InfoModalKey, string>;
-  }, [normalizeText, productInfoText, horoshopDescriptionSections.usageContraindications, horoshopDescriptionSections.instruction, horoshopDescriptionSections.contraindications, horoshopDescriptionSections.delivery, product?.usage, product?.instruction, product?.instructions, product?.contraindications, product?.contraindication, product?.composition, product?.delivery_info, product?.deliveryInfo, product?.return_info, product?.returnInfo]);
+  }, [normalizeText, productInfoText, productDetailSections.usageContraindications, product?.delivery_info, product?.deliveryInfo, product?.return_info, product?.returnInfo]);
 
   const modalTitle = React.useMemo(() => {
     if (infoModalKey === 'description') return 'Опис';
