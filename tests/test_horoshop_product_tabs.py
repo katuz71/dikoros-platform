@@ -50,6 +50,18 @@ class FakeClient:
 
 
 class HoroshopProductTabsTests(unittest.TestCase):
+    def test_extracts_description_after_cleaning_oversized_export_html(self) -> None:
+        description_text = "Опис товару " * 2000
+        oversized_style = "color: red;" * 1000
+        raw_description = f"<p style='{oversized_style}'>{description_text}</p>"
+        self.assertGreater(len(raw_description), 30000)
+
+        description = _extract_export_description({"description": {"ua": raw_description}})
+
+        self.assertTrue(description)
+        self.assertIn("Опис товару", description)
+        self.assertNotIn("<p", description)
+
     def test_extracts_product_text_fields_from_raw_export_item(self) -> None:
         item = {
             "description": {"ua": "<p>Опис товару</p>"},

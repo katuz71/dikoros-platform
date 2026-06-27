@@ -514,7 +514,9 @@ def _extract_export_characteristic(item: dict, labels: set[str]) -> str:
 
 
 def _extract_export_description(item: dict) -> str:
-    return _text_from_html_like(_sanitize_description(item.get("description") or {}))
+    raw = _localized_value(item.get("description") or {})
+    text = _text_from_html_like(raw)
+    return _sanitize_description(text)
 
 
 def _extract_export_usage(item: dict) -> str:
