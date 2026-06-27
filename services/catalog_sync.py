@@ -1057,12 +1057,15 @@ async def sync_catalog_from_horoshop() -> dict:
                 exists = cur.fetchone()
                 if exists:
                     product_id = exists["id"] if isinstance(exists, dict) else exists[0]
+                    # Empty export fields must not wipe richer description/note content parsed from the product page.
                     cur.execute(
                         """
                         UPDATE products SET
                             name = ?, price = ?, category = ?, status = ?,
                             remains = ?,
-                            description = ?, product_note = ?, image = ?, images = ?,
+                            description = COALESCE(NULLIF(?, ''), description),
+                            product_note = COALESCE(NULLIF(?, ''), product_note),
+                            image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
                             old_price = ?, discount = ?, sort_order = ?, external_id = ?,

@@ -513,6 +513,7 @@ async def sync_horoshop_product_tabs() -> dict:
                 groups_with_content += 1
 
             placeholders = ",".join(["?"] * len(skus))
+            # Empty page sections must not wipe previously parsed description or product_note content.
             cur.execute(
                 f"""
                 UPDATE products
@@ -521,7 +522,7 @@ async def sync_horoshop_product_tabs() -> dict:
                     composition = CASE WHEN ? THEN ? ELSE composition END,
                     delivery_info = COALESCE(NULLIF(?, ''), delivery_info),
                     return_info = COALESCE(NULLIF(?, ''), return_info),
-                    product_note = ?,
+                    product_note = COALESCE(NULLIF(?, ''), product_note),
                     site_url = COALESCE(NULLIF(?, ''), site_url),
                     canonical_url = COALESCE(NULLIF(?, ''), canonical_url),
                     source_url = COALESCE(NULLIF(?, ''), source_url)
