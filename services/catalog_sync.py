@@ -256,7 +256,7 @@ class HomepageSectionsParser(HTMLParser):
 
 def _localized_value(value: object, default: str = "") -> str:
     if isinstance(value, dict):
-        return str(value.get("ua") or value.get("ru") or value.get("en") or default)
+        return str(value.get("ua") or value.get("uk") or value.get("ru") or value.get("en") or default)
     return str(value or default)
 
 
@@ -358,7 +358,7 @@ PRODUCT_NOTE_LABEL_KEYS = ("title", "name", "label", "caption", "key", "code")
 PRODUCT_NOTE_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
 PRODUCT_NOTE_CONTENT_KEYS = ("value", "text", "content", "html", "description", "body")
 PRODUCT_NOTE_VALUE_KEYS = (*PRODUCT_NOTE_CONTENT_KEYS, *PRODUCT_NOTE_LOCALE_KEYS)
-PRODUCT_NOTE_LABELS = {"примітка", "примечание", "note", "notes"}
+PRODUCT_NOTE_LABELS = {"примітка", "примечание", "primtka", "prymitka", "note", "notes"}
 PRODUCT_NOTE_STOP_LABELS = {
     "опис",
     "огляд",
@@ -428,6 +428,101 @@ def _text_from_html_like(value: object) -> str:
     text = re.sub(r"\n[ \t]+", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+EXPORT_CHARACTERISTIC_LABEL_KEYS = ("title", "name", "label", "caption", "key", "code")
+EXPORT_CHARACTERISTIC_VALUE_KEYS = ("value", "text", "content", "html", "description", "body")
+EXPORT_LOCALE_KEYS = ("ua", "uk", "ru", "en", "default")
+EXPORT_USAGE_LABELS = {
+    "nstrukcjaMkrodozing",
+    "instrukcijaMikrodozingu",
+    "інструкція",
+    "інструкція із застосування",
+    "спосіб застосування",
+    "usage",
+    "instruction",
+}
+EXPORT_COMPOSITION_LABELS = {"sklad", "склад", "composition", "ingredients"}
+
+
+def _export_text_candidate(value: object) -> str:
+    if value is None or isinstance(value, (bool, int, float)):
+        return ""
+    if isinstance(value, dict):
+        for key in EXPORT_LOCALE_KEYS:
+            if key in value:
+                text = _export_text_candidate(value.get(key))
+                if text:
+                    return text
+        for key in EXPORT_CHARACTERISTIC_VALUE_KEYS:
+            if key in value:
+                text = _export_text_candidate(value.get(key))
+                if text:
+                    return text
+        return ""
+    if isinstance(value, list):
+        texts = [_export_text_candidate(item) for item in value]
+        return "\n".join(text for text in texts if text).strip()
+    return _text_from_html_like(value)
+
+
+def _normalize_export_characteristic_label(value: object) -> str:
+    text = _export_text_candidate(value) if isinstance(value, (dict, list)) else str(value or "")
+    return re.sub(r"[\W_]+", "", text.casefold(), flags=re.UNICODE)
+
+
+def _extract_export_characteristic(item: dict, labels: set[str]) -> str:
+    normalized_labels = {_normalize_export_characteristic_label(label) for label in labels}
+
+    def walk(value: object, depth: int = 0) -> str:
+        if depth > 5 or value is None:
+            return ""
+        if isinstance(value, list):
+            for child in value:
+                text = walk(child, depth + 1)
+                if text:
+                    return text
+            return ""
+        if not isinstance(value, dict):
+            return ""
+
+        for key, child in value.items():
+            if _normalize_export_characteristic_label(key) in normalized_labels:
+                text = _export_text_candidate(child)
+                if text:
+                    return text
+
+        if any(
+            _normalize_export_characteristic_label(value.get(key)) in normalized_labels
+            for key in EXPORT_CHARACTERISTIC_LABEL_KEYS
+            if key in value
+        ):
+            for key in (*EXPORT_LOCALE_KEYS, *EXPORT_CHARACTERISTIC_VALUE_KEYS):
+                if key in value:
+                    text = _export_text_candidate(value.get(key))
+                    if text:
+                        return text
+
+        for child in value.values():
+            if isinstance(child, (dict, list)):
+                text = walk(child, depth + 1)
+                if text:
+                    return text
+        return ""
+
+    return walk(item.get("characteristics") or {})
+
+
+def _extract_export_description(item: dict) -> str:
+    return _text_from_html_like(_sanitize_description(item.get("description") or {}))
+
+
+def _extract_export_usage(item: dict) -> str:
+    return _extract_export_characteristic(item, EXPORT_USAGE_LABELS)
+
+
+def _extract_export_composition(item: dict) -> str:
+    return _extract_export_characteristic(item, EXPORT_COMPOSITION_LABELS)
 
 
 def _normalize_product_note_text(value: object) -> str:
@@ -1006,8 +1101,10 @@ async def sync_catalog_from_horoshop() -> dict:
 
                 variant_name = _localized_value(item.get("mod_title") or {})
                 title = _safe_product_title(item)
-                description = _sanitize_description(item.get("description") or {})
+                description = _extract_export_description(item)
                 product_note = _extract_product_note_from_item(item)
+                usage = _extract_export_usage(item)
+                composition = _extract_export_composition(item)
                 site_url = primary_product_url(item, domain)
 
                 parent_obj = item.get("parent") or {}
@@ -1057,7 +1154,7 @@ async def sync_catalog_from_horoshop() -> dict:
                 exists = cur.fetchone()
                 if exists:
                     product_id = exists["id"] if isinstance(exists, dict) else exists[0]
-                    # Empty export fields must not wipe richer description/note content parsed from the product page.
+                    # Empty export fields must not wipe richer text content parsed from the product page.
                     cur.execute(
                         """
                         UPDATE products SET
@@ -1065,6 +1162,8 @@ async def sync_catalog_from_horoshop() -> dict:
                             remains = ?,
                             description = COALESCE(NULLIF(?, ''), description),
                             product_note = COALESCE(NULLIF(?, ''), product_note),
+                            usage = COALESCE(NULLIF(?, ''), usage),
+                            composition = COALESCE(NULLIF(?, ''), composition),
                             image = ?, images = ?,
                             parent_sku = ?, variant_name = ?, variant_options = ?,
                             is_hit = ?, is_promotion = ?, is_new = ?,
@@ -1082,6 +1181,8 @@ async def sync_catalog_from_horoshop() -> dict:
                             remains,
                             description,
                             product_note,
+                            usage,
+                            composition,
                             img,
                             images_str,
                             parent_sku,
@@ -1104,12 +1205,13 @@ async def sync_catalog_from_horoshop() -> dict:
                     cur.execute(
                         """
                         INSERT INTO products (
-                            sku, name, price, category, status, description, product_note,
+                            sku, name, price, category, status,
+                            description, product_note, usage, composition,
                             remains, image, images, parent_sku, variant_name, external_id,
                             variant_options, is_hit, is_promotion, is_new,
                             old_price, discount, sort_order, site_url, canonical_url, source_url
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             sku,
@@ -1119,6 +1221,8 @@ async def sync_catalog_from_horoshop() -> dict:
                             status,
                             description,
                             product_note,
+                            usage,
+                            composition,
                             remains,
                             img,
                             images_str,

@@ -19,6 +19,12 @@ fastapi_stub.HTTPException = Exception
 sys.modules["fastapi"] = fastapi_stub
 
 import services.horoshop_product_tabs as horoshop_product_tabs
+from services.catalog_sync import (
+    _extract_export_composition,
+    _extract_export_description,
+    _extract_export_usage,
+    _extract_product_note_from_item,
+)
 from services.horoshop_product_tabs import extract_product_tab_sections_from_html
 
 
@@ -44,6 +50,21 @@ class FakeClient:
 
 
 class HoroshopProductTabsTests(unittest.TestCase):
+    def test_extracts_product_text_fields_from_raw_export_item(self) -> None:
+        item = {
+            "description": {"ua": "<p>Опис товару</p>"},
+            "characteristics": {
+                "primtka": {"ua": "<p>Примітка товару</p>"},
+                "nstrukcjaMkrodozing": {"ua": "<p>Спосіб застосування...</p>"},
+                "sklad": {"ua": "100% гриб"},
+            },
+        }
+
+        self.assertEqual(_extract_export_description(item), "Опис товару")
+        self.assertEqual(_extract_product_note_from_item(item), "Примітка товару")
+        self.assertEqual(_extract_export_usage(item), "Спосіб застосування...")
+        self.assertEqual(_extract_export_composition(item), "100% гриб")
+
     def test_extracts_description_from_product_group(self) -> None:
         html = """
         <div class="product__group product__group--tabs">
