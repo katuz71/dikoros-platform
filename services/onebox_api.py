@@ -66,6 +66,55 @@ def _onebox_duplicate_phone_error(data: dict) -> bool:
     return any(marker in err_text_lower for marker in duplicate_phone_markers)
 
 
+
+def _onebox_extract_error_text(data) -> str:
+    if not isinstance(data, dict):
+        return str(data or "")
+    errors = data.get("errors") or data.get("error") or data.get("message") or data.get("errorText") or ""
+    if isinstance(errors, list):
+        return " ".join(str(x) for x in errors)
+    if isinstance(errors, dict):
+        return json.dumps(errors, ensure_ascii=False)
+    if errors:
+        return str(errors)
+    return json.dumps(data, ensure_ascii=False)
+
+
+def _sync_update_onebox_order_status(app_order_id, status: str, onebox_id="", error="") -> None:
+    app_order_id_str = str(app_order_id or "").strip()
+    if not DATABASE_URL or not app_order_id_str:
+        return
+
+    try:
+        order_pk = int(app_order_id_str)
+    except Exception:
+        return
+
+    error_text = str(error or "").strip()[:1000]
+    onebox_id_text = str(onebox_id or "").strip()
+    synced_at = time.strftime("%Y-%m-%d %H:%M:%S") if status == "sent" else None
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE orders
+            SET onebox_status = %s,
+                onebox_id = COALESCE(NULLIF(%s, ''), onebox_id),
+                onebox_error = NULLIF(%s, ''),
+                onebox_synced_at = CASE WHEN %s = 'sent' THEN %s ELSE onebox_synced_at END
+            WHERE id = %s
+            """,
+            (status, onebox_id_text, error_text, status, synced_at, order_pk),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info("[OneBox] Local order status updated: app_order_id=%s status=%s onebox_id=%s", order_pk, status, onebox_id_text)
+    except Exception as exc:
+        logger.error("[OneBox] Failed to update local order OneBox status: %s", exc, exc_info=True)
+
 def _onebox_env_int(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, str(default)) or default)
@@ -535,6 +584,7 @@ async def _onebox_browser_save_order_fields(
 
 
 async def create_onebox_order(order_data: dict) -> dict:
+    app_order_number_for_status = str((order_data or {}).get("order_id") or (order_data or {}).get("id") or "").strip()
     try:
         token = await get_onebox_token()
         headers = {"Token": token, "Content-Type": "application/json"}
@@ -764,6 +814,7 @@ async def create_onebox_order(order_data: dict) -> dict:
         data = resp.json()
         if data.get("result") == "ok" and data.get("orderId"):
             order_id = data.get("orderId")
+            _sync_update_onebox_order_status(app_order_number_for_status or app_order_number, "sent", order_id, "")
             try:
                 recipient_phone_update = await _onebox_update_recipient_order_fields(order_id, recipient_name, recipient_phone_onebox, client_full_name or name, client_phone_onebox, bonus_used, client_comment, do_not_call)
             except Exception as update_exc:
@@ -819,6 +870,7 @@ async def create_onebox_order(order_data: dict) -> dict:
             retry_data = retry_resp.json()
             if retry_data.get("result") == "ok" and retry_data.get("orderId"):
                 retry_order_id = retry_data.get("orderId")
+                _sync_update_onebox_order_status(app_order_number_for_status or app_order_number, "sent", retry_order_id, "")
                 try:
                     recipient_phone_update = await _onebox_update_recipient_order_fields(retry_order_id, recipient_name, recipient_phone_onebox, client_full_name or name, client_phone_onebox, bonus_used, client_comment, do_not_call)
                 except Exception as update_exc:
@@ -831,11 +883,24 @@ async def create_onebox_order(order_data: dict) -> dict:
                     "onebox_retry": "duplicate_phone_without_customer_phone_fields",
                     "recipient_phone_update": recipient_phone_update,
                 }
+            _sync_update_onebox_order_status(
+                app_order_number_for_status or app_order_number,
+                "failed",
+                "",
+                _onebox_extract_error_text(retry_data),
+            )
             return retry_data
 
+        _sync_update_onebox_order_status(
+            app_order_number_for_status or app_order_number,
+            "failed",
+            "",
+            _onebox_extract_error_text(data),
+        )
         return data
 
     except Exception as exc:
+        _sync_update_onebox_order_status(app_order_number_for_status, "failed", "", str(exc))
         logger.error(f"[OneBox] Error: {exc}", exc_info=True)
         raise
 

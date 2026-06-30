@@ -291,6 +291,10 @@ def fix_db_schema():
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cumulative_discount_amount DOUBLE PRECISION DEFAULT 0")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_earned INTEGER DEFAULT 0")
     c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS cashback_applied BOOLEAN DEFAULT FALSE")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS onebox_id TEXT")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS onebox_status TEXT DEFAULT 'pending'")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS onebox_error TEXT")
+    c.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS onebox_synced_at TEXT")
     # User notifications
     c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS user_phone TEXT")
     c.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'system'")
