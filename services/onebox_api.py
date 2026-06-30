@@ -54,7 +54,16 @@ def _onebox_duplicate_phone_error(data: dict) -> bool:
         err_text = json.dumps(errors, ensure_ascii=False)
     else:
         err_text = str(errors)
-    return "#12903" in err_text
+    err_text_lower = err_text.lower()
+    duplicate_phone_markers = (
+        "#12903",
+        "#4765",
+        "номер телефона уже зарегистрирован",
+        "номер телефону вже зареєстровано",
+        "phone already registered",
+        "phone already exists",
+    )
+    return any(marker in err_text_lower for marker in duplicate_phone_markers)
 
 
 def _onebox_env_int(name: str, default: int) -> int:
