@@ -775,17 +775,6 @@ export default function ProductScreen() {
               }]
             });
 
-            logFirebaseEvent('add_to_cart', {
-              currency: 'UAH',
-              value: currentPrice,
-              items: [{
-                item_id: String(selectedVariantProduct.id),
-                item_name: selectedVariantProduct.name,
-                price: currentPrice,
-                quantity: 1,
-                item_variant: selections || selectedUnit
-              }]
-            });
           }}
           onToggleFavorite={() => toggleFavorite(displayProduct)}
           isFavorite={isFavorite}
@@ -831,11 +820,6 @@ export default function ProductScreen() {
                items: [similarCartItem],
              });
 
-             logFirebaseEvent('add_to_cart', {
-               currency: 'UAH',
-               value: variantPrice,
-               items: [similarCartItem],
-             });
           }}
           onSimilarProductToggleFavorite={(p: any) => {
              toggleFavorite(p);

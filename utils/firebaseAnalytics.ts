@@ -14,12 +14,30 @@ const isFirebaseReady = () => {
   }
 };
 
+const normalizeFirebaseParams = (params: any = {}) => {
+  const normalized: Record<string, any> = {};
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+
+    if (key === 'content_ids' && Array.isArray(value)) {
+      normalized[key] = JSON.stringify(value.map((item) => String(item)).filter(Boolean));
+      return;
+    }
+
+    normalized[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+  });
+
+  return normalized;
+};
+
 export const logFirebaseEvent = async (name: string, params: any = {}) => {
   try {
     if (!isFirebaseReady()) return;
-    
-    await analytics().logEvent(name, params);
-    console.log(`🔥 [Firebase] Event: ${name}`, params);
+
+    const normalizedParams = normalizeFirebaseParams(params);
+    await analytics().logEvent(name, normalizedParams);
+    console.log(`🔥 [Firebase] Event: ${name}`, normalizedParams);
   } catch (e) {
     console.log('[Firebase Log Error] (Are you using Dev Client?)', e);
   }

@@ -21,7 +21,7 @@ const normalizeMetaParam = (key: string, value: unknown): MetaParamValue | undef
   if (value === undefined || value === null) return undefined;
 
   if (key === 'content_ids' && Array.isArray(value)) {
-    return value.map((item) => String(item)).filter(Boolean).join(',');
+    return JSON.stringify(value.map((item) => String(item)).filter(Boolean));
   }
 
   if (typeof value === 'string' || typeof value === 'number') {
@@ -61,6 +61,7 @@ const logMetaEvent = (eventName: string, properties: any = {}) => {
       const value = typeof properties?.value === 'number' ? properties.value : Number(properties?.value || 0);
       const currency = typeof properties?.currency === 'string' ? properties.currency : 'UAH';
       AppEventsLogger.logPurchase(value, currency, params);
+      AppEventsLogger.flush();
       return;
     }
 
@@ -70,7 +71,7 @@ const logMetaEvent = (eventName: string, properties: any = {}) => {
   }
 };
 
-export const trackEvent = async (eventName: string, properties: any = {}) => {
+const trackBackendEvent = async (eventName: string, properties: any) => {
   try {
     const phone = await AsyncStorage.getItem('userPhone');
     const user_data = {
@@ -78,10 +79,7 @@ export const trackEvent = async (eventName: string, properties: any = {}) => {
       user_agent: 'Mobile App',
     };
 
-    logMetaEvent(eventName, properties);
-    
-    // Fire and forget
-    fetch(`${API_URL}/api/track`, {
+    await fetch(`${API_URL}/api/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,10 +87,17 @@ export const trackEvent = async (eventName: string, properties: any = {}) => {
         properties,
         user_data,
       }),
-    }).catch(err => console.log('[Analytics Error]', err));
-    
-    console.log(`[Analytics] ${eventName}`, properties);
+    });
   } catch (e) {
-    console.log('[Analytics] Error:', e);
+    console.log('[Analytics Backend Error]', e);
   }
+};
+
+export const trackEvent = async (eventName: string, properties: any = {}) => {
+  logMetaEvent(eventName, properties);
+  console.log(`[Analytics] ${eventName}`, properties);
+
+  // Server-side CAPI/Measurement Protocol tracking is optional and must never
+  // delay client SDK events, checkout, navigation, or external redirects.
+  void trackBackendEvent(eventName, properties);
 };

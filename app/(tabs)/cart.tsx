@@ -290,30 +290,26 @@ export default function CartScreen() {
 
   const goCheckout = async () => {
     try {
-      trackEvent('InitiateCheckout', {
+      const checkoutItems = cartItems.map((i: any) => ({
+        item_id: String(i.id),
+        item_name: i.name,
+        price: Number(i.price || 0),
+        quantity: Number(i.quantity || 1),
+        item_variant: i?.variantSize || i?.packSize || i?.unit || 'шт',
+      }));
+      const checkoutPayload = {
         value: totalAmount,
         currency: 'UAH',
-        num_items: cartItems.length,
-        content_ids: cartItems.map((i: any) => i.id),
+        num_items: cartItems.reduce((sum: number, i: any) => sum + Number(i.quantity || 1), 0),
+        content_ids: cartItems.map((i: any) => String(i.id)),
         content_type: 'product',
-        items: cartItems.map((i: any) => ({
-          item_id: i.id,
-          item_name: i.name,
-          price: i.price,
-          quantity: i.quantity || 1,
-        })),
-      });
+        items: checkoutItems,
+      };
 
-      logFirebaseEvent('begin_checkout', {
-        currency: 'UAH',
-        value: totalAmount,
-        items: cartItems.map((i: any) => ({
-          item_id: String(i.id),
-          item_name: i.name,
-          price: i.price,
-          quantity: i.quantity || 1,
-        })),
-      });
+      await Promise.all([
+        trackEvent('InitiateCheckout', checkoutPayload),
+        logFirebaseEvent('begin_checkout', checkoutPayload),
+      ]);
     } catch (error) {
       console.error('Error logging begin checkout:', error);
     }

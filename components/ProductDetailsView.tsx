@@ -1,7 +1,6 @@
 import { useCart } from '@/context/CartContext';
 import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { trackEvent } from '@/utils/analytics';
-import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { getImageUrl } from '@/utils/image';
 import { getProductDetailSections } from '@/utils/productDetailSections';
 import { Ionicons } from '@expo/vector-icons';
@@ -253,11 +252,6 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
         items: [analyticsItem],
       });
 
-      logFirebaseEvent('add_to_cart', {
-        currency: 'UAH',
-        value: currentPrice * selectedQuantity,
-        items: [analyticsItem],
-      });
     }
 
     if (goToCheckout) {
