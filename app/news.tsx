@@ -1,4 +1,4 @@
-import { AppHeader } from '@/components/AppHeader';
+﻿import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
 import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -97,12 +97,12 @@ export default function NewsScreen() {
     } catch (err: any) {
       if (timeoutId) clearTimeout(timeoutId);
       console.warn('News page load failed:', err?.message || err);
-      if (!page) setError('Не вдалося завантажити інформацію. Спробуйте оновити сторінку.');
+      if (!page) setError('РќРµ РІРґР°Р»РѕСЃСЏ Р·Р°РІР°РЅС‚Р°Р¶РёС‚Рё С–РЅС„РѕСЂРјР°С†С–СЋ. РЎРїСЂРѕР±СѓР№С‚Рµ РѕРЅРѕРІРёС‚Рё СЃС‚РѕСЂС–РЅРєСѓ.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [applyCachedPage, page]);
+  }, [applyCachedPage]);
 
   useEffect(() => {
     loadPage();
@@ -127,7 +127,7 @@ export default function NewsScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title={page?.title || 'Акції'} showBack />
+      <AppHeader title={page?.title || 'РђРєС†С–С—'} showBack />
 
       {loading ? (
         <View style={styles.center}>
@@ -172,7 +172,7 @@ export default function NewsScreen() {
           ))}
 
           {!error && (!page?.sections || page.sections.length === 0) && (
-            <Text style={styles.empty}>Інформація поки що відсутня.</Text>
+            <Text style={styles.empty}>Р†РЅС„РѕСЂРјР°С†С–СЏ РїРѕРєРё С‰Рѕ РІС–РґСЃСѓС‚РЅСЏ.</Text>
           )}
         </ScrollView>
       )}
@@ -237,3 +237,4 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
 });
+
