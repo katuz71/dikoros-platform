@@ -100,6 +100,20 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
     console.log('DEBUG: Calculated values:', { unitToUse, safePackSize, finalPrice, variantSize });
 
+    // Log once per user action. Keeping this outside the state updater avoids
+    // duplicate events when React replays updater functions in development.
+    void logFirebaseEvent('add_to_cart', {
+      currency: 'UAH',
+      value: Number(finalPrice || 0) * Number(quantity || 1),
+      items: [{
+        item_id: String(product.id),
+        item_name: product.name,
+        price: Number(finalPrice || 0),
+        quantity: Number(quantity || 1),
+        item_variant: variantSize,
+      }],
+    });
+
     setItems((currentItems) => {
       // Find existing item by id AND variantSize (for variants) or unit (for legacy)
       // Items with different variants should be separate entries
@@ -125,18 +139,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
         console.log('DEBUG: Updated items:', newItems);
         
-        // Analytics (Update existing)
-        logFirebaseEvent('add_to_cart', {
-            currency: 'UAH',
-            value: newItems[existingIndex].price * quantity,
-            items: [{ 
-              item_id: String(newItems[existingIndex].id), 
-              item_name: newItems[existingIndex].name, 
-              price: newItems[existingIndex].price,
-              quantity: quantity 
-            }]
-        });
-
         return newItems;
       } else {
         console.log('DEBUG: Adding new item to cart');
@@ -154,18 +156,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         };
         console.log('DEBUG: New item created:', newItem);
         
-        // Analytics (New item)
-        logFirebaseEvent('add_to_cart', {
-            currency: 'UAH',
-            value: newItem.price * quantity,
-            items: [{ 
-              item_id: String(newItem.id), 
-              item_name: newItem.name, 
-              price: newItem.price,
-              quantity: quantity 
-            }]
-        });
-
         return [
           ...currentItems,
           newItem,

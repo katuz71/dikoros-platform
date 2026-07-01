@@ -509,6 +509,36 @@ export default function CheckoutScreen() {
         return;
       }
 
+      const purchaseItems = items.map((i: any) => ({
+        item_id: String(i.id),
+        item_name: i.name,
+        price: Number(i.price || 0),
+        quantity: Number(i.quantity || 1),
+        item_variant: i?.variantSize || i?.packSize || i?.unit || 'шт',
+      }));
+      const transactionId = String(result.order_id);
+      const purchasePayload = {
+        event_id: `purchase_${transactionId}`,
+        transaction_id: transactionId,
+        value: Math.floor(finalPriceWithBonuses),
+        currency: 'UAH',
+        content_type: 'product',
+        content_ids: items.map((i: any) => String(i.id)),
+        num_items: items.reduce((sum: number, i: any) => sum + Number(i.quantity || 1), 0),
+        items: purchaseItems,
+        ...(appliedPromoCode ? { promo_code: appliedPromoCode } : {}),
+        discount_value: Math.max(0, Math.round(Number(cartTotal || 0) - Number(finalPriceWithBonuses || 0))),
+        payment_method: paymentMethod,
+        guest_checkout: !authenticatedCheckout,
+      };
+
+      // Order creation has succeeded. Enqueue both client purchase events before
+      // optional profile work, external payment redirects, or cart clearing.
+      await Promise.all([
+        trackEvent('purchase', purchasePayload),
+        logFirebaseEvent('purchase', purchasePayload),
+      ]);
+
       if (authenticatedCheckout && saveUserDataRef.current && accessToken) {
         if (name) await AsyncStorage.setItem('userName', name);
 
@@ -567,38 +597,6 @@ export default function CheckoutScreen() {
         clearCart();
         return;
       }
-
-      const purchaseItems = items.map((i: any) => ({
-        item_id: String(i.id),
-        item_name: i.name,
-        price: Number(i.price || 0),
-        quantity: Number(i.quantity || 1),
-        item_variant: i?.variantSize || i?.packSize || i?.unit || 'шт',
-      }));
-
-      const purchaseEventId = `purchase_${result.order_id}`;
-      trackEvent('purchase', {
-        event_id: purchaseEventId,
-        transaction_id: String(result.order_id),
-        value: Math.floor(finalPriceWithBonuses),
-        currency: 'UAH',
-        content_type: 'product',
-        content_ids: items.map((i: any) => i.id),
-        num_items: items.reduce((sum: number, i: any) => sum + Number(i.quantity || 1), 0),
-        items: purchaseItems,
-        promo_code: appliedPromoCode || undefined,
-        discount_value: Math.round(Number(cartTotal || 0) - Number(finalPriceWithBonuses || 0)),
-        payment_method: paymentMethod,
-        guest_checkout: !authenticatedCheckout,
-      });
-
-      logFirebaseEvent('purchase', {
-        currency: 'UAH',
-        value: Math.floor(finalPriceWithBonuses),
-        transaction_id: String(result.order_id),
-        items: purchaseItems,
-        guest_checkout: !authenticatedCheckout,
-      });
 
       clearCart();
       Alert.alert(
