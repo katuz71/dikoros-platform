@@ -10,6 +10,9 @@ from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException, Query
 
+from db import get_db_connection
+from services.news_product_matching import build_news_body_items
+
 router = APIRouter()
 
 NEWS_SOURCE_URL = "https://dikoros-ua.com/aktsii/"
@@ -49,6 +52,30 @@ MONTH_WORDS = [
     "\u043b\u0438\u043f\u043d\u044f", "\u0441\u0435\u0440\u043f\u043d\u044f", "\u0432\u0435\u0440\u0435\u0441\u043d\u044f",
     "\u0436\u043e\u0432\u0442\u043d\u044f", "\u043b\u0438\u0441\u0442\u043e\u043f\u0430\u0434\u0430", "\u0433\u0440\u0443\u0434\u043d\u044f",
 ]
+
+def _load_promotion_products() -> list[dict]:
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, name, sku, parent_sku, variant_name, status, sort_order
+            FROM products
+            WHERE id IS NOT NULL
+              AND name IS NOT NULL
+              AND TRIM(name) != ''
+              AND price IS NOT NULL
+              AND price > 0
+            ORDER BY id
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def _build_news_body_items(body: object, products: list[dict] | None = None) -> list[dict]:
+    catalog = products if products is not None else _load_promotion_products()
+    return build_news_body_items(body, catalog)
 
 
 def _normalize_text(value: str) -> str:
@@ -878,9 +905,17 @@ def get_news_detail(source_url: str = Query(..., min_length=1)):
     if not detail.get("title") and not detail.get("body"):
         raise HTTPException(status_code=404, detail="News detail not found")
 
+    try:
+        body_items = _build_news_body_items(detail.get("body"))
+    except Exception:
+        # Product linking is optional metadata. A catalog/database problem must
+        # not make the promotion itself unavailable.
+        body_items = _build_news_body_items(detail.get("body"), products=[])
+
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **detail,
+        "body_items": body_items,
     }
 
 

@@ -1,7 +1,7 @@
 import { AppHeader } from '@/components/AppHeader';
 import { API_URL } from '@/config/api';
-import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -17,9 +18,18 @@ type NewsDetail = {
   heading: string;
   body: string;
   image_url: string;
+  body_items?: NewsBodyItem[];
+};
+
+type NewsBodyItem = {
+  text: string;
+  product_id: number | null;
+  product_name?: string | null;
+  product_sku?: string | null;
 };
 
 export default function NewsDetailScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{
     heading?: string;
     body?: string;
@@ -65,6 +75,7 @@ export default function NewsDetailScreen() {
         heading: data.heading || initialHeading || '',
         body: data.body || initialBody || '',
         image_url: data.image_url || initialImageUrl || '',
+        body_items: Array.isArray(data.body_items) ? data.body_items : undefined,
       });
     } catch (err) {
       console.warn('News detail load failed:', err);
@@ -79,9 +90,28 @@ export default function NewsDetailScreen() {
     loadDetail();
   }, [loadDetail]);
 
+  const bodyItems = useMemo<NewsBodyItem[]>(() => {
+    if (Array.isArray(detail.body_items) && detail.body_items.length > 0) {
+      const serverItems = detail.body_items.filter(
+        item => typeof item?.text === 'string' && item.text.trim()
+      );
+      if (serverItems.length > 0) return serverItems;
+    }
+
+    return detail.body
+      .split(/\n+/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(text => ({ text, product_id: null }));
+  }, [detail.body, detail.body_items]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadDetail();
+  };
+
+  const openProduct = (productId: number) => {
+    router.push(`/product/${productId}` as any);
   };
 
   return (
@@ -112,7 +142,35 @@ export default function NewsDetailScreen() {
 
             {!!detail.heading && <Text style={styles.date}>{detail.heading}</Text>}
             {!!detail.title && <Text style={styles.heading}>{detail.title}</Text>}
-            {!!detail.body && <Text style={styles.body}>{detail.body}</Text>}
+
+            {!!bodyItems.length && (
+              <View style={styles.bodyBlock}>
+                {bodyItems.map((item, index) => {
+                  const productId = Number(item.product_id);
+                  const hasProductLink = Number.isInteger(productId) && productId > 0;
+
+                  if (hasProductLink) {
+                    return (
+                      <TouchableOpacity
+                        key={`${index}-${item.text}`}
+                        style={styles.bodyLink}
+                        activeOpacity={0.8}
+                        onPress={() => openProduct(productId)}
+                      >
+                        <Text style={styles.bodyLinkText}>{item.text}</Text>
+                        <Text style={styles.bodyLinkHint}>Перейти до товару →</Text>
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  return (
+                    <Text key={`${index}-${item.text}`} style={styles.bodyLine}>
+                      {item.text}
+                    </Text>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
@@ -165,13 +223,36 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
   },
-  body: {
+  bodyBlock: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
+    gap: 10,
+  },
+  bodyLine: {
     fontSize: 16,
     lineHeight: 24,
     color: '#374151',
+  },
+  bodyLink: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  bodyLinkText: {
+    fontSize: 16,
+    lineHeight: 23,
+    color: '#166534',
+    fontWeight: '800',
+  },
+  bodyLinkHint: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#15803D',
+    fontWeight: '800',
   },
   error: {
     fontSize: 15,
