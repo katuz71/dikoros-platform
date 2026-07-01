@@ -1,4 +1,4 @@
-﻿import { AppHeader } from '@/components/AppHeader';
+import { AppHeader } from '@/components/AppHeader';
 import { API_ENDPOINTS, API_URL } from '@/config/api';
 import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -62,10 +62,11 @@ export default function NewsScreen() {
 
   const loadPage = useCallback(async () => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let hadCache = false;
 
     try {
       setError('');
-      const hadCache = await applyCachedPage();
+      hadCache = await applyCachedPage();
       if (!hadCache) setLoading(true);
 
       const controller = new AbortController();
@@ -97,7 +98,7 @@ export default function NewsScreen() {
     } catch (err: any) {
       if (timeoutId) clearTimeout(timeoutId);
       console.warn('News page load failed:', err?.message || err);
-      if (!page) setError('РќРµ РІРґР°Р»РѕСЃСЏ Р·Р°РІР°РЅС‚Р°Р¶РёС‚Рё С–РЅС„РѕСЂРјР°С†С–СЋ. РЎРїСЂРѕР±СѓР№С‚Рµ РѕРЅРѕРІРёС‚Рё СЃС‚РѕСЂС–РЅРєСѓ.');
+      if (!hadCache) setError('РќРµ РІРґР°Р»РѕСЃСЏ Р·Р°РІР°РЅС‚Р°Р¶РёС‚Рё С–РЅС„РѕСЂРјР°С†С–СЋ. РЎРїСЂРѕР±СѓР№С‚Рµ РѕРЅРѕРІРёС‚Рё СЃС‚РѕСЂС–РЅРєСѓ.');
     } finally {
       setLoading(false);
       setRefreshing(false);

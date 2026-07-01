@@ -58,7 +58,7 @@ const getCompositeId = (item: any) => `${item.id}-${String(getSizeKey(item))}`;
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { handleFooterScroll } = useAppFooterAutoHide();
+  const { footerVisible, handleFooterScroll } = useAppFooterAutoHide();
   const {
     items: cartItems,
     addItem,
@@ -650,7 +650,7 @@ export default function CartScreen() {
       </ScrollView>
 
       {hasCartItems && (
-        <View style={[styles.stickyCheckout, { bottom: 58 + Math.max(insets.bottom, 4) }]}> 
+        <View style={[styles.stickyCheckout, { bottom: footerVisible ? 58 + Math.max(insets.bottom, 4) : 0, paddingBottom: footerVisible ? 0 : Math.max(insets.bottom, 4) }]}>
           <TouchableOpacity style={styles.totalToggle} activeOpacity={0.8}>
             <Text style={styles.stickyTotal}>{formatPrice(totalAmount)}</Text>
             <Ionicons name="chevron-up" size={18} color="#111827" />
@@ -662,7 +662,7 @@ export default function CartScreen() {
       )}
 
       {!hasCartItems && hasPostponedItems && (
-        <View style={[styles.stickyCheckout, { bottom: 58 + Math.max(insets.bottom, 4) }]}> 
+        <View style={[styles.stickyCheckout, { bottom: footerVisible ? 58 + Math.max(insets.bottom, 4) : 0, paddingBottom: footerVisible ? 0 : Math.max(insets.bottom, 4) }]}>
           <TouchableOpacity onPress={restoreAllPostponedItems} style={styles.addPostponedButton} activeOpacity={0.9}>
             <Text style={styles.addPostponedButtonText}>Додати товари в кошик</Text>
           </TouchableOpacity>
@@ -678,7 +678,7 @@ export default function CartScreen() {
         <View style={styles.quantityModalRoot}>
           <Pressable style={styles.quantityBackdrop} onPress={closeQuantityPicker} />
 
-          <View style={[styles.quantitySheet, { paddingBottom: Math.max(insets.bottom + 18, 28) }]}> 
+          <View style={[styles.quantitySheet, { paddingBottom: Math.max(insets.bottom + 18, 28) }]}>
             <View style={styles.quantitySheetHeader}>
               <Text style={styles.quantitySheetTitle}>Оберіть кількість товару</Text>
               <TouchableOpacity onPress={closeQuantityPicker} style={styles.quantityCloseButton} activeOpacity={0.75}>

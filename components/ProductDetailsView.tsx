@@ -266,13 +266,7 @@ export const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   const productDetailSections = React.useMemo(() => getProductDetailSections(product, normalizeText), [
     normalizeText,
-    product?.description,
-    product?.usage_contraindications,
-    product?.usageContraindications,
-    product?.combined_usage,
-    product?.combinedUsage,
-    product?.usage,
-    product?.composition,
+    product,
   ]);
 
   const productInfoText = productDetailSections.description;

@@ -28,6 +28,7 @@ const APP_FOOTER_ROUTES = new Set([
   '(tabs)/cart',
   '(tabs)/profile',
   '(tabs)/orders',
+  'checkout',
   'product/[id]',
   'news',
   'blog',

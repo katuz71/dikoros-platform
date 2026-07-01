@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/AppHeader';
+import { useAppFooterAutoHide } from '@/hooks/use-app-footer-auto-hide';
 import { logFirebaseEvent } from '@/utils/firebaseAnalytics';
 import { trackEvent } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,6 +105,7 @@ const formatPrice = (value: number) => {
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { footerVisible, handleFooterScroll } = useAppFooterAutoHide();
   const { items, totalPrice, finalPrice, clearCart, appliedPromoCode, discount, discountAmount } = useCart() as any;
 
   const cartTotal = Number(totalPrice || 0);
@@ -857,7 +859,12 @@ export default function CheckoutScreen() {
         <View style={styles.titleIconButton} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleFooterScroll}
+        scrollEventThrottle={16}
+      >
         {!isLoggedIn && (
           <View style={styles.guestNotice}>
             <Ionicons name="flash-outline" size={19} color="#2E7D32" />
@@ -1013,7 +1020,7 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.stickySubmitWrap, { bottom: 58 + Math.max(insets.bottom, 4) }]}>
+      <View style={[styles.stickySubmitWrap, { bottom: footerVisible ? 58 + Math.max(insets.bottom, 4) : 0, paddingBottom: footerVisible ? 12 : 12 + Math.max(insets.bottom, 4) }]}>
         <View style={styles.stickyTotalBlock}>
           <Text style={styles.stickyTotalLabel}>До сплати</Text>
           <Text style={styles.stickyTotalValue}>{formatPrice(finalPriceWithBonuses)}</Text>
